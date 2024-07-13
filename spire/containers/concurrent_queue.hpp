@@ -51,6 +51,7 @@ bool ConcurrentQueue<T>::try_pop(T& target) {
 
     if (queue_.empty()) return false;
     target = std::move(queue_.front());
+    queue_.pop();
     return true;
 }
 

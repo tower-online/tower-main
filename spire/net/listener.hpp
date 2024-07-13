@@ -42,23 +42,23 @@ namespace spire::net {
         try {
             acceptor_.close();
         } catch (const boost::system::system_error& e) {
-            spdlog::error("[ListenerTCP] Error closing: {}", e.what());
+            spdlog::error("[Listener] Error closing: {}", e.what());
         }
     }
 
     inline boost::asio::awaitable<void> Listener::listen() {
-        spdlog::info("[ListenerTCP] Starts accepting on {}:{}", acceptor_.local_endpoint().address().to_string(),
+        spdlog::info("[Listener] Starts accepting on {}:{}", acceptor_.local_endpoint().address().to_string(),
             acceptor_.local_endpoint().port());
 
         while (listening_) {
             tcp::socket socket {ctx_};
 
             if (const auto [ec] = co_await acceptor_.async_accept(socket, as_tuple(boost::asio::use_awaitable)); ec) {
-                spdlog::error("[ListenerTCP] Error on accepting: {}", ec.what());
+                spdlog::error("[Listener] Error on accepting: {}", ec.what());
                 continue;
             }
 
-            spdlog::info("[ListenerTCP] Accepts from {}:{}", socket.remote_endpoint().address().to_string(), socket.remote_endpoint().port());
+            spdlog::info("[Listener] Accepting from {}:{}", socket.remote_endpoint().address().to_string(), socket.remote_endpoint().port());
             on_acceptance_(ctx_, std::move(socket));
         }
     }

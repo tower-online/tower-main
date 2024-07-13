@@ -3,8 +3,8 @@
 #include <boost/asio.hpp>
 #include <boost/core/noncopyable.hpp>
 #include <flatbuffers/flatbuffers.h>
-#include <spire/containers/concurrent_queue.hpp>
 #include <spdlog/spdlog.h>
+#include <spire/containers/concurrent_queue.hpp>
 
 namespace spire::net {
 using boost::asio::ip::tcp;
@@ -12,133 +12,126 @@ using boost::asio::ip::tcp;
 class Connection final : boost::noncopyable {
 public:
     Connection(boost::asio::io_context& ctx, tcp::socket&& socket,
-        std::function<void(std::vector<uint8_t>&&)>&& message_handler);
+        ConcurrentQueue<std::vector<uint8_t>>& receive_queue, std::function<void()>&& disconnected);
     ~Connection();
 
-    void run();
+    void open();
     boost::asio::awaitable<bool> connect(const tcp::endpoint& remote_endpoint);
     void disconnect();
-    void send_message(std::shared_ptr<flatbuffers::DetachedBuffer> message);
-    void set_no_delay(bool delay);
+    void send_packet(std::shared_ptr<flatbuffers::DetachedBuffer> packet);
+    void set_no_delay(bool no_delay);
 
-    bool is_connected() const { return is_connected_; }
-    tcp::endpoint local_endpoint() const { return socket_.local_endpoint(); }
-    tcp::endpoint remote_endpoint() const { return socket_.remote_endpoint(); }
+    bool is_connected() const { return _is_connected; }
+    tcp::endpoint local_endpoint() const { return _socket.local_endpoint(); }
+    tcp::endpoint remote_endpoint() const { return _socket.remote_endpoint(); }
 
 private:
-    boost::asio::awaitable<void> receive_message();
+    boost::asio::awaitable<void> receive_packet();
 
-    boost::asio::io_context& ctx_;
-    tcp::socket socket_;
-    std::atomic<bool> is_connected_;
+    boost::asio::io_context& _ctx;
+    tcp::socket _socket;
+    std::atomic<bool> _is_connected;
+    std::function<void()> _disconnected;
 
-    ConcurrentQueue<std::vector<uint8_t>> receive_queue_;
-    ConcurrentQueue<std::shared_ptr<flatbuffers::DetachedBuffer>> send_queue_ {};
-    std::atomic<bool> is_sending_ {false};
-    std::thread worker_;
-    std::function<void(std::vector<uint8_t>&&)> message_handler_;
+    ConcurrentQueue<std::vector<uint8_t>>& _receive_queue;
+    ConcurrentQueue<std::shared_ptr<flatbuffers::DetachedBuffer>> _send_queue {};
+    std::atomic<bool> _is_sending {false};
 };
 
 
 inline Connection::Connection(boost::asio::io_context& ctx, tcp::socket&& socket,
-    std::function<void(std::vector<uint8_t>&&)>&& message_handler)
-    : ctx_(ctx), socket_(std::move(socket)), is_connected_(socket_.is_open()), message_handler_(std::move(message_handler)) {}
+    ConcurrentQueue<std::vector<uint8_t>>& receive_queue, std::function<void()>&& disconnected)
+    : _ctx(ctx), _socket(std::move(socket)), _is_connected(_socket.is_open()),
+    _receive_queue(receive_queue), _disconnected(std::move(disconnected)) {}
 
 inline Connection::~Connection() {
     disconnect();
-
-    if (worker_.joinable()) worker_.join();
 }
 
-inline void Connection::run() {
+inline void Connection::open() {
     // Start receiving messages
-    co_spawn(ctx_, [this]()->boost::asio::awaitable<void> {
-        while (is_connected_) {
-            co_await receive_message();
+    co_spawn(_ctx, [this]()->boost::asio::awaitable<void> {
+        while (_is_connected) {
+            co_await receive_packet();
         }
     }, boost::asio::detached);
-
-    // Start handling messages
-    worker_ = std::thread([this] {
-        while (is_connected_) {
-            std::vector<uint8_t> message;
-            //TODO: Remove busy-waiting
-            if (!receive_queue_.try_pop(message)) continue;
-            message_handler_(std::move(message));
-        }
-    });
-    worker_.detach();
 }
 
 inline boost::asio::awaitable<bool> Connection::connect(const tcp::endpoint& remote_endpoint) {
-    if (is_connected_) {
-        spdlog::error("[PeerTCP] Socket is already connected");
+    if (_is_connected) {
+        spdlog::error("[Connection] Socket is already connected");
         co_return false;
     }
 
-    const auto [ec] = co_await socket_.async_connect(remote_endpoint, as_tuple(boost::asio::use_awaitable));
+    const auto [ec] = co_await _socket.async_connect(remote_endpoint, as_tuple(boost::asio::use_awaitable));
     if (ec) {
-        spdlog::error("[PeerTCP] Error connecting to {}:{}", remote_endpoint.address().to_string(),
+        spdlog::error("[Connection] Error connecting to {}:{}", remote_endpoint.address().to_string(),
             remote_endpoint.port());
         co_return false;
     }
 
-    is_connected_ = true;
+    _is_connected = true;
     co_return true;
 }
 
 inline void Connection::disconnect() {
-    if (!is_connected_.exchange(false)) return;
+    if (!_is_connected.exchange(false)) return;
 
-    receive_queue_.clear();
+    _receive_queue.clear();
 
     try {
-        socket_.shutdown(tcp::socket::shutdown_both);
+        _socket.shutdown(tcp::socket::shutdown_both);
 
         //TODO: Process remaining send queue?
-        socket_.close();
+        _socket.close();
     } catch (const boost::system::system_error& e) {
-        spdlog::error("[PeerTCP] Error shutting down socket: {}", e.what());
+        spdlog::error("[Connection] Error shutting down socket: {}", e.what());
     }
+
+    spdlog::info("[Connection] Disconnected");
+    _disconnected();
 }
 
-inline void Connection::send_message(std::shared_ptr<flatbuffers::DetachedBuffer> message) {
-    if (!message || !is_connected_) return;
+inline void Connection::send_packet(std::shared_ptr<flatbuffers::DetachedBuffer> packet) {
+    if (!packet || !_is_connected) return;
 
-    send_queue_.push(std::move(message));
+    _send_queue.push(std::move(packet));
 
     // Send all messages in send_queue_
-    if (is_sending_.exchange(true)) return;
-    co_spawn(ctx_, [this]()->boost::asio::awaitable<void> {
-        while (true) {
-            std::vector<uint8_t> message;
-            if (!receive_queue_.try_pop(message)) break;
+    if (_is_sending.exchange(true)) return;
+    co_spawn(_ctx, [this]()->boost::asio::awaitable<void> {
+        while (!_send_queue.empty()) {
+            std::shared_ptr<flatbuffers::DetachedBuffer> packet;
+            if (!_send_queue.try_pop(packet) || !packet) {
+                spdlog::warn("[Connection] Invalid packet to send");
+                break;
+            }
 
-            if (auto [ec, _] = co_await socket_.async_send(boost::asio::buffer(message.data(), message.size()),
+            if (auto [ec, _] = co_await _socket.async_send(boost::asio::buffer(packet->data(), packet->size()),
                 as_tuple(boost::asio::use_awaitable)); ec) {
-                spdlog::error("[PeerTCP] Error sending message: {}", ec.what());
+                spdlog::error("[Connection] Error sending message: {}", ec.what());
                 disconnect();
                 co_return;
             }
         }
 
-        is_sending_ = false;
+        _is_sending = false;
     }, boost::asio::detached);
 }
 
-inline void Connection::set_no_delay(const bool delay) {
+inline void Connection::set_no_delay(const bool no_delay) {
     try {
-        socket_.set_option(tcp::no_delay(delay));
+        _socket.set_option(tcp::no_delay(no_delay));
     } catch (const boost::system::system_error& e) {
-        spdlog::error("[PeerTCP] Error setting no-delay: {}", e.what());
+        spdlog::error("[Connection] Error setting no-delay: {}", e.what());
     }
 }
 
-inline boost::asio::awaitable<void> Connection::receive_message() {
+inline boost::asio::awaitable<void> Connection::receive_packet() {
     constexpr size_t MESSAGE_SIZE_PREFIX_BYTES = sizeof(flatbuffers::uoffset_t);
 
     std::array<uint8_t, MESSAGE_SIZE_PREFIX_BYTES> header_buffer {};
-    if (const auto [ec, _] = co_await async_read(socket_,
+    if (const auto [ec, _] = co_await async_read(_socket,
         boost::asio::buffer(header_buffer),
         as_tuple(boost::asio::use_awaitable)); ec) {
         disconnect();
@@ -148,13 +141,13 @@ inline boost::asio::awaitable<void> Connection::receive_message() {
     const auto length = flatbuffers::GetSizePrefixedBufferLength(header_buffer.data());
     std::vector<uint8_t> body_buffer(length - MESSAGE_SIZE_PREFIX_BYTES);
 
-    if (const auto [ec, _] = co_await async_read(socket_,
+    if (const auto [ec, _] = co_await async_read(_socket,
         boost::asio::buffer(body_buffer),
         as_tuple(boost::asio::use_awaitable)); ec) {
         disconnect();
         co_return;
     }
 
-    receive_queue_.push(std::move(body_buffer));
+    _receive_queue.push(std::move(body_buffer));
 }
 }

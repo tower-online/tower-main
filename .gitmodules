@@ -1,0 +1,3 @@
+[submodule "spire/net/packet/schemas"]
+	path = spire/net/packet/schemas
+	url = git@github.com:SanitoGonzalez/spire-packet-schemas.git

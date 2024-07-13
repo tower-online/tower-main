@@ -7,7 +7,7 @@ project(spire-server
 ### DEPENDENCIES ###
 include(FetchContent)
 
-find_package(Boost REQUIRED COMPONENTS system)
+find_package(Boost 1.85.0 REQUIRED COMPONENTS system)
 
 FetchContent_Declare(
     flatbuffers
@@ -25,15 +25,24 @@ FetchContent_MakeAvailable(spdlog)
 
 
 ### TARGETS ###
-add_library(net INTERFACE
+add_executable(spire-server
+    spire/main.cpp
+
+    spire/containers/concurrent_queue.hpp
+
+    spire/game/client.hpp
+    spire/game/client.cpp
+
     spire/net/connection.hpp
     spire/net/listener.hpp
 )
-add_library(spire::net ALIAS net)
-target_compile_features(net INTERFACE cxx_std_20)
-target_include_directories(net INTERFACE server)
-target_link_libraries(net INTERFACE Boost::system spdlog flatbuffers)
-
-add_executable(spire-server spire/main.cpp)
 target_compile_features(spire-server PRIVATE cxx_std_20)
-target_link_libraries(spire-server PRIVATE spire::net)
+target_link_libraries(spire-server PRIVATE Boost::system spdlog flatbuffers)
+target_include_directories(spire-server PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+file(GLOB schemas RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} spire/net/packet/schemas/*.fbs)
+add_custom_target(spire-packet-schemas-compile
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND flatc --cpp --cpp-std c++17 --filename-suffix "\"\"" --filename-ext hpp -o spire/net/packet/ ${schemas}
+    DEPENDS flatc
+)
