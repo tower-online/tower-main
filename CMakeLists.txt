@@ -35,17 +35,21 @@ FetchContent_MakeAvailable(glm)
 add_executable(spire-server
     spire/main.cpp
 
+    spire/containers/concurrent_map.hpp
     spire/containers/concurrent_queue.hpp
 
-    spire/game/client.hpp
-    spire/game/client.cpp
     spire/game/entity.hpp
     spire/game/entity.cpp
     spire/game/player.hpp
     spire/game/player.cpp
 
+    spire/net/client.hpp
+    spire/net/client.cpp
     spire/net/connection.hpp
     spire/net/listener.hpp
+    spire/net/packet.hpp
+    spire/net/server.hpp
+    spire/net/server.cpp
 )
 target_compile_features(spire-server PRIVATE cxx_std_20)
 target_link_libraries(spire-server PRIVATE Boost::system spdlog flatbuffers glm)

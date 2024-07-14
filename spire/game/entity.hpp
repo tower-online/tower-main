@@ -10,9 +10,9 @@ public:
     Entity();
     virtual ~Entity() = default;
 
-    static uint32_t generate_id();
+    static uint32_t generate_entity_id();
 
-    const uint32_t id;
+    const uint32_t entity_id;
     glm::vec2 position {};
 };
 }

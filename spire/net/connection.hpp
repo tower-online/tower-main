@@ -6,19 +6,21 @@
 #include <spdlog/spdlog.h>
 #include <spire/containers/concurrent_queue.hpp>
 
+#include <iostream>
+
 namespace spire::net {
 using boost::asio::ip::tcp;
 
 class Connection final : boost::noncopyable {
 public:
     Connection(boost::asio::io_context& ctx, tcp::socket&& socket,
-        ConcurrentQueue<std::vector<uint8_t>>& receive_queue, std::function<void()>&& disconnected);
+        std::function<void(std::vector<uint8_t>&&)>&& packet_received, std::function<void()>&& disconnected);
     ~Connection();
 
     void open();
     boost::asio::awaitable<bool> connect(const tcp::endpoint& remote_endpoint);
     void disconnect();
-    void send_packet(std::shared_ptr<flatbuffers::DetachedBuffer> packet);
+    void send_packet(std::shared_ptr<flatbuffers::DetachedBuffer> buffer);
     void set_no_delay(bool no_delay);
 
     bool is_connected() const { return _is_connected; }
@@ -31,18 +33,17 @@ private:
     boost::asio::io_context& _ctx;
     tcp::socket _socket;
     std::atomic<bool> _is_connected;
+    std::function<void(std::vector<uint8_t>&&)> _packet_received;
     std::function<void()> _disconnected;
-
-    ConcurrentQueue<std::vector<uint8_t>>& _receive_queue;
     ConcurrentQueue<std::shared_ptr<flatbuffers::DetachedBuffer>> _send_queue {};
     std::atomic<bool> _is_sending {false};
 };
 
 
 inline Connection::Connection(boost::asio::io_context& ctx, tcp::socket&& socket,
-    ConcurrentQueue<std::vector<uint8_t>>& receive_queue, std::function<void()>&& disconnected)
+    std::function<void(std::vector<uint8_t>&&)>&& packet_received, std::function<void()>&& disconnected)
     : _ctx(ctx), _socket(std::move(socket)), _is_connected(_socket.is_open()),
-    _receive_queue(receive_queue), _disconnected(std::move(disconnected)) {}
+    _packet_received(std::move(packet_received)), _disconnected(std::move(disconnected)) {}
 
 inline Connection::~Connection() {
     disconnect();
@@ -77,8 +78,6 @@ inline boost::asio::awaitable<bool> Connection::connect(const tcp::endpoint& rem
 inline void Connection::disconnect() {
     if (!_is_connected.exchange(false)) return;
 
-    _receive_queue.clear();
-
     try {
         _socket.shutdown(tcp::socket::shutdown_both);
 
@@ -92,22 +91,22 @@ inline void Connection::disconnect() {
     _disconnected();
 }
 
-inline void Connection::send_packet(std::shared_ptr<flatbuffers::DetachedBuffer> packet) {
-    if (!packet || !_is_connected) return;
+inline void Connection::send_packet(std::shared_ptr<flatbuffers::DetachedBuffer> buffer) {
+    if (!buffer || !_is_connected) return;
 
-    _send_queue.push(std::move(packet));
+    _send_queue.push(std::move(buffer));
 
     // Send all packets in send_queue_
     if (_is_sending.exchange(true)) return;
     co_spawn(_ctx, [this]()->boost::asio::awaitable<void> {
         while (!_send_queue.empty()) {
-            std::shared_ptr<flatbuffers::DetachedBuffer> packet;
-            if (!_send_queue.try_pop(packet) || !packet) {
+            std::shared_ptr<flatbuffers::DetachedBuffer> buffer;
+            if (!_send_queue.try_pop(buffer) || !buffer) {
                 spdlog::warn("[Connection] Invalid packet to send");
                 break;
             }
 
-            if (auto [ec, _] = co_await _socket.async_send(boost::asio::buffer(packet->data(), packet->size()),
+            if (auto [ec, _] = co_await _socket.async_send(boost::asio::buffer(buffer->data(), buffer->size()),
                 as_tuple(boost::asio::use_awaitable)); ec) {
                 spdlog::error("[Connection] Error sending packet: {}", ec.what());
                 disconnect();
@@ -148,6 +147,6 @@ inline boost::asio::awaitable<void> Connection::receive_packet() {
         co_return;
     }
 
-    _receive_queue.push(std::move(body_buffer));
+    _packet_received(std::move(body_buffer));
 }
 }

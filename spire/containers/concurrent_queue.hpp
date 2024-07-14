@@ -3,6 +3,8 @@
 #include <mutex>
 #include <queue>
 
+#include <iostream>
+
 namespace spire {
 /*
  * A thread-safe queue for single consumer and mutliple producers
@@ -11,7 +13,7 @@ template <typename T>
 class ConcurrentQueue {
 public:
     ConcurrentQueue() = default;
-    ~ConcurrentQueue();
+    ~ConcurrentQueue() = default;
     ConcurrentQueue(const ConcurrentQueue&) = delete;
     ConcurrentQueue& operator=(const ConcurrentQueue&) = delete;
 
@@ -19,17 +21,13 @@ public:
     void push(T&& value);
     bool try_pop(T& target);
     bool empty() const;
+    size_t size() const;
     void clear();
 
 private:
     std::queue<T> queue_ {};
     mutable std::mutex mutex_ {};
 };
-
-template <typename T>
-ConcurrentQueue<T>::~ConcurrentQueue() {
-    clear();
-}
 
 template <typename T>
 void ConcurrentQueue<T>::push(const T& value) {
@@ -60,6 +58,13 @@ bool ConcurrentQueue<T>::empty() const {
     std::lock_guard lock {mutex_};
 
     return queue_.empty();
+}
+
+template <typename T>
+size_t ConcurrentQueue<T>::size() const {
+    std::lock_guard lock {mutex_};
+
+    return queue_.size();
 }
 
 template <typename T>
