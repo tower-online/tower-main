@@ -1,7 +1,9 @@
 #pragma once
 
 #include <spire/containers/concurrent_queue.hpp>
+#include <spire/game/player.hpp>
 #include <spire/net/connection.hpp>
+#include <spire/net/packet/packet.hpp>
 
 namespace spire::game {
 using boost::asio::ip::tcp;
@@ -12,14 +14,21 @@ public:
 
     void start();
     void stop();
+    void send_packet(std::shared_ptr<flatbuffers::DetachedBuffer> packet);
 
 private:
-    void handle_packet(std::vector<uint8_t>&& buffer);
     void on_disconnection();
 
+    void handle_packet(std::vector<uint8_t>&& buffer);
+    void handle_packet_client_join(const net::packet::ClientJoin* client_join);
+
+public:
+    const uint32_t id;
+    std::shared_ptr<Player> player;
+
+private:
     boost::asio::io_context& _ctx;
     net::Connection _connection;
-    const uint32_t _id;
 
     std::atomic<bool> _is_running {false};
     ConcurrentQueue<std::vector<uint8_t>> _receive_queue;

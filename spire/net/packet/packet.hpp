@@ -13,7 +13,9 @@ static_assert(FLATBUFFERS_VERSION_MAJOR == 24 &&
               FLATBUFFERS_VERSION_REVISION == 25,
              "Non-compatible flatbuffers version included");
 
+#include "client_join.hpp"
 #include "entity_transform_update.hpp"
+#include "spawn_player.hpp"
 
 namespace spire {
 namespace net {
@@ -24,30 +26,36 @@ struct PacketBuilder;
 
 enum class PacketType : uint8_t {
   NONE = 0,
-  EntityTransformUpdate = 1,
+  ClientJoin = 1,
+  EntityTransformUpdate = 2,
+  SpawnPlayer = 3,
   MIN = NONE,
-  MAX = EntityTransformUpdate
+  MAX = SpawnPlayer
 };
 
-inline const PacketType (&EnumValuesPacketType())[2] {
+inline const PacketType (&EnumValuesPacketType())[4] {
   static const PacketType values[] = {
     PacketType::NONE,
-    PacketType::EntityTransformUpdate
+    PacketType::ClientJoin,
+    PacketType::EntityTransformUpdate,
+    PacketType::SpawnPlayer
   };
   return values;
 }
 
 inline const char * const *EnumNamesPacketType() {
-  static const char * const names[3] = {
+  static const char * const names[5] = {
     "NONE",
+    "ClientJoin",
     "EntityTransformUpdate",
+    "SpawnPlayer",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNamePacketType(PacketType e) {
-  if (::flatbuffers::IsOutRange(e, PacketType::NONE, PacketType::EntityTransformUpdate)) return "";
+  if (::flatbuffers::IsOutRange(e, PacketType::NONE, PacketType::SpawnPlayer)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesPacketType()[index];
 }
@@ -56,8 +64,16 @@ template<typename T> struct PacketTypeTraits {
   static const PacketType enum_value = PacketType::NONE;
 };
 
+template<> struct PacketTypeTraits<spire::net::packet::ClientJoin> {
+  static const PacketType enum_value = PacketType::ClientJoin;
+};
+
 template<> struct PacketTypeTraits<spire::net::packet::EntityTransformUpdate> {
   static const PacketType enum_value = PacketType::EntityTransformUpdate;
+};
+
+template<> struct PacketTypeTraits<spire::net::packet::SpawnPlayer> {
+  static const PacketType enum_value = PacketType::SpawnPlayer;
 };
 
 bool VerifyPacketType(::flatbuffers::Verifier &verifier, const void *obj, PacketType type);
@@ -77,8 +93,14 @@ struct Packet FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     return GetPointer<const void *>(VT_PACKET);
   }
   template<typename T> const T *packet_as() const;
+  const spire::net::packet::ClientJoin *packet_as_ClientJoin() const {
+    return packet_type() == spire::net::packet::PacketType::ClientJoin ? static_cast<const spire::net::packet::ClientJoin *>(packet()) : nullptr;
+  }
   const spire::net::packet::EntityTransformUpdate *packet_as_EntityTransformUpdate() const {
     return packet_type() == spire::net::packet::PacketType::EntityTransformUpdate ? static_cast<const spire::net::packet::EntityTransformUpdate *>(packet()) : nullptr;
+  }
+  const spire::net::packet::SpawnPlayer *packet_as_SpawnPlayer() const {
+    return packet_type() == spire::net::packet::PacketType::SpawnPlayer ? static_cast<const spire::net::packet::SpawnPlayer *>(packet()) : nullptr;
   }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -89,8 +111,16 @@ struct Packet FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
 };
 
+template<> inline const spire::net::packet::ClientJoin *Packet::packet_as<spire::net::packet::ClientJoin>() const {
+  return packet_as_ClientJoin();
+}
+
 template<> inline const spire::net::packet::EntityTransformUpdate *Packet::packet_as<spire::net::packet::EntityTransformUpdate>() const {
   return packet_as_EntityTransformUpdate();
+}
+
+template<> inline const spire::net::packet::SpawnPlayer *Packet::packet_as<spire::net::packet::SpawnPlayer>() const {
+  return packet_as_SpawnPlayer();
 }
 
 struct PacketBuilder {
@@ -134,8 +164,16 @@ inline bool VerifyPacketType(::flatbuffers::Verifier &verifier, const void *obj,
     case PacketType::NONE: {
       return true;
     }
+    case PacketType::ClientJoin: {
+      auto ptr = reinterpret_cast<const spire::net::packet::ClientJoin *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     case PacketType::EntityTransformUpdate: {
       auto ptr = reinterpret_cast<const spire::net::packet::EntityTransformUpdate *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case PacketType::SpawnPlayer: {
+      auto ptr = reinterpret_cast<const spire::net::packet::SpawnPlayer *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

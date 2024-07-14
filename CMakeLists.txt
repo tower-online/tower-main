@@ -23,6 +23,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(spdlog)
 
+FetchContent_Declare(
+    glm
+    GIT_REPOSITORY https://github.com/g-truc/glm.git
+    GIT_TAG 1.0.1
+)
+FetchContent_MakeAvailable(glm)
+
 
 ### TARGETS ###
 add_executable(spire-server
@@ -32,12 +39,16 @@ add_executable(spire-server
 
     spire/game/client.hpp
     spire/game/client.cpp
+    spire/game/entity.hpp
+    spire/game/entity.cpp
+    spire/game/player.hpp
+    spire/game/player.cpp
 
     spire/net/connection.hpp
     spire/net/listener.hpp
 )
 target_compile_features(spire-server PRIVATE cxx_std_20)
-target_link_libraries(spire-server PRIVATE Boost::system spdlog flatbuffers)
+target_link_libraries(spire-server PRIVATE Boost::system spdlog flatbuffers glm)
 target_include_directories(spire-server PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 file(GLOB schemas RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} spire/net/packet/schemas/*.fbs)

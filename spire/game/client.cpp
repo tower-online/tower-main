@@ -1,14 +1,14 @@
+#include <spdlog/spdlog.h>
 #include <spire/game/client.hpp>
-#include <spire/net/packet/packet.hpp>
 
 #include <chrono>
 
 using namespace std::chrono_literals;
 
 namespace spire::game {
-Client::Client(boost::asio::io_context& ctx, tcp::socket&& socket, uint32_t id)
+Client::Client(boost::asio::io_context& ctx, tcp::socket&& socket, const uint32_t id)
     : _ctx(ctx), _connection(_ctx, std::move(socket), _receive_queue, [this] { on_disconnection(); }),
-    _id(id) {}
+    id(id), player(std::make_shared<Player>()) {}
 
 void Client::start() {
     if (_is_running.exchange(true)) return;
@@ -28,13 +28,6 @@ void Client::start() {
         }
     });
     _worker_thread.detach();
-
-    using namespace net::packet;
-    flatbuffers::FlatBufferBuilder builder {128};
-    const Vector2 position {27, 42};
-    const auto entity_transform_update = CreateEntityTransformUpdate(builder, _id, &position);
-    builder.FinishSizePrefixed(CreatePacket(builder, PacketType::EntityTransformUpdate, entity_transform_update.Union()));
-    _connection.send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
 }
 
 void Client::stop() {
@@ -43,18 +36,32 @@ void Client::stop() {
     _connection.disconnect();
 }
 
+void Client::send_packet(std::shared_ptr<flatbuffers::DetachedBuffer> packet) {
+    _connection.send_packet(std::move(packet));
+}
+
 void Client::handle_packet(std::vector<uint8_t>&& buffer) {
-    // const auto packet = packet::GetPacket(buffer.data());
-    // if (!packet) {
-    //     godot::UtilityFunctions::print("[Connection] Invalid packet");
-    //     disconnect();
-    //     return;
-    // }
-    //
-    // switch (packet->packet_type()) {
-    // case packet::PacketType::EntityTransformUpdate:
-    //     godot::UtilityFunctions::print("[Connection] Got EntityTransformUpdate");
-    // }
+    using namespace net::packet;
+
+    const auto packet = GetPacket(buffer.data());
+    if (!packet) {
+        spdlog::warn("[Client] Invalid packet");
+        // disconnect();
+        return;
+    }
+
+    switch (packet->packet_type()) {
+    case PacketType::ClientJoin:
+        handle_packet_client_join(packet->packet_as<ClientJoin>());
+        break;
+
+    default:
+        break;
+    }
+}
+
+void Client::handle_packet_client_join(const net::packet::ClientJoin* client_join) {
+    spdlog::info("[Client] ({}) responsed to ClientJoin", id);
 }
 
 void Client::on_disconnection() {

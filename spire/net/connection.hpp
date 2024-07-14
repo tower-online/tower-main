@@ -97,7 +97,7 @@ inline void Connection::send_packet(std::shared_ptr<flatbuffers::DetachedBuffer>
 
     _send_queue.push(std::move(packet));
 
-    // Send all messages in send_queue_
+    // Send all packets in send_queue_
     if (_is_sending.exchange(true)) return;
     co_spawn(_ctx, [this]()->boost::asio::awaitable<void> {
         while (!_send_queue.empty()) {
@@ -109,7 +109,7 @@ inline void Connection::send_packet(std::shared_ptr<flatbuffers::DetachedBuffer>
 
             if (auto [ec, _] = co_await _socket.async_send(boost::asio::buffer(packet->data(), packet->size()),
                 as_tuple(boost::asio::use_awaitable)); ec) {
-                spdlog::error("[Connection] Error sending message: {}", ec.what());
+                spdlog::error("[Connection] Error sending packet: {}", ec.what());
                 disconnect();
                 co_return;
             }
@@ -128,9 +128,9 @@ inline void Connection::set_no_delay(const bool no_delay) {
 }
 
 inline boost::asio::awaitable<void> Connection::receive_packet() {
-    constexpr size_t MESSAGE_SIZE_PREFIX_BYTES = sizeof(flatbuffers::uoffset_t);
+    constexpr size_t PACKET_SIZE_PREFIX_BYTES = sizeof(flatbuffers::uoffset_t);
 
-    std::array<uint8_t, MESSAGE_SIZE_PREFIX_BYTES> header_buffer {};
+    std::array<uint8_t, PACKET_SIZE_PREFIX_BYTES> header_buffer {};
     if (const auto [ec, _] = co_await async_read(_socket,
         boost::asio::buffer(header_buffer),
         as_tuple(boost::asio::use_awaitable)); ec) {
@@ -139,7 +139,7 @@ inline boost::asio::awaitable<void> Connection::receive_packet() {
     }
 
     const auto length = flatbuffers::GetSizePrefixedBufferLength(header_buffer.data());
-    std::vector<uint8_t> body_buffer(length - MESSAGE_SIZE_PREFIX_BYTES);
+    std::vector<uint8_t> body_buffer(length - PACKET_SIZE_PREFIX_BYTES);
 
     if (const auto [ec, _] = co_await async_read(_socket,
         boost::asio::buffer(body_buffer),
