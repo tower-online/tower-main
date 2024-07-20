@@ -3,14 +3,15 @@
 
 namespace spire::net {
 Client::Client(boost::asio::io_context& ctx, tcp::socket&& socket, const uint32_t id,
-    ConcurrentQueue<Packet>& receive_queue)
+    std::function<void(std::shared_ptr<Client>)>&& disconnected,
+    std::function<void(std::shared_ptr<Packet>)>&& packet_received)
     : id(id), player(std::make_shared<game::Player>()),
     _connection(ctx, std::move(socket),
         [this](std::vector<uint8_t>&& buffer) {
-            _receive_queue.push(Packet {shared_from_this(), std::move(buffer)});
+            _packet_received(std::make_unique<Packet>(shared_from_this(), std::move(buffer)));
         },
-        [this] { on_disconnection(); }),
-    _receive_queue(receive_queue) {}
+        [this] { _disconnected(shared_from_this()); }),
+    _disconnected(std::move(disconnected)), _packet_received(std::move(packet_received)) {}
 
 void Client::start() {
     if (_is_running.exchange(true)) return;
@@ -26,11 +27,5 @@ void Client::stop() {
 
 void Client::send_packet(std::shared_ptr<flatbuffers::DetachedBuffer> buffer) {
     _connection.send_packet(std::move(buffer));
-}
-
-void Client::on_disconnection() {
-    stop();
-
-    //TODO: Remove from server
 }
 }

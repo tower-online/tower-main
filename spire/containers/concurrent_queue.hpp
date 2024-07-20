@@ -25,52 +25,52 @@ public:
     void clear();
 
 private:
-    std::queue<T> queue_ {};
-    mutable std::mutex mutex_ {};
+    std::queue<T> _queue {};
+    mutable std::mutex _mutex {};
 };
 
 template <typename T>
 void ConcurrentQueue<T>::push(const T& value) {
-    std::lock_guard lock {mutex_};
+    std::lock_guard lock {_mutex};
 
-    queue_.push(value);
+    _queue.push(value);
 }
 
 template <typename T>
 void ConcurrentQueue<T>::push(T&& value) {
-    std::lock_guard lock {mutex_};
+    std::lock_guard lock {_mutex};
 
-    queue_.push(std::forward<T>(value));
+    _queue.push(std::forward<T>(value));
 }
 
 template <typename T>
 bool ConcurrentQueue<T>::try_pop(T& target) {
-    std::lock_guard lock {mutex_};
+    std::lock_guard lock {_mutex};
 
-    if (queue_.empty()) return false;
-    target = std::move(queue_.front());
-    queue_.pop();
+    if (_queue.empty()) return false;
+    target = std::move(_queue.front());
+    _queue.pop();
     return true;
 }
 
 template <typename T>
 bool ConcurrentQueue<T>::empty() const {
-    std::lock_guard lock {mutex_};
+    std::lock_guard lock {_mutex};
 
-    return queue_.empty();
+    return _queue.empty();
 }
 
 template <typename T>
 size_t ConcurrentQueue<T>::size() const {
-    std::lock_guard lock {mutex_};
+    std::lock_guard lock {_mutex};
 
-    return queue_.size();
+    return _queue.size();
 }
 
 template <typename T>
 void ConcurrentQueue<T>::clear() {
-    std::lock_guard lock {mutex_};
+    std::lock_guard lock {_mutex};
 
-    queue_ = {};
+    _queue = {};
 }
 }

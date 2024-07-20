@@ -87,7 +87,6 @@ inline void Connection::disconnect() {
         spdlog::error("[Connection] Error shutting down socket: {}", e.what());
     }
 
-    spdlog::info("[Connection] Disconnected");
     _disconnected();
 }
 

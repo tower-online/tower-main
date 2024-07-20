@@ -19,26 +19,52 @@ namespace spire {
 namespace net {
 namespace packet {
 
+struct EntityTransform;
+
 struct EntityTransformUpdate;
 struct EntityTransformUpdateBuilder;
+
+FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) EntityTransform FLATBUFFERS_FINAL_CLASS {
+ private:
+  uint32_t entity_id_;
+  spire::net::packet::Vector2 position_;
+
+ public:
+  struct Traits;
+  EntityTransform()
+      : entity_id_(0),
+        position_() {
+  }
+  EntityTransform(uint32_t _entity_id, const spire::net::packet::Vector2 &_position)
+      : entity_id_(::flatbuffers::EndianScalar(_entity_id)),
+        position_(_position) {
+  }
+  uint32_t entity_id() const {
+    return ::flatbuffers::EndianScalar(entity_id_);
+  }
+  const spire::net::packet::Vector2 &position() const {
+    return position_;
+  }
+};
+FLATBUFFERS_STRUCT_END(EntityTransform, 12);
+
+struct EntityTransform::Traits {
+  using type = EntityTransform;
+};
 
 struct EntityTransformUpdate FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef EntityTransformUpdateBuilder Builder;
   struct Traits;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_ENTITY_ID = 4,
-    VT_POSITION = 6
+    VT_ENTITY_TRANSFORMS = 4
   };
-  uint32_t entity_id() const {
-    return GetField<uint32_t>(VT_ENTITY_ID, 0);
-  }
-  const spire::net::packet::Vector2 *position() const {
-    return GetStruct<const spire::net::packet::Vector2 *>(VT_POSITION);
+  const ::flatbuffers::Vector<const spire::net::packet::EntityTransform *> *entity_transforms() const {
+    return GetPointer<const ::flatbuffers::Vector<const spire::net::packet::EntityTransform *> *>(VT_ENTITY_TRANSFORMS);
   }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint32_t>(verifier, VT_ENTITY_ID, 4) &&
-           VerifyField<spire::net::packet::Vector2>(verifier, VT_POSITION, 4) &&
+           VerifyOffset(verifier, VT_ENTITY_TRANSFORMS) &&
+           verifier.VerifyVector(entity_transforms()) &&
            verifier.EndTable();
   }
 };
@@ -47,11 +73,8 @@ struct EntityTransformUpdateBuilder {
   typedef EntityTransformUpdate Table;
   ::flatbuffers::FlatBufferBuilder &fbb_;
   ::flatbuffers::uoffset_t start_;
-  void add_entity_id(uint32_t entity_id) {
-    fbb_.AddElement<uint32_t>(EntityTransformUpdate::VT_ENTITY_ID, entity_id, 0);
-  }
-  void add_position(const spire::net::packet::Vector2 *position) {
-    fbb_.AddStruct(EntityTransformUpdate::VT_POSITION, position);
+  void add_entity_transforms(::flatbuffers::Offset<::flatbuffers::Vector<const spire::net::packet::EntityTransform *>> entity_transforms) {
+    fbb_.AddOffset(EntityTransformUpdate::VT_ENTITY_TRANSFORMS, entity_transforms);
   }
   explicit EntityTransformUpdateBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -66,11 +89,9 @@ struct EntityTransformUpdateBuilder {
 
 inline ::flatbuffers::Offset<EntityTransformUpdate> CreateEntityTransformUpdate(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    uint32_t entity_id = 0,
-    const spire::net::packet::Vector2 *position = nullptr) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<const spire::net::packet::EntityTransform *>> entity_transforms = 0) {
   EntityTransformUpdateBuilder builder_(_fbb);
-  builder_.add_position(position);
-  builder_.add_entity_id(entity_id);
+  builder_.add_entity_transforms(entity_transforms);
   return builder_.Finish();
 }
 
@@ -78,6 +99,15 @@ struct EntityTransformUpdate::Traits {
   using type = EntityTransformUpdate;
   static auto constexpr Create = CreateEntityTransformUpdate;
 };
+
+inline ::flatbuffers::Offset<EntityTransformUpdate> CreateEntityTransformUpdateDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<spire::net::packet::EntityTransform> *entity_transforms = nullptr) {
+  auto entity_transforms__ = entity_transforms ? _fbb.CreateVectorOfStructs<spire::net::packet::EntityTransform>(*entity_transforms) : 0;
+  return spire::net::packet::CreateEntityTransformUpdate(
+      _fbb,
+      entity_transforms__);
+}
 
 inline const spire::net::packet::EntityTransformUpdate *GetEntityTransformUpdate(const void *buf) {
   return ::flatbuffers::GetRoot<spire::net::packet::EntityTransformUpdate>(buf);

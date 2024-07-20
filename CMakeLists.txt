@@ -50,6 +50,8 @@ add_executable(spire-server
     spire/net/packet.hpp
     spire/net/server.hpp
     spire/net/server.cpp
+    spire/net/zone.hpp
+    spire/net/zone.cpp
 )
 target_compile_features(spire-server PRIVATE cxx_std_20)
 target_link_libraries(spire-server PRIVATE Boost::system spdlog flatbuffers glm)
