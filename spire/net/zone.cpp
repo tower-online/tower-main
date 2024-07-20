@@ -56,9 +56,8 @@ void Zone::add_client(std::shared_ptr<Client> client) {
 
             flatbuffers::FlatBufferBuilder builder {128};
             const Vector2 position {client->player->position.x, client->player->position.y};
-            const auto spawn_player = CreateSpawnPlayer(builder, client->id, client->player->entity_id, &position);
-            builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::SpawnPlayer, spawn_player.Union()));
-
+            const auto player_spawn = CreatePlayerSpawn(builder, client->id, client->player->entity_id, &position);
+            builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerSpawn, player_spawn.Union()));
             broadcast_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
         }
 
@@ -68,8 +67,8 @@ void Zone::add_client(std::shared_ptr<Client> client) {
 
             flatbuffers::FlatBufferBuilder builder {128};
             const Vector2 position {other_client->player->position.x, other_client->player->position.y};
-            const auto spawn_player = CreateSpawnPlayer(builder, other_client->id, other_client->player->entity_id, &position);
-            builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::SpawnPlayer, spawn_player.Union()));
+            const auto player_spawn = CreatePlayerSpawn(builder, other_client->id, other_client->player->entity_id, &position);
+            builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerSpawn, player_spawn.Union()));
 
             client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
         }
@@ -78,6 +77,17 @@ void Zone::add_client(std::shared_ptr<Client> client) {
 
 void Zone::remove_client(const uint32_t client_id) {
     _jobs.push([this, client_id] {
+        if (!_clients.contains(client_id)) return;
+
+        const auto client = _clients[client_id];
+
+        // Broadcast PlayerDespawn packet
+        using namespace packet;
+        flatbuffers::FlatBufferBuilder builder {64};
+        const auto player_despawn = CreatePlayerDespawn(builder, client->id, client->player->entity_id);
+        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerDespawn, player_despawn.Union()));
+        broadcast_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+
         _clients.erase(client_id);
     });
 }
