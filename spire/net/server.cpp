@@ -59,7 +59,7 @@ void Server::add_client(tcp::socket&& socket) {
 
         using namespace net::packet;
         flatbuffers::FlatBufferBuilder builder {64};
-        const auto client_join = CreateClientJoin(builder, client->id);
+        const auto client_join = CreateClientJoin(builder, client->id, client->player->entity_id);
         builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::ClientJoin, client_join.Union()));
         client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
 
@@ -88,8 +88,6 @@ void Server::handle_packet(std::shared_ptr<Packet> packet) {
 }
 
 void Server::handle_client_join(std::shared_ptr<Client> client, const packet::ClientJoin* client_join) {
-    //TODO: Check if already joined
-
     if (client->id != client_join->client_id()) {
         spdlog::warn("[Server] Client({}) responsed to ClientJoin with invalid id({})",
             client->id, client_join->client_id());

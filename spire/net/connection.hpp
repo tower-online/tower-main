@@ -4,7 +4,7 @@
 #include <boost/core/noncopyable.hpp>
 #include <flatbuffers/flatbuffers.h>
 #include <spdlog/spdlog.h>
-#include <spire/containers/concurrent_queue.hpp>
+#include <spire/container/concurrent_queue.hpp>
 
 #include <iostream>
 

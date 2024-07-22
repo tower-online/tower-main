@@ -1,6 +1,7 @@
 #pragma once
 
 #include <glm/vec2.hpp>
+#include <spire/collision/rectangle_shape.hpp>
 
 #include <atomic>
 
@@ -14,5 +15,6 @@ public:
 
     const uint32_t entity_id;
     glm::vec2 position {};
+    glm::vec2 direction {};
 };
 }

@@ -22,7 +22,7 @@ public:
 
 private:
     void handle_packet(std::shared_ptr<Packet>&& packet);
-    void hanlde_entity_transform_update(std::shared_ptr<Client>&& client, const packet::EntityTransformUpdate* update);
+    void hanlde_entity_movement(std::shared_ptr<Client>&& client, const packet::EntityMovement* movement);
     void tick();
 
     std::unordered_map<uint32_t, std::shared_ptr<Client>> _clients {};

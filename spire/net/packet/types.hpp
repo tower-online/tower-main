@@ -19,6 +19,39 @@ namespace packet {
 
 struct Vector2;
 
+enum class EntityType : uint8_t {
+  NONE = 0,
+  PLAYER = 1,
+  MOB = 2,
+  MIN = NONE,
+  MAX = MOB
+};
+
+inline const EntityType (&EnumValuesEntityType())[3] {
+  static const EntityType values[] = {
+    EntityType::NONE,
+    EntityType::PLAYER,
+    EntityType::MOB
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesEntityType() {
+  static const char * const names[4] = {
+    "NONE",
+    "PLAYER",
+    "MOB",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameEntityType(EntityType e) {
+  if (::flatbuffers::IsOutRange(e, EntityType::NONE, EntityType::MOB)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesEntityType()[index];
+}
+
 FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) Vector2 FLATBUFFERS_FINAL_CLASS {
  private:
   float x_;

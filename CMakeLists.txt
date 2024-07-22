@@ -35,8 +35,12 @@ FetchContent_MakeAvailable(glm)
 add_executable(spire-server
     spire/main.cpp
 
-    spire/containers/concurrent_map.hpp
-    spire/containers/concurrent_queue.hpp
+    spire/collision/circle_shape.hpp
+    spire/collision/collision_shape.hpp
+    spire/collision/rectangle_shape.hpp
+
+    spire/container/concurrent_map.hpp
+    spire/container/concurrent_queue.hpp
 
     spire/game/entity.hpp
     spire/game/entity.cpp
@@ -63,3 +67,19 @@ add_custom_target(spire-packet-schemas-compile
     COMMAND flatc --cpp --cpp-std c++17 --filename-suffix "\"\"" --filename-ext hpp -o spire/net/packet/ ${schemas}
     DEPENDS flatc
 )
+
+
+### TESTS ###
+FetchContent_Declare(
+    Catch2
+    GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+    GIT_TAG v3.5.4
+)
+FetchContent_MakeAvailable(Catch2)
+
+add_executable(spire-server-test
+    spire/collision/collision_shape.test.cpp
+)
+target_compile_features(spire-server-test PRIVATE cxx_std_20)
+target_link_libraries(spire-server-test PRIVATE Catch2::Catch2WithMain glm)
+target_include_directories(spire-server-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

@@ -24,14 +24,19 @@ struct ClientJoin FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef ClientJoinBuilder Builder;
   struct Traits;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_CLIENT_ID = 4
+    VT_CLIENT_ID = 4,
+    VT_PLAYER_ENTITY_ID = 6
   };
   uint32_t client_id() const {
     return GetField<uint32_t>(VT_CLIENT_ID, 0);
   }
+  uint32_t player_entity_id() const {
+    return GetField<uint32_t>(VT_PLAYER_ENTITY_ID, 0);
+  }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_CLIENT_ID, 4) &&
+           VerifyField<uint32_t>(verifier, VT_PLAYER_ENTITY_ID, 4) &&
            verifier.EndTable();
   }
 };
@@ -42,6 +47,9 @@ struct ClientJoinBuilder {
   ::flatbuffers::uoffset_t start_;
   void add_client_id(uint32_t client_id) {
     fbb_.AddElement<uint32_t>(ClientJoin::VT_CLIENT_ID, client_id, 0);
+  }
+  void add_player_entity_id(uint32_t player_entity_id) {
+    fbb_.AddElement<uint32_t>(ClientJoin::VT_PLAYER_ENTITY_ID, player_entity_id, 0);
   }
   explicit ClientJoinBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -56,8 +64,10 @@ struct ClientJoinBuilder {
 
 inline ::flatbuffers::Offset<ClientJoin> CreateClientJoin(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    uint32_t client_id = 0) {
+    uint32_t client_id = 0,
+    uint32_t player_entity_id = 0) {
   ClientJoinBuilder builder_(_fbb);
+  builder_.add_player_entity_id(player_entity_id);
   builder_.add_client_id(client_id);
   return builder_.Finish();
 }
