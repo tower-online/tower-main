@@ -2,8 +2,8 @@
 
 #include <spire/game/entity.hpp>
 #include <spire/game/player/inventory.hpp>
+#include <spire/system/event.hpp>
 #include <spire/world/world.hpp>
-
 
 namespace spire::game::player {
 using namespace world;

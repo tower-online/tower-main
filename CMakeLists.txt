@@ -58,6 +58,8 @@ add_executable(spire-server
     spire/net/zone.hpp
     spire/net/zone.cpp
 
+    spire/system/event.hpp
+
     spire/world/collision/circle_collider.hpp
     spire/world/collision/collider.hpp
     spire/world/collision/rectangle_collider.hpp
@@ -85,7 +87,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Catch2)
 
-#add_executable(spire-server-test)
-#target_compile_features(spire-server-test PRIVATE cxx_std_20)
-#target_link_libraries(spire-server-test PRIVATE Catch2::Catch2WithMain glm)
-#target_include_directories(spire-server-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+add_executable(spire-server-test
+    spire/system/event.test.cpp
+)
+target_compile_features(spire-server-test PRIVATE cxx_std_20)
+target_link_libraries(spire-server-test PRIVATE Catch2::Catch2WithMain glm)
+target_include_directories(spire-server-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
