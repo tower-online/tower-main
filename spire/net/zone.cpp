@@ -53,7 +53,6 @@ void Zone::add_client(std::shared_ptr<Client> client) {
         static std::mt19937 rng {rd()};
         static std::uniform_real_distribution<float> distribution {-30.0, 30.0};
 
-        new_client->player->initialize();
         new_client->player->position = glm::vec2 {distribution(rng), distribution(rng)};
 
         _world.get_root()->add_child(new_client->player);

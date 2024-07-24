@@ -23,7 +23,7 @@ public:
 
 public:
     const uint32_t id;
-    std::shared_ptr<Player> player {std::make_shared<Player>()};
+    std::shared_ptr<Player> player {Player::create()};
 
 private:
     Connection _connection;

@@ -3,16 +3,17 @@
 #include <spire/game/entity.hpp>
 #include <spire/game/player/inventory.hpp>
 #include <spire/system/event.hpp>
-#include <spire/world/world.hpp>
 
 namespace spire::game::player {
 using namespace world;
 
 class Player : public Entity {
 public:
-    void initialize();
-
     constexpr static float MOVEMENT_SPEED = 10.0f;
+
+    Player() = default;
+
+    static std::shared_ptr<Player> create();
 
     Inventory inventory {};
 };

@@ -12,21 +12,26 @@ enum class ColliderLayer : uint32_t {
 
 class CollisionObject : public Node {
 public:
-    explicit CollisionObject(uint32_t layer = 0, uint32_t mask = 0);
+    CollisionObject(const CollisionShape* shape, uint32_t layer, uint32_t mask);
 
-    void set_shape(const std::shared_ptr<CollisionShape>& shape);
+    static std::shared_ptr<CollisionObject> create(std::shared_ptr<CollisionShape>&& shape,
+        uint32_t layer = 0, uint32_t mask = 0);
 
-    CollisionShape* shape = nullptr;
+    const CollisionShape* shape;
     uint32_t layer;
     uint32_t mask;
 };
 
-inline CollisionObject::CollisionObject(const uint32_t layer,
-    const uint32_t mask)
-    : layer {layer}, mask {mask} {}
 
-inline void CollisionObject::set_shape(const std::shared_ptr<CollisionShape>& shape) {
-    this->shape = shape.get();
-    add_child(shape);
+inline std::shared_ptr<CollisionObject> CollisionObject::create(std::shared_ptr<CollisionShape>&& shape,
+    const uint32_t layer, const uint32_t mask) {
+    auto o = std::make_shared<CollisionObject>(shape.get(), layer, mask);
+    o->add_child(std::move(shape));
+
+    return o;
 }
+
+inline CollisionObject::CollisionObject(const CollisionShape* shape,
+    const uint32_t layer, const uint32_t mask)
+    : shape {shape}, layer {layer}, mask {mask} {}
 }
