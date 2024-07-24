@@ -40,7 +40,6 @@ add_executable(spire-server
 
     spire/game/equipment/equipment.hpp
     spire/game/equipment/fist.hpp
-    spire/game/equipment/fist.cpp
     spire/game/player/player.hpp
     spire/game/player/player.cpp
     spire/game/player/inventory.hpp
@@ -60,9 +59,10 @@ add_executable(spire-server
 
     spire/system/event.hpp
 
-    spire/world/collision/circle_collider.hpp
-    spire/world/collision/collider.hpp
-    spire/world/collision/rectangle_collider.hpp
+    spire/world/collision/circle_collision_shape.hpp
+    spire/world/collision/collision_object.hpp
+    spire/world/collision/collision_shape.hpp
+    spire/world/collision/rectangle_collision_shape.hpp
     spire/world/node.hpp
     spire/world/world.cpp
     spire/world/world.hpp

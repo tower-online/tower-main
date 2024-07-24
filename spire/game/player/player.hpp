@@ -10,9 +10,9 @@ using namespace world;
 
 class Player : public Entity {
 public:
-    constexpr static float MOVEMENT_SPEED = 10.0f;
+    void initialize();
 
-    void build();
+    constexpr static float MOVEMENT_SPEED = 10.0f;
 
     Inventory inventory {};
 };

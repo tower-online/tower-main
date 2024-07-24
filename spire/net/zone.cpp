@@ -53,9 +53,11 @@ void Zone::add_client(std::shared_ptr<Client> client) {
         static std::mt19937 rng {rd()};
         static std::uniform_real_distribution<float> distribution {-30.0, 30.0};
 
-        new_client->player->build();
-        _world.add_colliders_with_traverse(new_client->player);
+        new_client->player->initialize();
         new_client->player->position = glm::vec2 {distribution(rng), distribution(rng)};
+
+        _world.get_root()->add_child(new_client->player);
+        _world.add_collision_objects_from_tree(new_client->player);
 
         // Spawn players in the zone
         using namespace packet;
@@ -146,7 +148,9 @@ void Zone::hanlde_entity_action(std::shared_ptr<Client>&& client, const packet::
             return;
         }
 
-        auto collisions = _world.get_collisions(fist->attack_collider);
+        auto collisions = _world.get_collisions(
+            fist->attack_shape.get(), static_cast<uint32_t>(ColliderLayer::ENTITIES));
+
         for (auto& c : collisions) {
             auto parent = c->get_parent();
             if (!parent) continue;
@@ -176,7 +180,7 @@ void Zone::tick() {
         position += target_direction * Player::MOVEMENT_SPEED;
     }
 
-    // Update entities' transform
+    // Broadcast entities' transform
     using namespace packet;
     for (auto& [_, client] : _clients) {
         const Vector2 position {client->player->position.x, client->player->position.y};

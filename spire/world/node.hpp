@@ -1,7 +1,9 @@
 #pragma once
 
 #include <glm/vec2.hpp>
+#include <spdlog/spdlog.h>
 
+#include <atomic>
 #include <memory>
 #include <vector>
 
@@ -9,6 +11,7 @@ namespace spire::world {
 class Node : public std::enable_shared_from_this<Node> {
 public:
     Node() = default;
+    Node(const glm::vec2& position, float rotation);
     virtual ~Node() = default;
 
     void add_child(const std::shared_ptr<Node>& child);
@@ -19,13 +22,21 @@ public:
     glm::vec2 get_global_position() const;
     float get_global_rotation() const;
 
+    const uint32_t id {++_id_generator};
     glm::vec2 position {};
     float rotation {};
 
 protected:
     std::weak_ptr<Node> parent;
     std::vector<std::shared_ptr<Node>> childs {};
+
+private:
+    inline static std::atomic<uint32_t> _id_generator {0};
 };
+
+
+inline Node::Node(const glm::vec2& position, const float rotation)
+    : position {position}, rotation {rotation} {}
 
 inline void Node::add_child(const std::shared_ptr<Node>& child) {
     if (!child) return;
