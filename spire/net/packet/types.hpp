@@ -114,6 +114,36 @@ inline const char *EnumNameEntityActionType(EntityActionType e) {
   return EnumNamesEntityActionType()[index];
 }
 
+enum class EntityResourceType : uint8_t {
+  NONE = 0,
+  HEALTH = 1,
+  MIN = NONE,
+  MAX = HEALTH
+};
+
+inline const EntityResourceType (&EnumValuesEntityResourceType())[2] {
+  static const EntityResourceType values[] = {
+    EntityResourceType::NONE,
+    EntityResourceType::HEALTH
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesEntityResourceType() {
+  static const char * const names[3] = {
+    "NONE",
+    "HEALTH",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameEntityResourceType(EntityResourceType e) {
+  if (::flatbuffers::IsOutRange(e, EntityResourceType::NONE, EntityResourceType::HEALTH)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesEntityResourceType()[index];
+}
+
 FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) Vector2 FLATBUFFERS_FINAL_CLASS {
  private:
   float x_;

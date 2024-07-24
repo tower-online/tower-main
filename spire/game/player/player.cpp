@@ -6,6 +6,9 @@ namespace spire::game::player {
 std::shared_ptr<Player> Player::create() {
     auto player = std::make_shared<Player>();
 
+    player->resource.max_health = 100.0f;
+    player->resource.health = player->resource.max_health;
+
     auto body_collider = CollisionObject::create(
         std::make_shared<RectangleCollisionShape>(glm::vec2 {7, 12}),
         static_cast<uint32_t>(ColliderLayer::ENTITIES),

@@ -17,6 +17,7 @@ static_assert(FLATBUFFERS_VERSION_MAJOR == 24 &&
 #include "entity_action.hpp"
 #include "entity_despawn.hpp"
 #include "entity_movement.hpp"
+#include "entity_resource_change.hpp"
 #include "entity_spawn.hpp"
 
 namespace spire {
@@ -31,18 +32,20 @@ enum class PacketType : uint8_t {
   ClientJoin = 1,
   EntityAction = 2,
   EntityDespawn = 3,
-  EntityMovement = 4,
-  EntitySpawn = 5,
+  EntityResourceChange = 4,
+  EntityMovement = 5,
+  EntitySpawn = 6,
   MIN = NONE,
   MAX = EntitySpawn
 };
 
-inline const PacketType (&EnumValuesPacketType())[6] {
+inline const PacketType (&EnumValuesPacketType())[7] {
   static const PacketType values[] = {
     PacketType::NONE,
     PacketType::ClientJoin,
     PacketType::EntityAction,
     PacketType::EntityDespawn,
+    PacketType::EntityResourceChange,
     PacketType::EntityMovement,
     PacketType::EntitySpawn
   };
@@ -50,11 +53,12 @@ inline const PacketType (&EnumValuesPacketType())[6] {
 }
 
 inline const char * const *EnumNamesPacketType() {
-  static const char * const names[7] = {
+  static const char * const names[8] = {
     "NONE",
     "ClientJoin",
     "EntityAction",
     "EntityDespawn",
+    "EntityResourceChange",
     "EntityMovement",
     "EntitySpawn",
     nullptr
@@ -82,6 +86,10 @@ template<> struct PacketTypeTraits<spire::net::packet::EntityAction> {
 
 template<> struct PacketTypeTraits<spire::net::packet::EntityDespawn> {
   static const PacketType enum_value = PacketType::EntityDespawn;
+};
+
+template<> struct PacketTypeTraits<spire::net::packet::EntityResourceChange> {
+  static const PacketType enum_value = PacketType::EntityResourceChange;
 };
 
 template<> struct PacketTypeTraits<spire::net::packet::EntityMovement> {
@@ -118,6 +126,9 @@ struct PacketBase FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const spire::net::packet::EntityDespawn *packet_base_as_EntityDespawn() const {
     return packet_base_type() == spire::net::packet::PacketType::EntityDespawn ? static_cast<const spire::net::packet::EntityDespawn *>(packet_base()) : nullptr;
   }
+  const spire::net::packet::EntityResourceChange *packet_base_as_EntityResourceChange() const {
+    return packet_base_type() == spire::net::packet::PacketType::EntityResourceChange ? static_cast<const spire::net::packet::EntityResourceChange *>(packet_base()) : nullptr;
+  }
   const spire::net::packet::EntityMovement *packet_base_as_EntityMovement() const {
     return packet_base_type() == spire::net::packet::PacketType::EntityMovement ? static_cast<const spire::net::packet::EntityMovement *>(packet_base()) : nullptr;
   }
@@ -143,6 +154,10 @@ template<> inline const spire::net::packet::EntityAction *PacketBase::packet_bas
 
 template<> inline const spire::net::packet::EntityDespawn *PacketBase::packet_base_as<spire::net::packet::EntityDespawn>() const {
   return packet_base_as_EntityDespawn();
+}
+
+template<> inline const spire::net::packet::EntityResourceChange *PacketBase::packet_base_as<spire::net::packet::EntityResourceChange>() const {
+  return packet_base_as_EntityResourceChange();
 }
 
 template<> inline const spire::net::packet::EntityMovement *PacketBase::packet_base_as<spire::net::packet::EntityMovement>() const {
@@ -204,6 +219,10 @@ inline bool VerifyPacketType(::flatbuffers::Verifier &verifier, const void *obj,
     }
     case PacketType::EntityDespawn: {
       auto ptr = reinterpret_cast<const spire::net::packet::EntityDespawn *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case PacketType::EntityResourceChange: {
+      auto ptr = reinterpret_cast<const spire::net::packet::EntityResourceChange *>(obj);
       return verifier.VerifyTable(ptr);
     }
     case PacketType::EntityMovement: {

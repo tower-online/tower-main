@@ -5,6 +5,12 @@
 #include <atomic>
 
 namespace spire::game {
+
+struct EntityResource {
+    int32_t max_health {0};
+    int32_t health {0};
+};
+
 class Entity : public world::Node {
 public:
     Entity();
@@ -12,6 +18,8 @@ public:
     static uint32_t generate_entity_id();
 
     const uint32_t entity_id;
+    EntityResource resource;
+
     glm::vec2 target_direction {};
 };
 

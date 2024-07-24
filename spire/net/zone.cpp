@@ -141,6 +141,16 @@ void Zone::hanlde_entity_movement(std::shared_ptr<Client>&& client, const packet
 void Zone::hanlde_entity_action(std::shared_ptr<Client>&& client, const packet::EntityAction* action) {
     switch (action->action_type()) {
     case packet::EntityActionType::MELEE_ATTACK: {
+        // Broadcast entity action
+        using namespace packet;
+        {
+            flatbuffers::FlatBufferBuilder builder {128};
+            const auto action = CreateEntityAction(builder, EntityActionType::MELEE_ATTACK, client->player->entity_id);
+            builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityAction, action.Union()));
+            broadcast_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+        }
+
+
         auto fist = std::dynamic_pointer_cast<Fist>(client->player->inventory.get_main_weapon());
         if (!fist) {
             spdlog::info("[Zone] No Fist!!!");
@@ -157,9 +167,19 @@ void Zone::hanlde_entity_action(std::shared_ptr<Client>&& client, const packet::
                 // Don't attack itself
                 if (player == client->player) continue;
 
-                spdlog::info("[Zone] ({}) attakced ({})", client->player->entity_id, player->entity_id);
+                //TODO: Calculate armor
+                const auto amount_damaged = fist->damage;
+                player->resource.health -= amount_damaged;
+
+                // Brodacst that entity is damaged
+                flatbuffers::FlatBufferBuilder builder {128};
+                const auto change = CreateEntityResourceChange(builder,
+                    EntityResourceChangeType::DAMAGE, EntityResourceType::HEALTH, player->entity_id, amount_damaged);
+                builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityResourceChange, change.Union()));
+                broadcast_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
             }
         }
+
         break;
     }
 
