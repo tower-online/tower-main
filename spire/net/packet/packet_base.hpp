@@ -14,6 +14,7 @@ static_assert(FLATBUFFERS_VERSION_MAJOR == 24 &&
              "Non-compatible flatbuffers version included");
 
 #include "client_join.hpp"
+#include "entity_action.hpp"
 #include "entity_despawn.hpp"
 #include "entity_movement.hpp"
 #include "entity_spawn.hpp"
@@ -28,17 +29,19 @@ struct PacketBaseBuilder;
 enum class PacketType : uint8_t {
   NONE = 0,
   ClientJoin = 1,
-  EntityDespawn = 2,
-  EntityMovement = 3,
-  EntitySpawn = 4,
+  EntityAction = 2,
+  EntityDespawn = 3,
+  EntityMovement = 4,
+  EntitySpawn = 5,
   MIN = NONE,
   MAX = EntitySpawn
 };
 
-inline const PacketType (&EnumValuesPacketType())[5] {
+inline const PacketType (&EnumValuesPacketType())[6] {
   static const PacketType values[] = {
     PacketType::NONE,
     PacketType::ClientJoin,
+    PacketType::EntityAction,
     PacketType::EntityDespawn,
     PacketType::EntityMovement,
     PacketType::EntitySpawn
@@ -47,9 +50,10 @@ inline const PacketType (&EnumValuesPacketType())[5] {
 }
 
 inline const char * const *EnumNamesPacketType() {
-  static const char * const names[6] = {
+  static const char * const names[7] = {
     "NONE",
     "ClientJoin",
+    "EntityAction",
     "EntityDespawn",
     "EntityMovement",
     "EntitySpawn",
@@ -70,6 +74,10 @@ template<typename T> struct PacketTypeTraits {
 
 template<> struct PacketTypeTraits<spire::net::packet::ClientJoin> {
   static const PacketType enum_value = PacketType::ClientJoin;
+};
+
+template<> struct PacketTypeTraits<spire::net::packet::EntityAction> {
+  static const PacketType enum_value = PacketType::EntityAction;
 };
 
 template<> struct PacketTypeTraits<spire::net::packet::EntityDespawn> {
@@ -104,6 +112,9 @@ struct PacketBase FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const spire::net::packet::ClientJoin *packet_base_as_ClientJoin() const {
     return packet_base_type() == spire::net::packet::PacketType::ClientJoin ? static_cast<const spire::net::packet::ClientJoin *>(packet_base()) : nullptr;
   }
+  const spire::net::packet::EntityAction *packet_base_as_EntityAction() const {
+    return packet_base_type() == spire::net::packet::PacketType::EntityAction ? static_cast<const spire::net::packet::EntityAction *>(packet_base()) : nullptr;
+  }
   const spire::net::packet::EntityDespawn *packet_base_as_EntityDespawn() const {
     return packet_base_type() == spire::net::packet::PacketType::EntityDespawn ? static_cast<const spire::net::packet::EntityDespawn *>(packet_base()) : nullptr;
   }
@@ -124,6 +135,10 @@ struct PacketBase FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
 
 template<> inline const spire::net::packet::ClientJoin *PacketBase::packet_base_as<spire::net::packet::ClientJoin>() const {
   return packet_base_as_ClientJoin();
+}
+
+template<> inline const spire::net::packet::EntityAction *PacketBase::packet_base_as<spire::net::packet::EntityAction>() const {
+  return packet_base_as_EntityAction();
 }
 
 template<> inline const spire::net::packet::EntityDespawn *PacketBase::packet_base_as<spire::net::packet::EntityDespawn>() const {
@@ -181,6 +196,10 @@ inline bool VerifyPacketType(::flatbuffers::Verifier &verifier, const void *obj,
     }
     case PacketType::ClientJoin: {
       auto ptr = reinterpret_cast<const spire::net::packet::ClientJoin *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case PacketType::EntityAction: {
+      auto ptr = reinterpret_cast<const spire::net::packet::EntityAction *>(obj);
       return verifier.VerifyTable(ptr);
     }
     case PacketType::EntityDespawn: {

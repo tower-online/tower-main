@@ -27,13 +27,16 @@ struct EntitySpawn FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   struct Traits;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ENTITY_TYPE = 4,
-    VT_ENTITY_ID = 6,
-    VT_POSITION = 8,
-    VT_DIRECTION = 10,
-    VT_ENTITY_NAME = 12
+    VT_ENTITY_CLASS = 6,
+    VT_ENTITY_ID = 8,
+    VT_POSITION = 10,
+    VT_ROTATION = 12
   };
   spire::net::packet::EntityType entity_type() const {
     return static_cast<spire::net::packet::EntityType>(GetField<uint8_t>(VT_ENTITY_TYPE, 0));
+  }
+  spire::net::packet::EntityClass entity_class() const {
+    return static_cast<spire::net::packet::EntityClass>(GetField<uint16_t>(VT_ENTITY_CLASS, 0));
   }
   uint32_t entity_id() const {
     return GetField<uint32_t>(VT_ENTITY_ID, 0);
@@ -41,20 +44,16 @@ struct EntitySpawn FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const spire::net::packet::Vector2 *position() const {
     return GetStruct<const spire::net::packet::Vector2 *>(VT_POSITION);
   }
-  const spire::net::packet::Vector2 *direction() const {
-    return GetStruct<const spire::net::packet::Vector2 *>(VT_DIRECTION);
-  }
-  const ::flatbuffers::String *entity_name() const {
-    return GetPointer<const ::flatbuffers::String *>(VT_ENTITY_NAME);
+  float rotation() const {
+    return GetField<float>(VT_ROTATION, 0.0f);
   }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint8_t>(verifier, VT_ENTITY_TYPE, 1) &&
+           VerifyField<uint16_t>(verifier, VT_ENTITY_CLASS, 2) &&
            VerifyField<uint32_t>(verifier, VT_ENTITY_ID, 4) &&
            VerifyField<spire::net::packet::Vector2>(verifier, VT_POSITION, 4) &&
-           VerifyField<spire::net::packet::Vector2>(verifier, VT_DIRECTION, 4) &&
-           VerifyOffset(verifier, VT_ENTITY_NAME) &&
-           verifier.VerifyString(entity_name()) &&
+           VerifyField<float>(verifier, VT_ROTATION, 4) &&
            verifier.EndTable();
   }
 };
@@ -66,17 +65,17 @@ struct EntitySpawnBuilder {
   void add_entity_type(spire::net::packet::EntityType entity_type) {
     fbb_.AddElement<uint8_t>(EntitySpawn::VT_ENTITY_TYPE, static_cast<uint8_t>(entity_type), 0);
   }
+  void add_entity_class(spire::net::packet::EntityClass entity_class) {
+    fbb_.AddElement<uint16_t>(EntitySpawn::VT_ENTITY_CLASS, static_cast<uint16_t>(entity_class), 0);
+  }
   void add_entity_id(uint32_t entity_id) {
     fbb_.AddElement<uint32_t>(EntitySpawn::VT_ENTITY_ID, entity_id, 0);
   }
   void add_position(const spire::net::packet::Vector2 *position) {
     fbb_.AddStruct(EntitySpawn::VT_POSITION, position);
   }
-  void add_direction(const spire::net::packet::Vector2 *direction) {
-    fbb_.AddStruct(EntitySpawn::VT_DIRECTION, direction);
-  }
-  void add_entity_name(::flatbuffers::Offset<::flatbuffers::String> entity_name) {
-    fbb_.AddOffset(EntitySpawn::VT_ENTITY_NAME, entity_name);
+  void add_rotation(float rotation) {
+    fbb_.AddElement<float>(EntitySpawn::VT_ROTATION, rotation, 0.0f);
   }
   explicit EntitySpawnBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -92,15 +91,15 @@ struct EntitySpawnBuilder {
 inline ::flatbuffers::Offset<EntitySpawn> CreateEntitySpawn(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     spire::net::packet::EntityType entity_type = spire::net::packet::EntityType::NONE,
+    spire::net::packet::EntityClass entity_class = spire::net::packet::EntityClass::NONE,
     uint32_t entity_id = 0,
     const spire::net::packet::Vector2 *position = nullptr,
-    const spire::net::packet::Vector2 *direction = nullptr,
-    ::flatbuffers::Offset<::flatbuffers::String> entity_name = 0) {
+    float rotation = 0.0f) {
   EntitySpawnBuilder builder_(_fbb);
-  builder_.add_entity_name(entity_name);
-  builder_.add_direction(direction);
+  builder_.add_rotation(rotation);
   builder_.add_position(position);
   builder_.add_entity_id(entity_id);
+  builder_.add_entity_class(entity_class);
   builder_.add_entity_type(entity_type);
   return builder_.Finish();
 }
@@ -109,23 +108,6 @@ struct EntitySpawn::Traits {
   using type = EntitySpawn;
   static auto constexpr Create = CreateEntitySpawn;
 };
-
-inline ::flatbuffers::Offset<EntitySpawn> CreateEntitySpawnDirect(
-    ::flatbuffers::FlatBufferBuilder &_fbb,
-    spire::net::packet::EntityType entity_type = spire::net::packet::EntityType::NONE,
-    uint32_t entity_id = 0,
-    const spire::net::packet::Vector2 *position = nullptr,
-    const spire::net::packet::Vector2 *direction = nullptr,
-    const char *entity_name = nullptr) {
-  auto entity_name__ = entity_name ? _fbb.CreateString(entity_name) : 0;
-  return spire::net::packet::CreateEntitySpawn(
-      _fbb,
-      entity_type,
-      entity_id,
-      position,
-      direction,
-      entity_name__);
-}
 
 inline const spire::net::packet::EntitySpawn *GetEntitySpawn(const void *buf) {
   return ::flatbuffers::GetRoot<spire::net::packet::EntitySpawn>(buf);

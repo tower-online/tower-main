@@ -2,12 +2,14 @@
 
 #include <spire/net/client.hpp>
 #include <spire/net/packet/packet_base.hpp>
+#include <spire/world/world.hpp>
 
 #include <chrono>
 
-using namespace std::chrono;
-
 namespace spire::net {
+using namespace std::chrono;
+using namespace world;
+
 class Zone {
     constexpr static auto TICK_INTERVAL = 100ms;
 
@@ -23,9 +25,12 @@ public:
 private:
     void handle_packet(std::shared_ptr<Packet>&& packet);
     void hanlde_entity_movement(std::shared_ptr<Client>&& client, const packet::EntityMovement* movement);
+    void hanlde_entity_action(std::shared_ptr<Client>&& client, const packet::EntityAction* action);
     void tick();
 
     std::unordered_map<uint32_t, std::shared_ptr<Client>> _clients {};
+    World _world {};
+
     ConcurrentQueue<std::function<void()>> _jobs {};
     std::thread _worker_thread;
     std::atomic<bool> _is_running {false};

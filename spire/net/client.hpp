@@ -1,11 +1,12 @@
 #pragma once
 
-#include <spire/game/player.hpp>
+#include <spire/game/player/player.hpp>
 #include <spire/net/connection.hpp>
 #include <spire/net/packet.hpp>
 
 namespace spire::net {
 using boost::asio::ip::tcp;
+using namespace game::player;
 
 class Client : public std::enable_shared_from_this<Client> {
 public:
@@ -22,7 +23,7 @@ public:
 
 public:
     const uint32_t id;
-    std::shared_ptr<game::Player> player {std::make_shared<game::Player>()};
+    std::shared_ptr<Player> player {std::make_shared<Player>()};
 
 private:
     Connection _connection;

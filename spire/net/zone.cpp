@@ -1,4 +1,7 @@
+#include <glm/geometric.hpp>
+#include <glm/trigonometric.hpp>
 #include <spire/net/zone.hpp>
+#include <spire/game/equipment/fist.hpp>
 
 #include <random>
 
@@ -50,6 +53,8 @@ void Zone::add_client(std::shared_ptr<Client> client) {
         static std::mt19937 rng {rd()};
         static std::uniform_real_distribution<float> distribution {-30.0, 30.0};
 
+        new_client->player->build();
+        _world.add_colliders_with_traverse(new_client->player);
         new_client->player->position = glm::vec2 {distribution(rng), distribution(rng)};
 
         // Spawn players in the zone
@@ -57,9 +62,9 @@ void Zone::add_client(std::shared_ptr<Client> client) {
         for (const auto& [_, client] : _clients) {
             flatbuffers::FlatBufferBuilder builder {256};
             const Vector2 position {client->player->position.x, client->player->position.y};
-            const Vector2 direction {client->player->direction.x, client->player->direction.y};
             const auto spawn = CreateEntitySpawn(builder,
-                EntityType::PLAYER, client->player->entity_id, &position, &direction);
+                EntityType::PLAYER, EntityClass::PLAYER, client->player->entity_id, &position,
+                client->player->rotation);
             builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntitySpawn, spawn.Union()));
             new_client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
         }
@@ -68,9 +73,9 @@ void Zone::add_client(std::shared_ptr<Client> client) {
         {
             flatbuffers::FlatBufferBuilder builder {256};
             const Vector2 position {new_client->player->position.x, new_client->player->position.y};
-            const Vector2 direction {new_client->player->direction.x, new_client->player->direction.y};
             const auto spawn = CreateEntitySpawn(builder,
-                EntityType::PLAYER, new_client->player->entity_id, &position, &direction);
+                EntityType::PLAYER, EntityClass::PLAYER, new_client->player->entity_id, &position,
+                new_client->player->rotation);
             builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntitySpawn, spawn.Union()));
             broadcast_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()), new_client->id);
         }
@@ -116,40 +121,72 @@ void Zone::handle_packet(std::shared_ptr<Packet>&& packet) {
         hanlde_entity_movement(std::move(packet->client), packet_base->packet_base_as<EntityMovement>());
         break;
 
+    case PacketType::EntityAction:
+        hanlde_entity_action(std::move(packet->client), packet_base->packet_base_as<EntityAction>());
+        break;
+
     default:
         break;
     }
 }
 
 void Zone::hanlde_entity_movement(std::shared_ptr<Client>&& client, const packet::EntityMovement* movement) {
-    const auto direction = movement->direction();
-    client->player->direction = direction->x() == 0 && direction->y() == 0
-        ? glm::vec2 {0, 0}
-        : normalize(glm::vec2 {direction->x(), direction->y()});
+    const auto target_direction = movement->target_direction();
+    if (!target_direction) return;
+
+    client->player->target_direction = {target_direction->x(), target_direction->y()};
+}
+
+void Zone::hanlde_entity_action(std::shared_ptr<Client>&& client, const packet::EntityAction* action) {
+    switch (action->action_type()) {
+    case packet::EntityActionType::MELEE_ATTACK: {
+        auto fist = std::dynamic_pointer_cast<Fist>(client->player->inventory.get_main_weapon());
+        if (!fist) {
+            spdlog::info("[Zone] No Fist!!!");
+            return;
+        }
+
+        auto collisions = _world.get_collisions(fist->attack_collider);
+        for (auto& c : collisions) {
+            auto parent = c->get_parent();
+            if (!parent) continue;
+            if (auto player = std::dynamic_pointer_cast<Player>(parent)) {
+                // Don't attack itself
+                if (player == client->player) continue;
+
+                spdlog::info("[Zone] ({}) attakced ({})", client->player->entity_id, player->entity_id);
+            }
+        }
+        break;
+    }
+
+    default:
+        break;
+    }
 }
 
 void Zone::tick() {
     // Move entities
     for (auto& [_, client] : _clients) {
         auto& position = client->player->position;
-        const auto& direction = client->player->direction;
+        const auto target_direction = client->player->target_direction;
 
-        if (length(direction) == 0) continue;
+        if (target_direction.x == 0.0f && target_direction.y == 0.0f) continue;
         //TODO: Check collisions before move
-        position += direction * game::Player::MOVEMENT_SPEED;
+        position += target_direction * Player::MOVEMENT_SPEED;
     }
 
     // Update entities' transform
     using namespace packet;
     for (auto& [_, client] : _clients) {
-        Vector2 position {client->player->position.x, client->player->position.y};
-        Vector2 direction {client->player->direction.x, client->player->direction.y};
+        const Vector2 position {client->player->position.x, client->player->position.y};
+        const Vector2 direction {client->player->target_direction.x, client->player->target_direction.y};
 
         flatbuffers::FlatBufferBuilder builder {128};
-        const auto entity_transform_update = CreateEntityMovement(builder,
+        const auto movement = CreateEntityMovement(builder,
             client->player->entity_id, &position, &direction);
         builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityMovement,
-            entity_transform_update.Union()));
+            movement.Union()));
         broadcast_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
     }
 }

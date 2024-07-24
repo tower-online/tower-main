@@ -5,7 +5,7 @@ namespace spire::net {
 Client::Client(boost::asio::io_context& ctx, tcp::socket&& socket, const uint32_t id,
     std::function<void(std::shared_ptr<Client>)>&& disconnected,
     std::function<void(std::shared_ptr<Packet>)>&& packet_received)
-    : id(id), player(std::make_shared<game::Player>()),
+    : id(id),
     _connection(ctx, std::move(socket),
         [this](std::vector<uint8_t>&& buffer) {
             _packet_received(std::make_unique<Packet>(shared_from_this(), std::move(buffer)));

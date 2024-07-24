@@ -50,6 +50,7 @@ void Server::add_client(tcp::socket&& socket) {
             _jobs.push([this, packet = std::move(packet)] {
                 handle_packet(packet);
             });
+
         }
     );
 

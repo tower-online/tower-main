@@ -19,6 +19,8 @@ namespace packet {
 
 struct Vector2;
 
+struct Vector2i;
+
 enum class EntityType : uint8_t {
   NONE = 0,
   PLAYER = 1,
@@ -52,6 +54,66 @@ inline const char *EnumNameEntityType(EntityType e) {
   return EnumNamesEntityType()[index];
 }
 
+enum class EntityClass : uint16_t {
+  NONE = 0,
+  PLAYER = 1,
+  MIN = NONE,
+  MAX = PLAYER
+};
+
+inline const EntityClass (&EnumValuesEntityClass())[2] {
+  static const EntityClass values[] = {
+    EntityClass::NONE,
+    EntityClass::PLAYER
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesEntityClass() {
+  static const char * const names[3] = {
+    "NONE",
+    "PLAYER",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameEntityClass(EntityClass e) {
+  if (::flatbuffers::IsOutRange(e, EntityClass::NONE, EntityClass::PLAYER)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesEntityClass()[index];
+}
+
+enum class EntityActionType : uint16_t {
+  NONE = 0,
+  MELEE_ATTACK = 1,
+  MIN = NONE,
+  MAX = MELEE_ATTACK
+};
+
+inline const EntityActionType (&EnumValuesEntityActionType())[2] {
+  static const EntityActionType values[] = {
+    EntityActionType::NONE,
+    EntityActionType::MELEE_ATTACK
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesEntityActionType() {
+  static const char * const names[3] = {
+    "NONE",
+    "MELEE_ATTACK",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameEntityActionType(EntityActionType e) {
+  if (::flatbuffers::IsOutRange(e, EntityActionType::NONE, EntityActionType::MELEE_ATTACK)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesEntityActionType()[index];
+}
+
 FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) Vector2 FLATBUFFERS_FINAL_CLASS {
  private:
   float x_;
@@ -78,6 +140,34 @@ FLATBUFFERS_STRUCT_END(Vector2, 8);
 
 struct Vector2::Traits {
   using type = Vector2;
+};
+
+FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) Vector2i FLATBUFFERS_FINAL_CLASS {
+ private:
+  int32_t x_;
+  int32_t y_;
+
+ public:
+  struct Traits;
+  Vector2i()
+      : x_(0),
+        y_(0) {
+  }
+  Vector2i(int32_t _x, int32_t _y)
+      : x_(::flatbuffers::EndianScalar(_x)),
+        y_(::flatbuffers::EndianScalar(_y)) {
+  }
+  int32_t x() const {
+    return ::flatbuffers::EndianScalar(x_);
+  }
+  int32_t y() const {
+    return ::flatbuffers::EndianScalar(y_);
+  }
+};
+FLATBUFFERS_STRUCT_END(Vector2i, 8);
+
+struct Vector2i::Traits {
+  using type = Vector2i;
 };
 
 }  // namespace packet

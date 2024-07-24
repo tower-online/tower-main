@@ -27,23 +27,23 @@ struct EntityMovement FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   struct Traits;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ENTITY_ID = 4,
-    VT_POSITION = 6,
-    VT_DIRECTION = 8
+    VT_TARGET_POSITION = 6,
+    VT_TARGET_DIRECTION = 8
   };
   uint32_t entity_id() const {
     return GetField<uint32_t>(VT_ENTITY_ID, 0);
   }
-  const spire::net::packet::Vector2 *position() const {
-    return GetStruct<const spire::net::packet::Vector2 *>(VT_POSITION);
+  const spire::net::packet::Vector2 *target_position() const {
+    return GetStruct<const spire::net::packet::Vector2 *>(VT_TARGET_POSITION);
   }
-  const spire::net::packet::Vector2 *direction() const {
-    return GetStruct<const spire::net::packet::Vector2 *>(VT_DIRECTION);
+  const spire::net::packet::Vector2 *target_direction() const {
+    return GetStruct<const spire::net::packet::Vector2 *>(VT_TARGET_DIRECTION);
   }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_ENTITY_ID, 4) &&
-           VerifyField<spire::net::packet::Vector2>(verifier, VT_POSITION, 4) &&
-           VerifyField<spire::net::packet::Vector2>(verifier, VT_DIRECTION, 4) &&
+           VerifyField<spire::net::packet::Vector2>(verifier, VT_TARGET_POSITION, 4) &&
+           VerifyField<spire::net::packet::Vector2>(verifier, VT_TARGET_DIRECTION, 4) &&
            verifier.EndTable();
   }
 };
@@ -55,11 +55,11 @@ struct EntityMovementBuilder {
   void add_entity_id(uint32_t entity_id) {
     fbb_.AddElement<uint32_t>(EntityMovement::VT_ENTITY_ID, entity_id, 0);
   }
-  void add_position(const spire::net::packet::Vector2 *position) {
-    fbb_.AddStruct(EntityMovement::VT_POSITION, position);
+  void add_target_position(const spire::net::packet::Vector2 *target_position) {
+    fbb_.AddStruct(EntityMovement::VT_TARGET_POSITION, target_position);
   }
-  void add_direction(const spire::net::packet::Vector2 *direction) {
-    fbb_.AddStruct(EntityMovement::VT_DIRECTION, direction);
+  void add_target_direction(const spire::net::packet::Vector2 *target_direction) {
+    fbb_.AddStruct(EntityMovement::VT_TARGET_DIRECTION, target_direction);
   }
   explicit EntityMovementBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -75,11 +75,11 @@ struct EntityMovementBuilder {
 inline ::flatbuffers::Offset<EntityMovement> CreateEntityMovement(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t entity_id = 0,
-    const spire::net::packet::Vector2 *position = nullptr,
-    const spire::net::packet::Vector2 *direction = nullptr) {
+    const spire::net::packet::Vector2 *target_position = nullptr,
+    const spire::net::packet::Vector2 *target_direction = nullptr) {
   EntityMovementBuilder builder_(_fbb);
-  builder_.add_direction(direction);
-  builder_.add_position(position);
+  builder_.add_target_direction(target_direction);
+  builder_.add_target_position(target_position);
   builder_.add_entity_id(entity_id);
   return builder_.Finish();
 }

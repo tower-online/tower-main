@@ -35,17 +35,18 @@ FetchContent_MakeAvailable(glm)
 add_executable(spire-server
     spire/main.cpp
 
-    spire/collision/circle_shape.hpp
-    spire/collision/collision_shape.hpp
-    spire/collision/rectangle_shape.hpp
-
     spire/container/concurrent_map.hpp
     spire/container/concurrent_queue.hpp
 
+    spire/game/equipment/equipment.hpp
+    spire/game/equipment/fist.hpp
+    spire/game/equipment/fist.cpp
+    spire/game/player/player.hpp
+    spire/game/player/player.cpp
+    spire/game/player/inventory.hpp
+    spire/game/player/inventory.cpp
     spire/game/entity.hpp
-    spire/game/entity.cpp
-    spire/game/player.hpp
-    spire/game/player.cpp
+    spire/game/item.hpp
 
     spire/net/client.hpp
     spire/net/client.cpp
@@ -56,6 +57,13 @@ add_executable(spire-server
     spire/net/server.cpp
     spire/net/zone.hpp
     spire/net/zone.cpp
+
+    spire/world/collision/circle_collider.hpp
+    spire/world/collision/collider.hpp
+    spire/world/collision/rectangle_collider.hpp
+    spire/world/node.hpp
+    spire/world/world.cpp
+    spire/world/world.hpp
 )
 target_compile_features(spire-server PRIVATE cxx_std_20)
 target_link_libraries(spire-server PRIVATE Boost::system spdlog flatbuffers glm)
@@ -77,9 +85,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Catch2)
 
-add_executable(spire-server-test
-    spire/collision/collision_shape.test.cpp
-)
-target_compile_features(spire-server-test PRIVATE cxx_std_20)
-target_link_libraries(spire-server-test PRIVATE Catch2::Catch2WithMain glm)
-target_include_directories(spire-server-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+#add_executable(spire-server-test)
+#target_compile_features(spire-server-test PRIVATE cxx_std_20)
+#target_link_libraries(spire-server-test PRIVATE Catch2::Catch2WithMain glm)
+#target_include_directories(spire-server-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
