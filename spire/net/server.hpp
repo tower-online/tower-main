@@ -15,6 +15,7 @@ class Server {
     constexpr static auto TICK_INTERVAL = 100ms;
 
 public:
+    Server();
     ~Server();
 
     void start();
@@ -35,7 +36,8 @@ private:
 
     std::unordered_map<uint32_t, std::shared_ptr<Client>> _clients {};
     std::unordered_map<uint32_t, std::weak_ptr<Zone>> _client_current_zones {};
-    std::shared_ptr<Zone> _temp_zone {std::make_shared<Zone>()};
+    std::shared_ptr<Zone> _zone1 {std::make_shared<Zone>()};
+    std::shared_ptr<Zone> _zone2 {std::make_shared<Zone>()};
 
     ConcurrentQueue<std::function<void()>> _jobs {};
     std::thread _worker_thread;

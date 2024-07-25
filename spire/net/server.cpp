@@ -3,6 +3,10 @@
 #include <utility>
 
 namespace spire::net {
+Server::Server() {
+    const auto portal1_2 = std::make_shared<Portal>(_zone1, 0);
+}
+
 Server::~Server() {
     stop();
 
@@ -13,7 +17,7 @@ void Server::start() {
     if (_is_running.exchange(true)) return;
 
     _listener.start();
-    _temp_zone->start();
+    _zone1->start();
 
     _worker_thread = std::thread([this] {
         spdlog::info("[Server] Worker thread entering");
@@ -96,7 +100,7 @@ void Server::handle_client_join(std::shared_ptr<Client> client, const packet::Cl
     }
 
     //TODO: Find player's last stayed zone
-    _client_current_zones.insert_or_assign(client->id, _temp_zone);
-    _temp_zone->add_client(std::move(client));
+    _client_current_zones.insert_or_assign(client->id, _zone1);
+    _zone1->add_client(std::move(client));
 }
 }

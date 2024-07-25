@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.28)
-project(spire-server
+project(SpireServer
     VERSION 0.1
     LANGUAGES CXX
 )
@@ -32,7 +32,7 @@ FetchContent_MakeAvailable(glm)
 
 
 ### TARGETS ###
-add_executable(spire-server
+add_executable(spire_server
     spire/main.cpp
 
     spire/container/concurrent_map.hpp
@@ -67,17 +67,13 @@ add_executable(spire-server
     spire/world/world.cpp
     spire/world/world.hpp
 )
-target_compile_features(spire-server PRIVATE cxx_std_20)
-target_link_libraries(spire-server PRIVATE Boost::system spdlog flatbuffers glm)
-target_include_directories(spire-server PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_features(spire_server PRIVATE cxx_std_20)
+target_link_libraries(spire_server PRIVATE Boost::system spdlog flatbuffers glm)
+target_include_directories(spire_server PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-file(GLOB schemas RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} spire/net/packet/schemas/*.fbs)
-add_custom_target(spire-packet-schemas-compile
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND flatc --cpp --cpp-std c++17 --filename-suffix "\"\"" --filename-ext hpp -o spire/net/packet/ ${schemas}
-    DEPENDS flatc
-)
-
+add_subdirectory(spire/net/packet/schemas)
+add_spire_packets_target("spire/net/packet/schemas" "spire/net/packet")
+add_dependencies(spire_server spire_packets)
 
 ### TESTS ###
 FetchContent_Declare(

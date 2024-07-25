@@ -107,6 +107,10 @@ void Zone::broadcast_packet(std::shared_ptr<flatbuffers::DetachedBuffer> buffer,
     }
 }
 
+void Zone::add_portal(const std::shared_ptr<Portal>& portal) {
+    _portals.push_back(portal);
+}
+
 void Zone::handle_packet(std::shared_ptr<Packet>&& packet) {
     using namespace net::packet;
 
