@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.28)
-project(SpireServer
+project(ProjectTowerServer
     VERSION 0.1
     LANGUAGES CXX
 )
@@ -32,48 +32,48 @@ FetchContent_MakeAvailable(glm)
 
 
 ### TARGETS ###
-add_executable(spire_server
-    spire/main.cpp
+add_executable(tower_server
+    tower/main.cpp
 
-    spire/container/concurrent_map.hpp
-    spire/container/concurrent_queue.hpp
+    tower/container/concurrent_map.hpp
+    tower/container/concurrent_queue.hpp
 
-    spire/game/equipment/equipment.hpp
-    spire/game/equipment/fist.hpp
-    spire/game/player/player.hpp
-    spire/game/player/player.cpp
-    spire/game/player/inventory.hpp
-    spire/game/player/inventory.cpp
-    spire/game/entity.hpp
-    spire/game/item.hpp
+    tower/game/equipment/equipment.hpp
+    tower/game/equipment/fist.hpp
+    tower/game/player/player.hpp
+    tower/game/player/player.cpp
+    tower/game/player/inventory.hpp
+    tower/game/player/inventory.cpp
+    tower/game/entity.hpp
+    tower/game/item.hpp
 
-    spire/net/client.hpp
-    spire/net/client.cpp
-    spire/net/connection.hpp
-    spire/net/listener.hpp
-    spire/net/packet.hpp
-    spire/net/server.hpp
-    spire/net/server.cpp
-    spire/net/zone.hpp
-    spire/net/zone.cpp
+    tower/net/client.hpp
+    tower/net/client.cpp
+    tower/net/connection.hpp
+    tower/net/listener.hpp
+    tower/net/packet.hpp
+    tower/net/server.hpp
+    tower/net/server.cpp
+    tower/net/zone.hpp
+    tower/net/zone.cpp
 
-    spire/system/event.hpp
+    tower/system/event.hpp
 
-    spire/world/collision/circle_collision_shape.hpp
-    spire/world/collision/collision_object.hpp
-    spire/world/collision/collision_shape.hpp
-    spire/world/collision/rectangle_collision_shape.hpp
-    spire/world/node.hpp
-    spire/world/world.cpp
-    spire/world/world.hpp
+    tower/world/collision/circle_collision_shape.hpp
+    tower/world/collision/collision_object.hpp
+    tower/world/collision/collision_shape.hpp
+    tower/world/collision/rectangle_collision_shape.hpp
+    tower/world/node.hpp
+    tower/world/world.cpp
+    tower/world/world.hpp
 )
-target_compile_features(spire_server PRIVATE cxx_std_20)
-target_link_libraries(spire_server PRIVATE Boost::system spdlog flatbuffers glm)
-target_include_directories(spire_server PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_features(tower_server PRIVATE cxx_std_20)
+target_link_libraries(tower_server PRIVATE Boost::system spdlog flatbuffers glm)
+target_include_directories(tower_server PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_subdirectory(spire/net/packet/schemas)
-add_spire_packets_target("spire/net/packet/schemas" "spire/net/packet")
-add_dependencies(spire_server spire_packets)
+add_subdirectory(tower/net/packet/schemas)
+add_tower_packets_target("tower/net/packet/schemas" "tower/net/packet")
+add_dependencies(tower_server tower_packets)
 
 ### TESTS ###
 FetchContent_Declare(
@@ -83,9 +83,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Catch2)
 
-add_executable(spire-server-test
-    spire/system/event.test.cpp
+add_executable(tower_server_test
+    tower/system/event.test.cpp
 )
-target_compile_features(spire-server-test PRIVATE cxx_std_20)
-target_link_libraries(spire-server-test PRIVATE Catch2::Catch2WithMain glm)
-target_include_directories(spire-server-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_features(tower_server_test PRIVATE cxx_std_20)
+target_link_libraries(tower_server_test PRIVATE Catch2::Catch2WithMain glm)
+target_include_directories(tower_server_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
