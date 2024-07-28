@@ -25,11 +25,12 @@ public:
     }
 
     void notify(Args... args) {
-        for (auto& [id, listener] : _listeners) {
-            if (auto l = listener.lock()) {
+        for (auto it {_listeners.begin()}; it != _listeners.end();) {
+            if (auto l = it->second.lock()) {
                 l->call(args...);
+                ++it;
             } else {
-                _listeners.erase(id);
+                it = _listeners.erase(it);
             }
         }
     }

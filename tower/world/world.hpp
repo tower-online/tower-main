@@ -1,5 +1,6 @@
 #pragma once
 
+#include <tower/world/tile_map.hpp>
 #include <tower/world/node.hpp>
 #include <tower/world/collision/collision_object.hpp>
 
@@ -22,5 +23,8 @@ public:
 private:
     std::shared_ptr<Node> _root {std::make_shared<Node>()};
     std::unordered_map<uint32_t, std::shared_ptr<CollisionObject>> _collision_objects;
+    TileMap _grid;
 };
+
+
 }

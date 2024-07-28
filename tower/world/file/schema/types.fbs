@@ -1,0 +1,38 @@
+namespace tower.world;
+
+struct Vector2 {
+    x: float32;
+    y: float32;
+}
+
+struct Vector2i {
+    x: int32;
+    y: int32;
+}
+
+enum TileType : uint8 {
+    NONE,
+    TERRAIN,
+}
+
+enum TileState : uint8 {
+    NONE = 0,
+    BLOCKED = 1,
+}
+
+struct TileData {
+    type: TileType;
+    state: TileType;
+}
+
+enum ObjectType : uint16 {
+    NONE,
+}
+
+struct ObjectData {
+    type: ObjectType;
+    id: uint32;
+    position: Vector2i;
+    rotation: float32;
+    owner: uint32;
+}

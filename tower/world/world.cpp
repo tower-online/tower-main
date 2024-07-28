@@ -1,5 +1,6 @@
 #include <tower/world/world.hpp>
-#include <spdlog/spdlog.h>
+
+#include <cmath>
 
 namespace tower::world {
 World::World() {}
@@ -43,7 +44,8 @@ std::vector<std::shared_ptr<CollisionObject>> World::get_collisions(std::shared_
     return collisions;
 }
 
-std::vector<std::shared_ptr<CollisionObject>> World::get_collisions(const CollisionShape* target_shape, const uint32_t mask) {
+std::vector<std::shared_ptr<CollisionObject>> World::get_collisions(const CollisionShape* target_shape,
+    const uint32_t mask) {
     std::vector<std::shared_ptr<CollisionObject>> collisions {};
     for (auto& [_, c] : _collision_objects) {
         if (!(mask & c->layer)) continue;

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.28)
-project(ProjectTowerServer
+project(TowerServer
     VERSION 0.1
     LANGUAGES CXX
 )
@@ -64,6 +64,7 @@ add_executable(tower_server
     tower/world/collision/collision_shape.hpp
     tower/world/collision/rectangle_collision_shape.hpp
     tower/world/node.hpp
+    tower/world/tile_map.hpp
     tower/world/world.cpp
     tower/world/world.hpp
 )

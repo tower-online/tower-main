@@ -6,3 +6,6 @@
 # Build
 build
 cmake-build-*
+
+# Resources
+bin
