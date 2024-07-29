@@ -32,7 +32,7 @@ FetchContent_MakeAvailable(glm)
 
 
 ### TARGETS ###
-add_executable(tower_server
+add_executable(tower-server
     tower/main.cpp
 
     tower/container/concurrent_map.hpp
@@ -44,18 +44,16 @@ add_executable(tower_server
     tower/game/player/player.cpp
     tower/game/player/inventory.hpp
     tower/game/player/inventory.cpp
-    tower/game/entity.hpp
     tower/game/item.hpp
 
     tower/net/client.hpp
     tower/net/client.cpp
+    tower/net/client_room.hpp
     tower/net/connection.hpp
     tower/net/listener.hpp
     tower/net/packet.hpp
     tower/net/server.hpp
     tower/net/server.cpp
-    tower/net/zone.hpp
-    tower/net/zone.cpp
 
     tower/system/event.hpp
 
@@ -63,18 +61,37 @@ add_executable(tower_server
     tower/world/collision/collision_object.hpp
     tower/world/collision/collision_shape.hpp
     tower/world/collision/rectangle_collision_shape.hpp
+    tower/world/entity.hpp
     tower/world/node.hpp
     tower/world/tile_map.hpp
-    tower/world/world.cpp
-    tower/world/world.hpp
+    tower/world/world_generator.hpp
+    tower/world/world_generator.cpp
+    tower/world/zone.hpp
+    tower/world/zone.cpp
 )
-target_compile_features(tower_server PRIVATE cxx_std_20)
-target_link_libraries(tower_server PRIVATE Boost::system spdlog flatbuffers glm)
-target_include_directories(tower_server PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_features(tower-server PRIVATE cxx_std_20)
+target_link_libraries(tower-server PRIVATE Boost::system spdlog flatbuffers glm)
+target_include_directories(tower-server PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_definitions(tower-server PRIVATE
+    TILE_MAP_DATA_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/bin/tile_map"
+    ZONE_DATA_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/bin/zone"
+)
 
-add_subdirectory(tower/net/packet/schemas)
-add_tower_packets_target("tower/net/packet/schemas" "tower/net/packet")
-add_dependencies(tower_server tower_packets)
+
+### SCHEMAS ###
+add_subdirectory(tower/net/packet/schema)
+add_tower_packet_target("tower/net/packet/schema" "tower/net/packet")
+add_dependencies(tower-server tower-packet)
+
+file(GLOB world_schemas tower/world/schema/*.fbs)
+add_custom_target(
+    tower-world-schema
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND flatc -o tower/world/schema --cpp --cpp-std c++17 --filename-suffix "\"\"" --filename-ext hpp ${world_schemas}
+    DEPENDS flatc
+)
+add_dependencies(tower-server tower-world-schema)
+message("world_schemas: ${world_schemas}")
 
 ### TESTS ###
 FetchContent_Declare(
@@ -84,9 +101,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Catch2)
 
-add_executable(tower_server_test
+add_executable(tower-server-test
     tower/system/event.test.cpp
 )
-target_compile_features(tower_server_test PRIVATE cxx_std_20)
-target_link_libraries(tower_server_test PRIVATE Catch2::Catch2WithMain glm)
-target_include_directories(tower_server_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_features(tower-server-test PRIVATE cxx_std_20)
+target_link_libraries(tower-server-test PRIVATE Catch2::Catch2WithMain glm)
+target_include_directories(tower-server-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

@@ -3,9 +3,13 @@
 #include <tower/world/collision/rectangle_collision_shape.hpp>
 
 namespace tower::game::player {
+Player::Player()
+    : Entity {EntityType::PLAYER_HUMAN} {}
+
 std::shared_ptr<Player> Player::create() {
     auto player = std::make_shared<Player>();
 
+    player->movement_speed_base = 10.0f;
     player->resource.max_health = 100.0f;
     player->resource.health = player->resource.max_health;
 

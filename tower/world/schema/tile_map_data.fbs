@@ -5,7 +5,7 @@ namespace tower.world.schema;
 table TileMapData {
     name: string;
     size: Vector2i;
-    tiles: [Tile];
+    tiles: [TileData];
 }
 
 root_type TileMapData;

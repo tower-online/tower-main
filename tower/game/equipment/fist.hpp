@@ -1,7 +1,7 @@
 #pragma once
 
 #include <tower/game/equipment/equipment.hpp>
-#include <tower/world/world.hpp>
+#include <tower/world/zone.hpp>
 #include <tower/world/collision/rectangle_collision_shape.hpp>
 
 namespace tower::game::equipment {

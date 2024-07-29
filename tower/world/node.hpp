@@ -1,7 +1,6 @@
 #pragma once
 
 #include <glm/vec2.hpp>
-#include <spdlog/spdlog.h>
 
 #include <atomic>
 #include <memory>
@@ -18,11 +17,12 @@ public:
     const std::vector<std::shared_ptr<Node>>& get_childs() const;
     std::shared_ptr<Node> get_parent();
     void set_parent(const std::shared_ptr<Node>& parent);
+    std::shared_ptr<Node> get_root();
 
     glm::vec2 get_global_position() const;
     float get_global_rotation() const;
 
-    const uint32_t id {++_id_generator};
+    const uint32_t node_id {++_id_generator};
     glm::vec2 position {};
     float rotation {};
 
@@ -47,6 +47,13 @@ inline void Node::add_child(const std::shared_ptr<Node>& child) {
 
 inline void Node::set_parent(const std::shared_ptr<Node>& parent) {
     this->parent = parent;
+}
+
+inline std::shared_ptr<Node> Node::get_root() {
+    if (const auto p = parent.lock()) {
+        return p->get_root();
+    }
+    return shared_from_this();
 }
 
 inline const std::vector<std::shared_ptr<Node>>& Node::get_childs() const {
