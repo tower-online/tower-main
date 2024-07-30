@@ -29,7 +29,7 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) ObjectData FLATBUFFERS_FINAL_CLASS {
   uint16_t type_;
   int16_t padding0__;
   uint32_t id_;
-  tower::world::Vector2i position_;
+  tower::world::schema::Vector2i position_;
   float rotation_;
   uint32_t owner_;
 
@@ -44,7 +44,7 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) ObjectData FLATBUFFERS_FINAL_CLASS {
         owner_(0) {
     (void)padding0__;
   }
-  ObjectData(tower::world::ObjectType _type, uint32_t _id, const tower::world::Vector2i &_position, float _rotation, uint32_t _owner)
+  ObjectData(tower::world::schema::ObjectType _type, uint32_t _id, const tower::world::schema::Vector2i &_position, float _rotation, uint32_t _owner)
       : type_(::flatbuffers::EndianScalar(static_cast<uint16_t>(_type))),
         padding0__(0),
         id_(::flatbuffers::EndianScalar(_id)),
@@ -53,13 +53,13 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) ObjectData FLATBUFFERS_FINAL_CLASS {
         owner_(::flatbuffers::EndianScalar(_owner)) {
     (void)padding0__;
   }
-  tower::world::ObjectType type() const {
-    return static_cast<tower::world::ObjectType>(::flatbuffers::EndianScalar(type_));
+  tower::world::schema::ObjectType type() const {
+    return static_cast<tower::world::schema::ObjectType>(::flatbuffers::EndianScalar(type_));
   }
   uint32_t id() const {
     return ::flatbuffers::EndianScalar(id_);
   }
-  const tower::world::Vector2i &position() const {
+  const tower::world::schema::Vector2i &position() const {
     return position_;
   }
   float rotation() const {
@@ -87,11 +87,11 @@ struct ZoneData FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint32_t id() const {
     return GetField<uint32_t>(VT_ID, 0);
   }
-  const tower::world::Vector2i *size() const {
-    return GetStruct<const tower::world::Vector2i *>(VT_SIZE);
+  const tower::world::schema::Vector2i *size() const {
+    return GetStruct<const tower::world::schema::Vector2i *>(VT_SIZE);
   }
-  const ::flatbuffers::Vector<const tower::world::TileData *> *tiles() const {
-    return GetPointer<const ::flatbuffers::Vector<const tower::world::TileData *> *>(VT_TILES);
+  const ::flatbuffers::Vector<const tower::world::schema::TileData *> *tiles() const {
+    return GetPointer<const ::flatbuffers::Vector<const tower::world::schema::TileData *> *>(VT_TILES);
   }
   const ::flatbuffers::Vector<const tower::world::schema::ObjectData *> *objects() const {
     return GetPointer<const ::flatbuffers::Vector<const tower::world::schema::ObjectData *> *>(VT_OBJECTS);
@@ -99,7 +99,7 @@ struct ZoneData FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_ID, 4) &&
-           VerifyField<tower::world::Vector2i>(verifier, VT_SIZE, 4) &&
+           VerifyField<tower::world::schema::Vector2i>(verifier, VT_SIZE, 4) &&
            VerifyOffset(verifier, VT_TILES) &&
            verifier.VerifyVector(tiles()) &&
            VerifyOffset(verifier, VT_OBJECTS) &&
@@ -115,10 +115,10 @@ struct ZoneDataBuilder {
   void add_id(uint32_t id) {
     fbb_.AddElement<uint32_t>(ZoneData::VT_ID, id, 0);
   }
-  void add_size(const tower::world::Vector2i *size) {
+  void add_size(const tower::world::schema::Vector2i *size) {
     fbb_.AddStruct(ZoneData::VT_SIZE, size);
   }
-  void add_tiles(::flatbuffers::Offset<::flatbuffers::Vector<const tower::world::TileData *>> tiles) {
+  void add_tiles(::flatbuffers::Offset<::flatbuffers::Vector<const tower::world::schema::TileData *>> tiles) {
     fbb_.AddOffset(ZoneData::VT_TILES, tiles);
   }
   void add_objects(::flatbuffers::Offset<::flatbuffers::Vector<const tower::world::schema::ObjectData *>> objects) {
@@ -138,8 +138,8 @@ struct ZoneDataBuilder {
 inline ::flatbuffers::Offset<ZoneData> CreateZoneData(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t id = 0,
-    const tower::world::Vector2i *size = nullptr,
-    ::flatbuffers::Offset<::flatbuffers::Vector<const tower::world::TileData *>> tiles = 0,
+    const tower::world::schema::Vector2i *size = nullptr,
+    ::flatbuffers::Offset<::flatbuffers::Vector<const tower::world::schema::TileData *>> tiles = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<const tower::world::schema::ObjectData *>> objects = 0) {
   ZoneDataBuilder builder_(_fbb);
   builder_.add_objects(objects);
@@ -157,10 +157,10 @@ struct ZoneData::Traits {
 inline ::flatbuffers::Offset<ZoneData> CreateZoneDataDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t id = 0,
-    const tower::world::Vector2i *size = nullptr,
-    const std::vector<tower::world::TileData> *tiles = nullptr,
+    const tower::world::schema::Vector2i *size = nullptr,
+    const std::vector<tower::world::schema::TileData> *tiles = nullptr,
     const std::vector<tower::world::schema::ObjectData> *objects = nullptr) {
-  auto tiles__ = tiles ? _fbb.CreateVectorOfStructs<tower::world::TileData>(*tiles) : 0;
+  auto tiles__ = tiles ? _fbb.CreateVectorOfStructs<tower::world::schema::TileData>(*tiles) : 0;
   auto objects__ = objects ? _fbb.CreateVectorOfStructs<tower::world::schema::ObjectData>(*objects) : 0;
   return tower::world::schema::CreateZoneData(
       _fbb,

@@ -1,4 +1,4 @@
-namespace tower.world;
+namespace tower.world.schema;
 
 enum TileType : uint8 {
     NONE,

@@ -33,17 +33,17 @@ struct TileMapData FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *name() const {
     return GetPointer<const ::flatbuffers::String *>(VT_NAME);
   }
-  const tower::world::Vector2i *size() const {
-    return GetStruct<const tower::world::Vector2i *>(VT_SIZE);
+  const tower::world::schema::Vector2i *size() const {
+    return GetStruct<const tower::world::schema::Vector2i *>(VT_SIZE);
   }
-  const ::flatbuffers::Vector<const tower::world::TileData *> *tiles() const {
-    return GetPointer<const ::flatbuffers::Vector<const tower::world::TileData *> *>(VT_TILES);
+  const ::flatbuffers::Vector<const tower::world::schema::TileData *> *tiles() const {
+    return GetPointer<const ::flatbuffers::Vector<const tower::world::schema::TileData *> *>(VT_TILES);
   }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_NAME) &&
            verifier.VerifyString(name()) &&
-           VerifyField<tower::world::Vector2i>(verifier, VT_SIZE, 4) &&
+           VerifyField<tower::world::schema::Vector2i>(verifier, VT_SIZE, 4) &&
            VerifyOffset(verifier, VT_TILES) &&
            verifier.VerifyVector(tiles()) &&
            verifier.EndTable();
@@ -57,10 +57,10 @@ struct TileMapDataBuilder {
   void add_name(::flatbuffers::Offset<::flatbuffers::String> name) {
     fbb_.AddOffset(TileMapData::VT_NAME, name);
   }
-  void add_size(const tower::world::Vector2i *size) {
+  void add_size(const tower::world::schema::Vector2i *size) {
     fbb_.AddStruct(TileMapData::VT_SIZE, size);
   }
-  void add_tiles(::flatbuffers::Offset<::flatbuffers::Vector<const tower::world::TileData *>> tiles) {
+  void add_tiles(::flatbuffers::Offset<::flatbuffers::Vector<const tower::world::schema::TileData *>> tiles) {
     fbb_.AddOffset(TileMapData::VT_TILES, tiles);
   }
   explicit TileMapDataBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
@@ -77,8 +77,8 @@ struct TileMapDataBuilder {
 inline ::flatbuffers::Offset<TileMapData> CreateTileMapData(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     ::flatbuffers::Offset<::flatbuffers::String> name = 0,
-    const tower::world::Vector2i *size = nullptr,
-    ::flatbuffers::Offset<::flatbuffers::Vector<const tower::world::TileData *>> tiles = 0) {
+    const tower::world::schema::Vector2i *size = nullptr,
+    ::flatbuffers::Offset<::flatbuffers::Vector<const tower::world::schema::TileData *>> tiles = 0) {
   TileMapDataBuilder builder_(_fbb);
   builder_.add_tiles(tiles);
   builder_.add_size(size);
@@ -94,10 +94,10 @@ struct TileMapData::Traits {
 inline ::flatbuffers::Offset<TileMapData> CreateTileMapDataDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     const char *name = nullptr,
-    const tower::world::Vector2i *size = nullptr,
-    const std::vector<tower::world::TileData> *tiles = nullptr) {
+    const tower::world::schema::Vector2i *size = nullptr,
+    const std::vector<tower::world::schema::TileData> *tiles = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
-  auto tiles__ = tiles ? _fbb.CreateVectorOfStructs<tower::world::TileData>(*tiles) : 0;
+  auto tiles__ = tiles ? _fbb.CreateVectorOfStructs<tower::world::schema::TileData>(*tiles) : 0;
   return tower::world::schema::CreateTileMapData(
       _fbb,
       name__,

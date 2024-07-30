@@ -104,6 +104,5 @@ void Server::handle_client_join(std::shared_ptr<Client> client, const ClientJoin
 
     //TODO: Find player's last stayed zone
     _default_zone.add_client_deferred(std::move(client));
-    int a = 5;
 }
 }

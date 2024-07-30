@@ -27,7 +27,7 @@ class Zone {
     constexpr static auto TICK_INTERVAL = 100ms;
 
 public:
-    Zone();
+    explicit Zone(std::string_view tile_map_name);
     ~Zone();
 
     void start();
@@ -59,7 +59,7 @@ private:
     // Objects
     std::shared_ptr<Node> _root {std::make_shared<Node>()};
     std::unordered_map<uint32_t, std::shared_ptr<CollisionObject>> _collision_objects {};
-    TileMap _tile_map {};
+    TileMap _tile_map;
     std::vector<Portal> _portals {};
     std::unordered_map<uint32_t, std::shared_ptr<Entity>> _entities {};
 

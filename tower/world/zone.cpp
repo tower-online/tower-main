@@ -8,12 +8,12 @@
 namespace tower::world {
 using namespace game::player;
 
-Zone::Zone()
+Zone::Zone(std::string_view tile_map_name)
     : _client_room {
         _jobs, [this](std::shared_ptr<net::Packet>&& packet) {
             handle_packet(std::move(packet));
         }
-    } {
+    }, _tile_map {TileMap::load_tile_map(tile_map_name)} {
     _on_client_disconnected = std::make_shared<EventListener<std::shared_ptr<net::Client>>>(
         [this](std::shared_ptr<net::Client> client) {
             remove_client_deferred(client);
@@ -122,7 +122,13 @@ void Zone::tick() {
     // Move entities
     std::vector<EntityMovement> movements {};
     for (auto& [_, entity] : _entities) {
-        entity->position += entity->target_direction * entity->movement_speed_base;
+        // Check if tile is blocked and move
+        //TODO: Pull out if entity is already in collider
+        const auto target_position = entity->position + entity->target_direction * entity->movement_speed_base;
+        if (!_tile_map.is_blocked(target_position)) {
+            entity->position = target_position;
+        }
+
 
         movements.push_back(EntityMovement {
             entity->entity_id,
