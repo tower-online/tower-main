@@ -38,6 +38,11 @@ public:
     Tile& get_tile(const glm::uvec2& p) { return get_tile(p.x, p.y); }
     Tile& operator[](const size_t i) { return get_tile(i % _size.x, i / _size.x); }
 
+    bool is_outside(const glm::vec2& p) const {
+        return p.x < 0.0f || p.x > static_cast<float>(_size.x * Tile::TILE_SIZE)
+            || p.y < 0.0f || p.y > static_cast<float>(_size.y * Tile::TILE_SIZE);
+    }
+
     bool is_blocked(const glm::vec2& p) const {
         const auto indice = position_to_indice(p);
         return _tiles[indice.y * _size.x + indice.x].state == TileState::BLOCKED;
@@ -74,12 +79,13 @@ inline TileMap TileMap::load_tile_map(std::string_view name) {
 
     using namespace world::schema;
     const auto tile_map_data = GetTileMapData(buffer.data());
-    if (flatbuffers::Verifier verifier {buffer.data(), buffer.size()}; !tile_map_data || !tile_map_data->Verify(verifier)) {
+    if (flatbuffers::Verifier verifier {buffer.data(), buffer.size()}; !tile_map_data || !tile_map_data->
+        Verify(verifier)) {
         spdlog::error("[TileMap] Invalid tile map {}", name);
         return {};
     }
 
-    TileMap tile_map {glm::uvec2 {tile_map_data->size()->x() , tile_map_data->size()->y()}};
+    TileMap tile_map {glm::uvec2 {tile_map_data->size()->x(), tile_map_data->size()->y()}};
     const auto tiles = tile_map_data->tiles();
     if (const auto size = tile_map.get_size(); size.x * size.y != tiles->size()) {
         spdlog::error("[TileMap] Invalid tile map size {}", name);

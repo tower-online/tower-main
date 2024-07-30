@@ -124,11 +124,12 @@ void Zone::tick() {
     for (auto& [_, entity] : _entities) {
         // Check if tile is blocked and move
         //TODO: Pull out if entity is already in collider
-        const auto target_position = entity->position + entity->target_direction * entity->movement_speed_base;
-        if (!_tile_map.is_blocked(target_position)) {
-            entity->position = target_position;
+        if (entity->target_direction != glm::vec2 {0.0f, 0.0f}) {
+            const auto target_position = entity->position + entity->target_direction * entity->movement_speed_base;
+            if (!_tile_map.is_outside(target_position) && !_tile_map.is_blocked(target_position)) {
+                entity->position = target_position;
+            }
         }
-
 
         movements.push_back(EntityMovement {
             entity->entity_id,
