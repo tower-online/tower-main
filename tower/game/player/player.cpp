@@ -13,16 +13,18 @@ std::shared_ptr<Player> Player::create() {
     player->resource.max_health = 100.0f;
     player->resource.health = player->resource.max_health;
 
-    auto body_collider = CollisionObject::create(
-        std::make_shared<RectangleCollisionShape>(glm::vec2 {7, 12}),
+    const auto body_collider = CollisionObject::create(
+        std::make_shared<RectangleCollisionShape>(glm::vec2 {12, 12}),
         static_cast<uint32_t>(ColliderLayer::ENTITIES),
         0
     );
-    body_collider->position = {0, 4};
     player->add_child(body_collider);
 
+    const auto weapon_offset = std::make_shared<Node>(glm::vec2 {12, 0}, 0);
+    player->add_child(weapon_offset);
+
     auto fist = std::make_shared<Fist>();
-    player->add_child(fist->attack_shape);
+    weapon_offset->add_child(fist->attack_shape);
     player->inventory.set_main_weapon(std::move(fist));
 
     return player;

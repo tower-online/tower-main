@@ -56,6 +56,7 @@ add_executable(tower-server
     tower/net/server.cpp
 
     tower/system/event.hpp
+    tower/system/math.hpp
 
     tower/world/collision/circle_collision_shape.hpp
     tower/world/collision/collision_object.hpp

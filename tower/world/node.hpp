@@ -3,6 +3,7 @@
 #include <glm/vec2.hpp>
 
 #include <atomic>
+#include <cmath>
 #include <memory>
 #include <vector>
 
@@ -66,7 +67,15 @@ inline std::shared_ptr<Node> Node::get_parent() {
 
 inline glm::vec2 Node::get_global_position() const {
     if (const auto p = parent.lock()) {
-        return p->get_global_position() + position;
+        const auto parent_position = p->get_global_position();
+        const auto parent_rotation = p->get_global_rotation();
+        if (parent_rotation == 0.0f) return parent_position + position;
+
+        const glm::vec2 rotated_position = {
+            position.x * std::cos(parent_rotation) - position.y * std::sin(parent_rotation),
+            position.x * std::sin(parent_rotation) + position.y * std::cos(parent_rotation)
+        };
+        return parent_position + rotated_position;
     }
     return position;
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <glm/geometric.hpp>
+#include <tower/system/math.hpp>
 #include <tower/world/collision/circle_collision_shape.hpp>
 #include <tower/world/collision/collision_shape.hpp>
 
@@ -8,8 +9,11 @@ namespace tower::world {
 struct RectangleCollisionShape : CollisionShape {
     explicit RectangleCollisionShape(const glm::vec2& size);
 
+    // Assumes that global rotation is always aligned with 4-way angle
     [[nodiscard]] bool is_colliding(const CollisionShape* other) const override;
     [[nodiscard]] bool is_colliding(const glm::vec2& point) const override;
+
+    glm::vec2 get_rotated_size() const;
 
     // {width // 2, height // 2}
     glm::vec2 size;
@@ -20,22 +24,26 @@ inline RectangleCollisionShape::RectangleCollisionShape(const glm::vec2& size)
 
 inline bool RectangleCollisionShape::is_colliding(const CollisionShape* other) const {
     const auto center = get_global_position();
+    const auto rotated_size = get_rotated_size();
 
-    if (const auto rect = dynamic_cast<const RectangleCollisionShape*>(other)) {
-        const auto rcenter = rect->get_global_position();
+    if (const auto other_rect = dynamic_cast<const RectangleCollisionShape*>(other)) {
+        const auto other_center = other_rect->get_global_position();
+        const auto other_size = other_rect->get_rotated_size();
         return !(
-            center.x + size.x < rcenter.x - rect->size.x ||
-            center.x - size.x > rcenter.x + rect->size.x ||
-            center.y + size.y < rcenter.y - rect->size.y ||
-            center.y - size.y > rcenter.y + rect->size.y);
+            center.x + rotated_size.x < other_center.x - other_size.x ||
+            center.x - rotated_size.x > other_center.x + other_size.x ||
+            center.y + rotated_size.y < other_center.y - other_size.y ||
+            center.y - rotated_size.y > other_center.y + other_size.y);
     }
-    if (const auto circle = dynamic_cast<const CircleCollisionShape*>(other)) {
-        const auto ccenter = circle->get_global_position();
-        return distance(ccenter, center + glm::vec2 {size.x, size.y}) <= circle->radius ||
-            distance(ccenter, center + glm::vec2 {-size.x, size.y}) <= circle->radius ||
-            distance(ccenter, center + glm::vec2 {size.x, -size.y}) <= circle->radius ||
-            distance(ccenter, center + glm::vec2 {-size.x, -size.y}) <= circle->radius;
+
+    if (const auto other_circle = dynamic_cast<const CircleCollisionShape*>(other)) {
+        const auto other_center = other_circle->get_global_position();
+        return distance(other_center, center + glm::vec2 {rotated_size.x, rotated_size.y}) <= other_circle->radius ||
+            distance(other_center, center + glm::vec2 {-rotated_size.x, rotated_size.y}) <= other_circle->radius ||
+            distance(other_center, center + glm::vec2 {rotated_size.x, -rotated_size.y}) <= other_circle->radius ||
+            distance(other_center, center + glm::vec2 {-rotated_size.x, -rotated_size.y}) <= other_circle->radius;
     }
+
     return false;
 }
 
@@ -43,5 +51,13 @@ inline bool RectangleCollisionShape::is_colliding(const glm::vec2& point) const 
     const auto center = get_global_position();
     return point.x >= center.x - size.x && point.x <= center.x + size.x &&
         point.y >= center.y - size.y && point.y <= center.y + size.y;
+}
+
+inline glm::vec2 RectangleCollisionShape::get_rotated_size() const {
+    if (const auto global_rotation = get_global_rotation();
+        f_is_equal(global_rotation, 0.0f) || f_is_equal(global_rotation, PI)) {
+        return size;
+    }
+    return {size.y, size.x};
 }
 }

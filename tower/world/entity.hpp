@@ -34,6 +34,9 @@ public:
     Event<EntityResourceType, EntityResourceModifyMode, uint32_t, uint32_t> resource_modified;
 
 private:
+    std::shared_ptr<Node> pivot {std::make_shared<Node>()};
+
+private:
     static void modify_resource_internal(EntityResourceModifyMode mode, uint32_t amount, uint32_t& target,
         uint32_t target_max);
 };

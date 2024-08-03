@@ -70,7 +70,7 @@ inline TileMap& TileMap::operator=(TileMap&& other) noexcept {
 inline TileMap TileMap::load_tile_map(std::string_view name) {
     spdlog::info("[TileMap] Loading tile map {}", name);
 
-    std::ifstream stream {std::format("{}/{}", TILE_MAP_DATA_ROOT, name), std::ios::in | std::ios::binary};
+    std::ifstream stream {std::format("{}/{}.bin", TILE_MAP_DATA_ROOT, name), std::ios::in | std::ios::binary};
     if (!stream.is_open()) {
         spdlog::error("[TileMap] Cannot open tile map {}", name);
         return {};
@@ -97,7 +97,7 @@ inline TileMap TileMap::load_tile_map(std::string_view name) {
         tile_map[i] = Tile {.type = tile_data->type(), .state = tile_data->state()};
     }
 
-    spdlog::info("[TileMap] Loading tile map {} succeed", name);
+    spdlog::info("[TileMap] Loaded tile map {}", name);
     return tile_map;
 }
 

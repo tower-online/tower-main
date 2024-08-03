@@ -8,8 +8,9 @@
 namespace tower::world {
 using namespace game::player;
 
-Zone::Zone(std::string_view tile_map_name)
-    : _client_room {
+Zone::Zone(const uint32_t zone_id, const std::string_view tile_map_name)
+    : zone_id {zone_id}, zone_name {tile_map_name},
+    _client_room {
         _jobs, [this](std::shared_ptr<net::Packet>&& packet) {
             handle_packet(std::move(packet));
         }
@@ -18,11 +19,6 @@ Zone::Zone(std::string_view tile_map_name)
         [this](std::shared_ptr<net::Client> client) {
             remove_client_deferred(client);
         });
-
-
-    // TODO: Set portals from settings or map construction
-    Portal default_portal {0, 0};
-    _portals.push_back(default_portal);
 }
 
 Zone::~Zone() {
@@ -61,43 +57,21 @@ void Zone::stop() {
     _client_room.stop();
 }
 
-void Zone::add_client_deferred(std::shared_ptr<net::Client>&& client, const size_t portal_index) {
-    if (portal_index >= _portals.size()) {
-        spdlog::error("[Zone] Invalid portal index");
-        return;
-    }
-
-    _jobs.push([this, client = std::move(client), portal_index] {
+void Zone::add_client_deferred(std::shared_ptr<net::Client>&& client) {
+    _jobs.push([this, client = std::move(client)] {
         _client_room.add_client(client);
         client->disconnected.subscribe(_on_client_disconnected->shared_from_this());
 
         const auto& player = client->player;
 
         _entities[player->entity_id] = player;
-        player->position = _portals[portal_index].position;
+        player->position = {_tile_map.get_size().x * Tile::TILE_SIZE / 2, _tile_map.get_size().y * Tile::TILE_SIZE / 2};
         add_collision_objects_from_tree(player);
 
-        // Spawn every entities in the zone
-        for (const auto& [_, entity] : _entities) {
-            flatbuffers::FlatBufferBuilder builder {256};
-            const net::packet::Vector2 position {entity->position.x, entity->position.y};
-
-
-            const auto spawn = CreateEntitySpawn(builder,
-                entity->entity_type, entity->entity_id, &position, entity->rotation);
-            builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntitySpawn, spawn.Union()));
-            client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
-        }
-
-        // Notify other clients for new player spawn
-        {
-            flatbuffers::FlatBufferBuilder builder {256};
-            const net::packet::Vector2 position {player->position.x, player->position.y};
-            const auto spawn = CreateEntitySpawn(builder,
-                player->entity_type, player->entity_id, &position, player->rotation);
-            builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntitySpawn, spawn.Union()));
-            _client_room.broadcast_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()), client->id);
-        }
+        flatbuffers::FlatBufferBuilder builder {128};
+        const auto enter = CreatePlayerEnterZoneDirect(builder, zone_id, zone_name.c_str());
+        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerEnterZone, enter.Union()));
+        client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
     });
 }
 
@@ -158,6 +132,10 @@ void Zone::handle_packet(std::shared_ptr<net::Packet>&& packet) {
         hanlde_player_movement(std::move(packet->client), packet_base->packet_base_as<PlayerMovement>());
         break;
 
+    case PacketType::PlayerEnterZone:
+        handle_player_enter_zone(std::move(packet->client), packet_base->packet_base_as<PlayerEnterZone>());
+        break;
+
     case PacketType::EntityMeleeAttack:
         hanlde_entity_melee_attack(std::move(packet->client), packet_base->packet_base_as<EntityMeleeAttack>());
         break;
@@ -185,7 +163,34 @@ void Zone::hanlde_player_movement(std::shared_ptr<net::Client>&& client, const P
     const auto& player = client->player;
     player->target_direction = target_direction;
     if (player->target_direction != glm::vec2 {0.0f, 0.0f}) {
-        player->rotation = glm::atan(player->target_direction.y / player->target_direction.x);
+        // player->rotation = glm::atan(player->target_direction.y / player->target_direction.x);
+        player->rotation = direction_to_4way_angle(player->target_direction);
+    }
+}
+
+void Zone::handle_player_enter_zone(std::shared_ptr<net::Client>&& client, const PlayerEnterZone* enter) {
+    // Spawn every entities in the zone
+    for (const auto& [_, entity] : _entities) {
+        flatbuffers::FlatBufferBuilder builder {256};
+        const Vector2 position {entity->position.x, entity->position.y};
+
+
+        const auto spawn = CreateEntitySpawn(builder,
+            entity->entity_type, entity->entity_id, &position, entity->rotation);
+        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntitySpawn, spawn.Union()));
+        client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+    }
+
+    // Notify other clients for new player spawn
+    {
+        const auto& player = client->player;
+
+        flatbuffers::FlatBufferBuilder builder {256};
+        const Vector2 position {player->position.x, player->position.y};
+        const auto spawn = CreateEntitySpawn(builder,
+            player->entity_type, player->entity_id, &position, player->rotation);
+        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntitySpawn, spawn.Union()));
+        _client_room.broadcast_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()), client->id);
     }
 }
 
@@ -212,7 +217,7 @@ void Zone::hanlde_entity_melee_attack(std::shared_ptr<net::Client>&& client, con
         if (!collider_root) continue;
 
         auto entity = std::dynamic_pointer_cast<Entity>(collider_root);
-        if (!entity) continue;
+        if (!entity || entity->entity_id == client->player->entity_id) continue;
 
         //TODO: Calculate armor
         const auto amount_damaged = fist->damage;
@@ -259,8 +264,8 @@ std::vector<std::shared_ptr<CollisionObject>> Zone::get_collisions(std::shared_p
     for (auto& [_, c] : _collision_objects) {
         if (collider == c) continue;
         if (!(collider->mask & c->layer)) continue;
-
         if (!collider->shape->is_colliding(c->shape)) continue;
+
         collisions.push_back(c);
     }
 

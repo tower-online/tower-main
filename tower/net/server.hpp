@@ -39,7 +39,7 @@ private:
     std::shared_ptr<EventListener<std::shared_ptr<Client>>> _on_client_disconnected;
 
     // World
-    Zone _default_zone {"test_zone.bin"};
+    Zone _default_zone {0, "test_zone"};
 
     // Jobs
     ConcurrentQueue<std::function<void()>> _jobs {};
