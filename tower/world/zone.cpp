@@ -36,10 +36,12 @@ void Zone::start() {
         auto last_tick_time = steady_clock::now();
 
         while (_is_running) {
-            for (size_t i {_jobs.size()}; i > 0; --i) {
-                std::function<void()> job;
-                if (!_jobs.try_pop(job)) break;
+            std::queue<std::function<void()>> jobs;
+            _jobs.swap(jobs);
+            while (!jobs.empty()) {
+                const auto& job = jobs.front();
                 job();
+                jobs.pop();
             }
 
             const auto current_time = steady_clock::now();

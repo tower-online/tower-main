@@ -1,5 +1,6 @@
 #pragma once
 
+#include <tower/system/event.hpp>
 #include <tower/world/node.hpp>
 #include <tower/world/collision/collision_shape.hpp>
 
@@ -20,6 +21,10 @@ public:
     const CollisionShape* shape;
     uint32_t layer;
     uint32_t mask;
+
+    Event<std::shared_ptr<Node>> collision_entered;
+    Event<std::shared_ptr<Node>> collision_staying;
+    Event<std::shared_ptr<Node>> collision_exitied;
 };
 
 

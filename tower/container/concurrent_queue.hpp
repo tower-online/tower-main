@@ -3,8 +3,6 @@
 #include <mutex>
 #include <queue>
 
-#include <iostream>
-
 namespace tower {
 /*
  * A thread-safe queue for single consumer and mutliple producers
@@ -23,6 +21,7 @@ public:
     bool empty() const;
     size_t size() const;
     void clear();
+    void swap(std::queue<T>& other);
 
 private:
     std::queue<T> _queue {};
@@ -72,5 +71,12 @@ void ConcurrentQueue<T>::clear() {
     std::lock_guard lock {_mutex};
 
     _queue = {};
+}
+
+template <typename T>
+void ConcurrentQueue<T>::swap(std::queue<T>& other) {
+    std::lock_guard lock {_mutex};
+
+    _queue.swap(other);
 }
 }
