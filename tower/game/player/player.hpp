@@ -12,6 +12,7 @@ public:
 
     static std::shared_ptr<Player> create();
 
+    std::shared_ptr<Node> pivot {std::make_shared<Node>()};
     Inventory inventory {};
 };
 }

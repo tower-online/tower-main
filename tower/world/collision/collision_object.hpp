@@ -18,13 +18,15 @@ public:
     static std::shared_ptr<CollisionObject> create(std::shared_ptr<CollisionShape>&& shape,
         uint32_t layer = 0, uint32_t mask = 0);
 
+    bool is_colliding(const std::shared_ptr<CollisionObject>& other) const;
+
     const CollisionShape* shape;
     uint32_t layer;
     uint32_t mask;
 
-    Event<std::shared_ptr<Node>> collision_entered;
-    Event<std::shared_ptr<Node>> collision_staying;
-    Event<std::shared_ptr<Node>> collision_exitied;
+    Event<std::shared_ptr<Node>> body_entered;
+    Event<std::shared_ptr<Node>> body_staying;
+    Event<std::shared_ptr<Node>> body_exited;
 };
 
 
@@ -34,6 +36,12 @@ inline std::shared_ptr<CollisionObject> CollisionObject::create(std::shared_ptr<
     o->add_child(std::move(shape));
 
     return o;
+}
+
+inline bool CollisionObject::is_colliding(const std::shared_ptr<CollisionObject>& other) const {
+    if (this == other.get()) return false;
+    if (!(mask & other->layer)) return false;
+    return shape->is_colliding(other->shape);
 }
 
 inline CollisionObject::CollisionObject(const CollisionShape* shape,

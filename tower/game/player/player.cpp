@@ -8,6 +8,7 @@ Player::Player()
 
 std::shared_ptr<Player> Player::create() {
     auto player = std::make_shared<Player>();
+    player->add_child(player->pivot);
 
     player->movement_speed_base = 10.0f;
     player->resource.max_health = 100.0f;
@@ -21,7 +22,7 @@ std::shared_ptr<Player> Player::create() {
     player->add_child(body_collider);
 
     const auto weapon_offset = std::make_shared<Node>(glm::vec2 {12, 0}, 0);
-    player->add_child(weapon_offset);
+    player->pivot->add_child(weapon_offset);
 
     auto fist = std::make_shared<Fist>();
     weapon_offset->add_child(fist->attack_shape);

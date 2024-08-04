@@ -119,6 +119,23 @@ void Zone::tick() {
     const auto entity_movements = CreateEntityMovementsDirect(builder, &movements);
     builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityMovements, entity_movements.Union()));
     _client_room.broadcast_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+
+    // Update contacts
+    for (const auto& [_, area] : _collision_areas) {
+        for (const auto& [_, body] : _collision_objects) {
+            if (area->is_colliding(body)) {
+                if (_contacts[area->node_id].contains(body->node_id)) {
+                    area->body_staying.notify(body);
+                } else {
+                    area->body_entered.notify(body);
+                    _contacts[area->node_id].insert(body->node_id);
+                }
+            } else if (_contacts[area->node_id].contains(body->node_id)) {
+                area->body_exited.notify(body);
+                _contacts[area->node_id].erase(body->node_id);
+            }
+        }
+    }
 }
 
 void Zone::handle_packet(std::shared_ptr<net::Packet>&& packet) {
@@ -165,8 +182,8 @@ void Zone::hanlde_player_movement(std::shared_ptr<net::Client>&& client, const P
     const auto& player = client->player;
     player->target_direction = target_direction;
     if (player->target_direction != glm::vec2 {0.0f, 0.0f}) {
-        // player->rotation = glm::atan(player->target_direction.y / player->target_direction.x);
-        player->rotation = direction_to_4way_angle(player->target_direction);
+        // player->pivot->rotation = glm::atan(player->target_direction.y / player->target_direction.x);
+        player->pivot->rotation = direction_to_4way_angle(player->target_direction);
     }
 }
 
@@ -235,18 +252,10 @@ void Zone::hanlde_entity_melee_attack(std::shared_ptr<net::Client>&& client, con
     }
 }
 
-void Zone::add_collision_object(const std::shared_ptr<CollisionObject>& object) {
-    _collision_objects.insert_or_assign(object->node_id, object);
-}
-
-void Zone::remove_collision_object(const uint32_t collider_id) {
-    _collision_objects.erase(collider_id);
-}
-
 void Zone::add_collision_objects_from_tree(const std::shared_ptr<Node>& node) {
     for (auto& child : node->get_childs()) {
         if (const auto object = std::dynamic_pointer_cast<CollisionObject>(child)) {
-            add_collision_object(object);
+            _collision_objects[object->node_id] = object;
         }
         add_collision_objects_from_tree(child);
     }
@@ -255,20 +264,28 @@ void Zone::add_collision_objects_from_tree(const std::shared_ptr<Node>& node) {
 void Zone::remove_collision_objects_from_tree(const std::shared_ptr<Node>& node) {
     for (auto& child : node->get_childs()) {
         if (const auto object = std::dynamic_pointer_cast<CollisionObject>(child)) {
-            remove_collision_object(object->node_id);
+            _collision_objects.erase(object->node_id);
         }
         remove_collision_objects_from_tree(child);
     }
 }
 
-std::vector<std::shared_ptr<CollisionObject>> Zone::get_collisions(std::shared_ptr<CollisionObject>& collider) {
-    std::vector<std::shared_ptr<CollisionObject>> collisions {};
-    for (auto& [_, c] : _collision_objects) {
-        if (collider == c) continue;
-        if (!(collider->mask & c->layer)) continue;
-        if (!collider->shape->is_colliding(c->shape)) continue;
+void Zone::add_collision_area(const std::shared_ptr<CollisionObject>& area) {
+    _collision_areas[area->node_id] = area;
+    _contacts[area->node_id] = {};
+}
 
-        collisions.push_back(c);
+void Zone::remove_collision_area(const uint32_t area_id) {
+    _collision_areas.erase(area_id);
+    _contacts.erase(area_id);
+}
+
+std::vector<std::shared_ptr<CollisionObject>> Zone::get_collisions(const std::shared_ptr<CollisionObject>& collider) {
+    std::vector<std::shared_ptr<CollisionObject>> collisions {};
+    for (auto& [_, other] : _collision_objects) {
+        if (collider->is_colliding(other)) continue;
+
+        collisions.push_back(other);
     }
 
     return collisions;

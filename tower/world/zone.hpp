@@ -9,7 +9,7 @@
 
 #include <chrono>
 #include <unordered_map>
-
+#include <unordered_set>
 
 namespace tower::world {
 using namespace std::chrono;
@@ -37,11 +37,11 @@ private:
     void hanlde_entity_melee_attack(std::shared_ptr<net::Client>&& client, const EntityMeleeAttack* attack);
 
     // Physics
-    void add_collision_object(const std::shared_ptr<CollisionObject>& object);
-    void remove_collision_object(uint32_t collider_id);
     void add_collision_objects_from_tree(const std::shared_ptr<Node>& node);
     void remove_collision_objects_from_tree(const std::shared_ptr<Node>& node);
-    std::vector<std::shared_ptr<CollisionObject>> get_collisions(std::shared_ptr<CollisionObject>& collider);
+    void add_collision_area(const std::shared_ptr<CollisionObject>& area);
+    void remove_collision_area(uint32_t area_id);
+    std::vector<std::shared_ptr<CollisionObject>> get_collisions(const std::shared_ptr<CollisionObject>& collider);
     std::vector<std::shared_ptr<CollisionObject>> get_collisions(const CollisionShape* target_shape, uint32_t mask);
 
 public:
@@ -54,10 +54,11 @@ private:
     std::shared_ptr<EventListener<std::shared_ptr<net::Client>>> _on_client_disconnected;
 
     // Objects
-    std::shared_ptr<Node> _root {std::make_shared<Node>()};
     std::unordered_map<uint32_t, std::shared_ptr<CollisionObject>> _collision_objects {};
-    TileMap _tile_map;
+    std::unordered_map<uint32_t, std::shared_ptr<CollisionObject>> _collision_areas {};
+    std::unordered_map<uint32_t, std::unordered_set<uint32_t>> _contacts {};
     std::unordered_map<uint32_t, std::shared_ptr<Entity>> _entities {};
+    TileMap _tile_map;
 
     // Jobs
     std::atomic<bool> _is_running {false};
