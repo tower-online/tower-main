@@ -3,9 +3,9 @@
 #include <tower/net/client.hpp>
 #include <tower/net/listener.hpp>
 #include <tower/net/packet.hpp>
+#include <tower/net/zone.hpp>
 #include <tower/net/packet/packet_base.hpp>
 #include <tower/system/container/concurrent_map.hpp>
-#include <tower/world/zone.hpp>
 
 #include <chrono>
 

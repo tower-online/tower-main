@@ -1,19 +1,20 @@
 #include <glm/geometric.hpp>
 #include <glm/trigonometric.hpp>
 #include <tower/item/equipment/fist.hpp>
-#include <tower/world/zone.hpp>
+#include <tower/net/zone.hpp>
+#include <tower/system/math.hpp>
+#include <tower/world/entity/entity.hpp>
 #include <tower/world/entity/mob/piggy.hpp>
 
 #include <cmath>
 
-namespace tower::world {
+namespace tower::net {
 using namespace tower::player;
 
 Zone::Zone(const uint32_t zone_id, const std::string_view tile_map_name)
-    : zone_id {zone_id}, zone_name {tile_map_name},
-    _tile_map {TileMap::load_tile_map(tile_map_name)} {
+    : zone_id {zone_id}, _subworld {tile_map_name} {
     _on_client_disconnected = std::make_shared<EventListener<std::shared_ptr<net::Client>>>(
-        [this](std::shared_ptr<net::Client>&& client) {
+        [this](std::shared_ptr<Client>&& client) {
             remove_client_deferred(std::move(client));
         });
 }
@@ -24,7 +25,7 @@ Zone::~Zone() {
     if (_worker_thread.joinable()) _worker_thread.join();
 }
 
-void Zone::handle_packet_deferred(std::shared_ptr<net::Packet>&& packet) {
+void Zone::handle_packet_deferred(std::shared_ptr<Packet>&& packet) {
     // std::function cannot capture move-only type; e.g) std::unique_ptr
     _jobs.push([this, packet {std::move(packet)}]() mutable {
         handle_packet(std::move(packet));
@@ -54,10 +55,11 @@ void Zone::start() {
     });
     _worker_thread.detach();
 
-    const auto piggy = game::Piggy::create();
-    _entities[piggy->entity_id] = piggy;
-    piggy->position = {_tile_map.get_size().x * Tile::TILE_SIZE / 2 + 100, _tile_map.get_size().y * Tile::TILE_SIZE / 2};
-    add_collision_objects_from_tree(piggy);
+    auto piggy = game::Piggy::create();
+    piggy->position = {
+        _subworld.get_size().x * Tile::TILE_SIZE / 2 + 100, _subworld.get_size().y * Tile::TILE_SIZE / 2
+    };
+    _subworld.add_entity(std::move(piggy));
 }
 
 void Zone::stop() {
@@ -66,7 +68,7 @@ void Zone::stop() {
     //TODO: Flush jobs before stopping
 }
 
-void Zone::add_client_deferred(std::shared_ptr<net::Client>&& client) {
+void Zone::add_client_deferred(std::shared_ptr<Client>&& client) {
     if (_clients.empty()) {
         start();
     }
@@ -76,23 +78,21 @@ void Zone::add_client_deferred(std::shared_ptr<net::Client>&& client) {
         client->disconnected.subscribe(_on_client_disconnected->shared_from_this());
 
         const auto& player = client->player;
+        player->position = {_subworld.get_size().x * Tile::TILE_SIZE / 2, _subworld.get_size().y * Tile::TILE_SIZE / 2};
 
-        _entities[player->entity_id] = player;
-        player->position = {_tile_map.get_size().x * Tile::TILE_SIZE / 2, _tile_map.get_size().y * Tile::TILE_SIZE / 2};
-        add_collision_objects_from_tree(player);
+        _subworld.add_entity(player);
 
         flatbuffers::FlatBufferBuilder builder {128};
-        const auto enter = CreatePlayerEnterZoneDirect(builder, zone_id, zone_name.c_str());
+        const auto enter = CreatePlayerEnterZoneDirect(builder, zone_id, _subworld.get_tilemap().get_name().data());
         builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerEnterZone, enter.Union()));
         client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
     });
 }
 
-void Zone::remove_client_deferred(std::shared_ptr<net::Client>&& client) {
+void Zone::remove_client_deferred(std::shared_ptr<Client>&& client) {
     _jobs.push([this, client] {
         _clients.erase(client->id);
-        remove_collision_objects_from_tree(client->player);
-        _entities.erase(client->player->entity_id);
+        _subworld.remove_entity(client->player);
         spdlog::info("[Zone] Removed client ({})", client->id);
 
         // Broadcast EntityDespawn
@@ -108,48 +108,23 @@ void Zone::remove_client_deferred(std::shared_ptr<net::Client>&& client) {
 }
 
 void Zone::tick() {
-    if (_entities.empty()) return;
-
-    // Move entities
-    std::vector<EntityMovement> movements {};
-    for (auto& [_, entity] : _entities) {
-        // Check if tile is blocked and move
-        //TODO: Pull out if entity is already in collider
-        if (entity->target_direction != glm::vec2 {0.0f, 0.0f}) {
-            const auto target_position = entity->position + entity->target_direction * entity->movement_speed_base;
-            if (Tile tile; _tile_map.try_at(target_position, tile) && tile.state != TileState::BLOCKED) {
-                entity->position = target_position;
-            }
-        }
-
-        movements.push_back(EntityMovement {
-            entity->entity_id,
-            net::packet::Vector2 {entity->position.x, entity->position.y},
-            net::packet::Vector2 {entity->target_direction.x, entity->target_direction.y}
-        });
-    }
+    _subworld.tick();
 
     // Broadcast entities' transform
-    flatbuffers::FlatBufferBuilder builder {};
-    const auto entity_movements = CreateEntityMovementsDirect(builder, &movements);
-    builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityMovements, entity_movements.Union()));
-    broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
-
-    // Update contacts
-    for (const auto& [_, area] : _collision_areas) {
-        for (const auto& [_, body] : _collision_objects) {
-            if (area->is_colliding(body)) {
-                if (_contacts[area->node_id].contains(body->node_id)) {
-                    area->body_staying.notify(body);
-                } else {
-                    area->body_entered.notify(body);
-                    _contacts[area->node_id].insert(body->node_id);
-                }
-            } else if (_contacts[area->node_id].contains(body->node_id)) {
-                area->body_exited.notify(body);
-                _contacts[area->node_id].erase(body->node_id);
-            }
+    {
+        std::vector<EntityMovement> movements {};
+        for (const auto& [_, entity] : _subworld.get_entities()) {
+            movements.push_back(EntityMovement {
+                entity->entity_id,
+                net::packet::Vector2 {entity->position.x, entity->position.y},
+                net::packet::Vector2 {entity->target_direction.x, entity->target_direction.y}
+            });
         }
+
+        flatbuffers::FlatBufferBuilder builder {};
+        const auto entity_movements = CreateEntityMovementsDirect(builder, &movements);
+        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityMovements, entity_movements.Union()));
+        broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
     }
 }
 
@@ -160,7 +135,7 @@ void Zone::broadcast(std::shared_ptr<flatbuffers::DetachedBuffer>&& buffer, cons
     }
 }
 
-void Zone::handle_packet(std::shared_ptr<net::Packet>&& packet) {
+void Zone::handle_packet(std::shared_ptr<Packet>&& packet) {
     if (!_clients.contains(packet->client->id)) return;
 
     const auto packet_base = GetPacketBase(packet->buffer.data());
@@ -188,7 +163,7 @@ void Zone::handle_packet(std::shared_ptr<net::Packet>&& packet) {
     }
 }
 
-void Zone::hanlde_player_movement(std::shared_ptr<net::Client>&& client, const PlayerMovement* movement) {
+void Zone::hanlde_player_movement(std::shared_ptr<Client>&& client, const PlayerMovement* movement) {
     glm::vec2 target_direction;
     if (const auto target_direction_ptr = movement->target_direction(); !target_direction_ptr) {
         return;
@@ -211,9 +186,9 @@ void Zone::hanlde_player_movement(std::shared_ptr<net::Client>&& client, const P
     }
 }
 
-void Zone::handle_player_enter_zone(std::shared_ptr<net::Client>&& client, const PlayerEnterZone* enter) {
+void Zone::handle_player_enter_zone(std::shared_ptr<Client>&& client, const PlayerEnterZone* enter) {
     // Spawn every entities in the zone
-    for (const auto& [_, entity] : _entities) {
+    for (const auto& [_, entity] : _subworld.get_entities()) {
         flatbuffers::FlatBufferBuilder builder {256};
         const Vector2 position {entity->position.x, entity->position.y};
 
@@ -237,7 +212,7 @@ void Zone::handle_player_enter_zone(std::shared_ptr<net::Client>&& client, const
     }
 }
 
-void Zone::hanlde_entity_melee_attack(std::shared_ptr<net::Client>&& client, const EntityMeleeAttack* attack) {
+void Zone::hanlde_entity_melee_attack(std::shared_ptr<Client>&& client, const EntityMeleeAttack* attack) {
     // Replicate player's melee attack
     {
         flatbuffers::FlatBufferBuilder builder {128};
@@ -253,7 +228,7 @@ void Zone::hanlde_entity_melee_attack(std::shared_ptr<net::Client>&& client, con
         return;
     }
 
-    auto collisions = get_collisions(fist->attack_shape.get(), static_cast<uint32_t>(ColliderLayer::ENTITIES));
+    auto collisions = _subworld.get_collisions(fist->attack_shape.get(), static_cast<uint32_t>(ColliderLayer::ENTITIES));
 
     for (auto& c : collisions) {
         auto collider_root = c->get_root();
@@ -274,57 +249,5 @@ void Zone::hanlde_entity_melee_attack(std::shared_ptr<net::Client>&& client, con
         builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityResourceModify, modify.Union()));
         broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
     }
-}
-
-void Zone::add_collision_objects_from_tree(const std::shared_ptr<Node>& node) {
-    for (auto& child : node->get_childs()) {
-        if (const auto object = std::dynamic_pointer_cast<CollisionObject>(child)) {
-            _collision_objects[object->node_id] = object;
-        }
-        add_collision_objects_from_tree(child);
-    }
-}
-
-void Zone::remove_collision_objects_from_tree(const std::shared_ptr<Node>& node) {
-    for (auto& child : node->get_childs()) {
-        if (const auto object = std::dynamic_pointer_cast<CollisionObject>(child)) {
-            _collision_objects.erase(object->node_id);
-        }
-        remove_collision_objects_from_tree(child);
-    }
-}
-
-void Zone::add_collision_area(const std::shared_ptr<CollisionObject>& area) {
-    _collision_areas[area->node_id] = area;
-    _contacts[area->node_id] = {};
-}
-
-void Zone::remove_collision_area(const uint32_t area_id) {
-    _collision_areas.erase(area_id);
-    _contacts.erase(area_id);
-}
-
-std::vector<std::shared_ptr<CollisionObject>> Zone::get_collisions(const std::shared_ptr<CollisionObject>& collider) {
-    std::vector<std::shared_ptr<CollisionObject>> collisions {};
-    for (auto& [_, other] : _collision_objects) {
-        if (collider->is_colliding(other)) continue;
-
-        collisions.push_back(other);
-    }
-
-    return collisions;
-}
-
-std::vector<std::shared_ptr<CollisionObject>> Zone::get_collisions(const CollisionShape* target_shape,
-    const uint32_t mask) {
-    std::vector<std::shared_ptr<CollisionObject>> collisions {};
-    for (auto& [_, c] : _collision_objects) {
-        if (!(mask & c->layer)) continue;
-
-        if (!c->shape->is_colliding(target_shape)) continue;
-        collisions.push_back(c);
-    }
-
-    return collisions;
 }
 }

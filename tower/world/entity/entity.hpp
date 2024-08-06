@@ -11,6 +11,8 @@ using net::packet::EntityType;
 using net::packet::EntityResourceType;
 using net::packet::EntityResourceModifyMode;
 
+class Subworld;
+
 struct EntityResource {
     uint32_t max_health {0};
     uint32_t health {0};
@@ -23,7 +25,7 @@ public:
     static uint32_t generate_entity_id();
     void modify_resource(EntityResourceType type, EntityResourceModifyMode mode, uint32_t amount);
 
-    virtual void tick() = 0;
+    virtual void tick(Subworld& subworld) = 0;
 
     const uint32_t entity_id;
     const EntityType entity_type;

@@ -45,6 +45,8 @@ add_executable(tower-server
     tower/net/packet.hpp
     tower/net/server.hpp
     tower/net/server.cpp
+    tower/net/zone.hpp
+    tower/net/zone.cpp
 
     tower/player/player.hpp
     tower/player/player.cpp
@@ -60,11 +62,11 @@ add_executable(tower-server
 
     tower/world/navigator.hpp
     tower/world/node.hpp
+    tower/world/subworld.cpp
+    tower/world/subworld.hpp
     tower/world/tile_map.hpp
     tower/world/world_generator.hpp
     tower/world/world_generator.cpp
-    tower/world/zone.hpp
-    tower/world/zone.cpp
     tower/world/collision/circle_collision_shape.hpp
     tower/world/collision/circle_collision_shape.cpp
     tower/world/collision/collision_object.hpp

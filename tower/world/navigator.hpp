@@ -15,7 +15,7 @@ public:
 
     template <typename T>
     static std::vector<Point> find_path(const Grid<T>& grid, Point start, Point end,
-        Algorithm algorithm = Algorithm::JPS);
+        Algorithm algorithm = Algorithm::ASTAR);
 
 private:
     template <typename T>

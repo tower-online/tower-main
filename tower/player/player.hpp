@@ -12,7 +12,7 @@ public:
 
     static std::shared_ptr<Player> create();
 
-    void tick() override {}
+    void tick(Subworld& subworld) override {}
 
     std::shared_ptr<Node> pivot {std::make_shared<Node>()};
     Inventory inventory {};

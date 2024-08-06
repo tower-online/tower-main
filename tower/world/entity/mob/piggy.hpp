@@ -1,5 +1,6 @@
 #pragma once
 
+#include <tower/world/collision/circle_collision_shape.hpp>
 #include <tower/world/collision/collision_object.hpp>
 #include <tower/world/collision/rectangle_collision_shape.hpp>
 #include <tower/world/entity/entity.hpp>
@@ -13,7 +14,7 @@ public:
     Piggy();
 
     static std::shared_ptr<Entity> create();
-    void tick() override;
+    void tick(Subworld& subworld) override;
 
 private:
     State _state {State::IDLE};
@@ -40,7 +41,13 @@ inline std::shared_ptr<Entity> Piggy::create() {
     return piggy;
 }
 
-inline void Piggy::tick() {
+inline void Piggy::tick(Subworld& subworld) {
+    if (_state == State::IDLE) {
+        // Check if sensor is colliding with any player
 
+
+    } else if (_state == State::FOLLOWING) {
+
+    }
 }
 }

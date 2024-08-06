@@ -1,5 +1,6 @@
 #include <tower/item/equipment/fist.hpp>
 #include <tower/player/player.hpp>
+#include <tower/world/collision/collision_object.hpp>
 #include <tower/world/collision/rectangle_collision_shape.hpp>
 
 namespace tower::player {

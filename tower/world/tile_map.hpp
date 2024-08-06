@@ -29,10 +29,11 @@ public:
     // TileMap& operator=(TileMap&& other) noexcept;
 
     static TileMap load_tile_map(std::string_view name);
-    static ::tower::Point position_to_point(const glm::vec2& position);
+    static Point position_to_point(const glm::vec2& position);
 
     glm::uvec2 get_size() const { return {_grid.size_x, _grid.size_y}; }
     const Grid<Tile>& get_grid() const { return _grid; }
+    std::string_view get_name() const { return _name; }
 
     Tile& at(const Point& p) { return _grid.at(p); }
     Tile& at(const glm::vec2& p) { return at(position_to_point(p)); }
@@ -44,6 +45,7 @@ public:
 
 private:
     Grid<Tile> _grid;
+    std::string _name {};
 };
 
 inline TileMap::TileMap()
@@ -82,6 +84,8 @@ inline TileMap TileMap::load_tile_map(std::string_view name) {
     }
 
     TileMap tile_map {glm::uvec2 {tile_map_data->size()->x(), tile_map_data->size()->y()}};
+    tile_map._name = name;
+
     const auto tiles = tile_map_data->tiles();
     if (const auto size = tile_map.get_size(); size.x * size.y != tiles->size()) {
         spdlog::error("[TileMap] Invalid tile map size {}", name);
