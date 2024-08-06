@@ -3,14 +3,13 @@
 #include <tower/net/client.hpp>
 
 namespace tower::net {
-class Client;
-
 struct Packet {
     std::shared_ptr<Client> client;
     std::vector<uint8_t> buffer;
 
     Packet() = default;
-    Packet(std::shared_ptr<Client> client, std::vector<uint8_t>&& buffer)
+
+    Packet(std::shared_ptr<Client>&& client, std::vector<uint8_t>&& buffer)
         : client(std::move(client)), buffer(std::move(buffer)) {}
 
     Packet(Packet&& other) noexcept

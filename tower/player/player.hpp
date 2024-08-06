@@ -1,16 +1,18 @@
 #pragma once
 
-#include <tower/game/player/inventory.hpp>
-#include <tower/world/entity.hpp>
+#include <tower/player/inventory.hpp>
+#include <tower/world/entity/entity.hpp>
 
-namespace tower::game::player {
-using namespace world;
+namespace tower::player {
+using namespace tower::world;
 
 class Player : public Entity {
 public:
     Player();
 
     static std::shared_ptr<Player> create();
+
+    void tick() override {}
 
     std::shared_ptr<Node> pivot {std::make_shared<Node>()};
     Inventory inventory {};

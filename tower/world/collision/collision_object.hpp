@@ -8,7 +8,9 @@ namespace tower::world {
 enum class ColliderLayer : uint32_t {
     NONE     = 0,
     ENTITIES = 1 << 0,
-    TRIGGERS = 1 << 1,
+    AREAS = 1 << 1,
+    PLAYERS = 1 << 2,
+    MOBS = 1 << 3,
 };
 
 class CollisionObject : public Node {

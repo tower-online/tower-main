@@ -1,11 +1,11 @@
 #pragma once
 
-#include <tower/game/equipment/equipment.hpp>
+#include <tower/item/equipment/equipment.hpp>
 
 #include <memory>
 
-namespace tower::game::player {
-using namespace game::equipment;
+namespace tower::player {
+using namespace item::equipment;
 
 class Inventory {
 public:

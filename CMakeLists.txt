@@ -33,18 +33,11 @@ FetchContent_MakeAvailable(glm)
 
 ### TARGETS ###
 add_executable(tower-server
-    tower/main.cpp
+    tower/app.cpp
 
-    tower/container/concurrent_map.hpp
-    tower/container/concurrent_queue.hpp
-
-    tower/game/equipment/equipment.hpp
-    tower/game/equipment/fist.hpp
-    tower/game/player/player.hpp
-    tower/game/player/player.cpp
-    tower/game/player/inventory.hpp
-    tower/game/player/inventory.cpp
-    tower/game/item.hpp
+    tower/item/item.hpp
+    tower/item/equipment/equipment.hpp
+    tower/item/equipment/fist.hpp
 
     tower/net/client.hpp
     tower/net/client.cpp
@@ -55,20 +48,32 @@ add_executable(tower-server
     tower/net/server.hpp
     tower/net/server.cpp
 
+    tower/player/player.hpp
+    tower/player/player.cpp
+    tower/player/inventory.hpp
+    tower/player/inventory.cpp
+
     tower/system/event.hpp
     tower/system/math.hpp
+    tower/system/timer.hpp
+    tower/system/container/concurrent_map.hpp
+    tower/system/container/concurrent_queue.hpp
+    tower/system/container/grid.hpp
 
-    tower/world/collision/circle_collision_shape.hpp
-    tower/world/collision/collision_object.hpp
-    tower/world/collision/collision_shape.hpp
-    tower/world/collision/rectangle_collision_shape.hpp
-    tower/world/entity.hpp
+    tower/world/navigator.hpp
     tower/world/node.hpp
     tower/world/tile_map.hpp
     tower/world/world_generator.hpp
     tower/world/world_generator.cpp
     tower/world/zone.hpp
     tower/world/zone.cpp
+    tower/world/collision/circle_collision_shape.hpp
+    tower/world/collision/collision_object.hpp
+    tower/world/collision/collision_shape.hpp
+    tower/world/collision/rectangle_collision_shape.hpp
+    tower/world/entity/entity.hpp
+    tower/world/entity/entity_manager.hpp
+    tower/world/entity/mob/piggy.hpp
 )
 target_compile_features(tower-server PRIVATE cxx_std_20)
 target_link_libraries(tower-server PRIVATE Boost::system spdlog flatbuffers glm)
@@ -104,6 +109,7 @@ FetchContent_MakeAvailable(Catch2)
 
 add_executable(tower-server-test
     tower/system/event.test.cpp
+    tower/world/navigator.test.cpp
 )
 target_compile_features(tower-server-test PRIVATE cxx_std_20)
 target_link_libraries(tower-server-test PRIVATE Catch2::Catch2WithMain glm)

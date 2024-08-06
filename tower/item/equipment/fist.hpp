@@ -1,10 +1,10 @@
 #pragma once
 
-#include <tower/game/equipment/equipment.hpp>
+#include <tower/item/equipment/equipment.hpp>
 #include <tower/world/zone.hpp>
 #include <tower/world/collision/rectangle_collision_shape.hpp>
 
-namespace tower::game::equipment {
+namespace tower::item::equipment {
 using namespace world;
 
 class Fist : public Equipment {

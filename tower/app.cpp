@@ -1,4 +1,3 @@
-
 #include <tower/net/server.hpp>
 
 int main() {

@@ -1,20 +1,17 @@
 #include <glm/geometric.hpp>
 #include <glm/trigonometric.hpp>
-#include <tower/game/equipment/fist.hpp>
+#include <tower/item/equipment/fist.hpp>
 #include <tower/world/zone.hpp>
+#include <tower/world/entity/mob/piggy.hpp>
 
 #include <cmath>
 
 namespace tower::world {
-using namespace game::player;
+using namespace tower::player;
 
 Zone::Zone(const uint32_t zone_id, const std::string_view tile_map_name)
     : zone_id {zone_id}, zone_name {tile_map_name},
-    _client_room {
-        _jobs, [this](std::shared_ptr<net::Packet>&& packet) {
-            handle_packet(std::move(packet));
-        }
-    }, _tile_map {TileMap::load_tile_map(tile_map_name)} {
+    _tile_map {TileMap::load_tile_map(tile_map_name)} {
     _on_client_disconnected = std::make_shared<EventListener<std::shared_ptr<net::Client>>>(
         [this](std::shared_ptr<net::Client> client) {
             remove_client_deferred(client);
@@ -27,10 +24,15 @@ Zone::~Zone() {
     if (_worker_thread.joinable()) _worker_thread.join();
 }
 
+void Zone::handle_packet_deferred(std::shared_ptr<net::Packet>&& packet) {
+    // std::function cannot capture move-only type; e.g) std::unique_ptr
+    _jobs.push([this, packet {std::move(packet)}]() mutable {
+        handle_packet(std::move(packet));
+    });
+}
+
 void Zone::start() {
     if (_is_running.exchange(true)) return;
-
-    _client_room.start();
 
     _worker_thread = std::thread([this] {
         auto last_tick_time = steady_clock::now();
@@ -51,17 +53,26 @@ void Zone::start() {
         }
     });
     _worker_thread.detach();
+
+    const auto piggy = game::Piggy::create();
+    _entities[piggy->entity_id] = piggy;
+    piggy->position = {_tile_map.get_size().x * Tile::TILE_SIZE / 2 + 50, _tile_map.get_size().y * Tile::TILE_SIZE / 2};
+    add_collision_objects_from_tree(piggy);
 }
 
 void Zone::stop() {
     if (!_is_running.exchange(false)) return;
 
-    _client_room.stop();
+    //TODO: Flush jobs before stopping
 }
 
 void Zone::add_client_deferred(std::shared_ptr<net::Client>&& client) {
+    if (_clients.empty()) {
+        start();
+    }
+
     _jobs.push([this, client = std::move(client)] {
-        _client_room.add_client(client);
+        _clients[client->id] = client;
         client->disconnected.subscribe(_on_client_disconnected->shared_from_this());
 
         const auto& player = client->player;
@@ -79,7 +90,7 @@ void Zone::add_client_deferred(std::shared_ptr<net::Client>&& client) {
 
 void Zone::remove_client_deferred(std::shared_ptr<net::Client> client) {
     _jobs.push([this, client] {
-        _client_room.remove_client(client->id);
+        _clients.erase(client->id);
         remove_collision_objects_from_tree(client->player);
         _entities.erase(client->player->entity_id);
         spdlog::info("[Zone] Removed client ({})", client->id);
@@ -88,7 +99,11 @@ void Zone::remove_client_deferred(std::shared_ptr<net::Client> client) {
         flatbuffers::FlatBufferBuilder builder {64};
         const auto entity_despawn = CreateEntityDespawn(builder, client->player->entity_id);
         builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityDespawn, entity_despawn.Union()));
-        _client_room.broadcast_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+        broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+
+        if (_clients.empty()) {
+            stop();
+        }
     });
 }
 
@@ -102,7 +117,7 @@ void Zone::tick() {
         //TODO: Pull out if entity is already in collider
         if (entity->target_direction != glm::vec2 {0.0f, 0.0f}) {
             const auto target_position = entity->position + entity->target_direction * entity->movement_speed_base;
-            if (!_tile_map.is_outside(target_position) && !_tile_map.is_blocked(target_position)) {
+            if (Tile tile; _tile_map.try_at(target_position, tile) && tile.state != TileState::BLOCKED) {
                 entity->position = target_position;
             }
         }
@@ -118,7 +133,7 @@ void Zone::tick() {
     flatbuffers::FlatBufferBuilder builder {};
     const auto entity_movements = CreateEntityMovementsDirect(builder, &movements);
     builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityMovements, entity_movements.Union()));
-    _client_room.broadcast_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+    broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
 
     // Update contacts
     for (const auto& [_, area] : _collision_areas) {
@@ -135,6 +150,13 @@ void Zone::tick() {
                 _contacts[area->node_id].erase(body->node_id);
             }
         }
+    }
+}
+
+void Zone::broadcast(std::shared_ptr<flatbuffers::DetachedBuffer>&& buffer, const uint32_t except) {
+    for (auto& [id, client] : _clients) {
+        if (id == except) continue;
+        client->send_packet(buffer);
     }
 }
 
@@ -209,7 +231,7 @@ void Zone::handle_player_enter_zone(std::shared_ptr<net::Client>&& client, const
         const auto spawn = CreateEntitySpawn(builder,
             player->entity_type, player->entity_id, &position, player->rotation);
         builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntitySpawn, spawn.Union()));
-        _client_room.broadcast_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()), client->id);
+        broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()), client->id);
     }
 }
 
@@ -220,7 +242,7 @@ void Zone::hanlde_entity_melee_attack(std::shared_ptr<net::Client>&& client, con
         const auto attack_replication = CreateEntityMeleeAttack(builder, client->player->entity_id);
         builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityMeleeAttack,
             attack_replication.Union()));
-        _client_room.broadcast_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+        broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
     }
 
     auto fist = std::dynamic_pointer_cast<Fist>(client->player->inventory.get_main_weapon());
@@ -248,7 +270,7 @@ void Zone::hanlde_entity_melee_attack(std::shared_ptr<net::Client>&& client, con
             EntityResourceModifyMode::NEGATIVE, EntityResourceType::HEALTH, entity->entity_id,
             amount_damaged, entity->resource.health);
         builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityResourceModify, modify.Union()));
-        _client_room.broadcast_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+        broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
     }
 }
 

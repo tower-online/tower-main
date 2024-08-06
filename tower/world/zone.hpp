@@ -1,11 +1,11 @@
 #pragma once
 
-#include <tower/net/client_room.hpp>
+#include <tower/net/packet.hpp>
 #include <tower/net/packet/packet_base.hpp>
-#include <tower/world/entity.hpp>
 #include <tower/world/node.hpp>
 #include <tower/world/tile_map.hpp>
 #include <tower/world/collision/collision_object.hpp>
+#include <tower/world/entity/entity.hpp>
 
 #include <chrono>
 #include <unordered_map>
@@ -16,11 +16,13 @@ using namespace std::chrono;
 using namespace net::packet;
 
 class Zone {
-    constexpr static auto TICK_INTERVAL = 100ms;
+    constexpr static auto TICK_INTERVAL = 125ms;
 
 public:
     Zone(uint32_t zone_id, std::string_view tile_map_name);
     ~Zone();
+
+    void handle_packet_deferred(std::shared_ptr<net::Packet>&& packet);
 
     void start();
     void stop();
@@ -28,9 +30,11 @@ public:
     void add_client_deferred(std::shared_ptr<net::Client>&& client);
     void remove_client_deferred(std::shared_ptr<net::Client> client);
 
+
 private:
     void tick();
 
+    void broadcast(std::shared_ptr<flatbuffers::DetachedBuffer>&& buffer, uint32_t except = 0);
     void handle_packet(std::shared_ptr<net::Packet>&& packet);
     void hanlde_player_movement(std::shared_ptr<net::Client>&& client, const PlayerMovement* movement);
     void handle_player_enter_zone(std::shared_ptr<net::Client>&& client, const PlayerEnterZone* enter);
@@ -50,7 +54,7 @@ public:
 
 private:
     // Network
-    net::ClientRoom _client_room;
+    std::unordered_map<uint32_t, std::shared_ptr<net::Client>> _clients {};
     std::shared_ptr<EventListener<std::shared_ptr<net::Client>>> _on_client_disconnected;
 
     // Objects

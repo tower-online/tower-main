@@ -1,8 +1,8 @@
-#include <tower/game/equipment/fist.hpp>
-#include <tower/game/player/player.hpp>
+#include <tower/item/equipment/fist.hpp>
+#include <tower/player/player.hpp>
 #include <tower/world/collision/rectangle_collision_shape.hpp>
 
-namespace tower::game::player {
+namespace tower::player {
 Player::Player()
     : Entity {EntityType::PLAYER_HUMAN} {}
 

@@ -1,6 +1,6 @@
-#include <tower/game/player/inventory.hpp>
+#include <tower/player/inventory.hpp>
 
-namespace tower::game::player {
+namespace tower::player {
 std::shared_ptr<Equipment>& Inventory::get_main_weapon() {
     return _main_weapon;
 }

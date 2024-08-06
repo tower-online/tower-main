@@ -3,11 +3,11 @@
 
 namespace tower::net {
 Client::Client(boost::asio::io_context& ctx, tcp::socket&& socket, const uint32_t id,
-    std::function<void(std::shared_ptr<Packet>)>&& packet_received)
+    std::function<void(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)>&& packet_received)
     : id(id),
     _connection(ctx, std::move(socket),
         [this](std::vector<uint8_t>&& buffer) {
-            _packet_received(std::make_shared<Packet>(shared_from_this(), std::move(buffer)));
+            _packet_received(shared_from_this(), std::move(buffer));
         },
         [this] { disconnected.notify(shared_from_this()); }),
     _packet_received(std::move(packet_received)) {}

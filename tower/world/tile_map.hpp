@@ -1,13 +1,12 @@
 #pragma once
 
 #include <glm/vec2.hpp>
+#include <spdlog/spdlog.h>
+#include <tower/system/container/grid.hpp>
 #include <tower/world/schema/tile_map_data.hpp>
 
-#include <cmath>
-#include <cstdint>
 #include <format>
 #include <fstream>
-#include <vector>
 
 namespace tower::world {
 using Pixels = uint32_t;
@@ -23,49 +22,46 @@ struct Tile {
 
 class TileMap {
 public:
-    TileMap() = default;
+    TileMap();
     explicit TileMap(const glm::uvec2& size);
 
-    TileMap(TileMap&& other) noexcept;
-    TileMap& operator=(TileMap&& other) noexcept;
+    // TileMap(TileMap&& other) noexcept;
+    // TileMap& operator=(TileMap&& other) noexcept;
 
     static TileMap load_tile_map(std::string_view name);
-    static glm::uvec2 position_to_indice(const glm::vec2& position);
+    static ::tower::Point position_to_point(const glm::vec2& position);
 
-    glm::uvec2 get_size() const { return _size; }
+    glm::uvec2 get_size() const { return {_grid.size_x, _grid.size_y}; }
+    const Grid<Tile>& get_grid() const { return _grid; }
 
-    Tile& get_tile(const size_t x, const size_t y) { return _tiles[y * _size.x + x]; }
-    Tile& get_tile(const glm::uvec2& p) { return get_tile(p.x, p.y); }
-    Tile& operator[](const size_t i) { return get_tile(i % _size.x, i / _size.x); }
+    Tile& at(const Point& p) { return _grid.at(p); }
+    Tile& at(const glm::vec2& p) { return at(position_to_point(p)); }
+    Tile& at(const size_t i) { return _grid.data[i]; }
+    const Tile& at(const Point& p) const { return _grid.at(p); }
+    const Tile& at(const glm::vec2& p) const { return at(position_to_point(p)); }
 
-    bool is_outside(const glm::vec2& p) const {
-        return p.x < 0.0f || p.x > static_cast<float>(_size.x * Tile::TILE_SIZE)
-            || p.y < 0.0f || p.y > static_cast<float>(_size.y * Tile::TILE_SIZE);
-    }
-
-    bool is_blocked(const glm::vec2& p) const {
-        const auto indice = position_to_indice(p);
-        return _tiles[indice.y * _size.x + indice.x].state == TileState::BLOCKED;
-    }
+    bool try_at(const glm::vec2& p, Tile& tile);
 
 private:
-    glm::uvec2 _size {};
-    std::vector<Tile> _tiles {};
+    Grid<Tile> _grid;
 };
 
+inline TileMap::TileMap()
+    : _grid {0, 0, [this](const Point& p) { return at(p).state == TileState::BLOCKED; }} {}
+
 inline TileMap::TileMap(const glm::uvec2& size)
-    : _size {size}, _tiles {_size.x * _size.y} {}
+    : _grid {size.x, size.y, [this](const Point& p) { return at(p).state == TileState::BLOCKED; }} {}
 
-inline TileMap::TileMap(TileMap&& other) noexcept
-    : _size {other._size}, _tiles {std::move(other._tiles)} {}
-
-inline TileMap& TileMap::operator=(TileMap&& other) noexcept {
-    if (this != &other) {
-        _size = other._size;
-        _tiles = std::move(other._tiles);
-    }
-    return *this;
-}
+// inline TileMap::TileMap(TileMap&& other) noexcept
+//     : _size {other._size}, _tiles {std::move(other._tiles)} {}
+//
+// inline TileMap& TileMap::operator=(TileMap&& other) noexcept {
+//     if (this != &other) {
+//         _size = other._size;
+//         _tiles = std::move(other._tiles);
+//     }
+//     return *this;
+// }
 
 inline TileMap TileMap::load_tile_map(std::string_view name) {
     spdlog::info("[TileMap] Loading tile map {}", name);
@@ -94,17 +90,26 @@ inline TileMap TileMap::load_tile_map(std::string_view name) {
 
     for (auto i {0}; i < tiles->size(); ++i) {
         const auto tile_data = tiles->Get(i);
-        tile_map[i] = Tile {.type = tile_data->type(), .state = tile_data->state()};
+        tile_map.at(i) = Tile {.type = tile_data->type(), .state = tile_data->state()};
     }
 
     spdlog::info("[TileMap] Loaded tile map {}", name);
     return tile_map;
 }
 
-inline glm::uvec2 TileMap::position_to_indice(const glm::vec2& position) {
-    return glm::uvec2 {
-        static_cast<uint32_t>(std::max(position.x, 0.0f)) / Tile::TILE_SIZE,
-        static_cast<uint32_t>(std::max(position.y, 0.0f)) / Tile::TILE_SIZE
+inline Point TileMap::position_to_point(const glm::vec2& position) {
+    return Point {
+        static_cast<int>(std::max(position.x, 0.0f)) / static_cast<int>(Tile::TILE_SIZE),
+        static_cast<int>(std::max(position.y, 0.0f)) / static_cast<int>(Tile::TILE_SIZE)
     };
+}
+
+inline bool TileMap::try_at(const glm::vec2& p, Tile& tile) {
+    const auto point = position_to_point(p);
+
+    if (!_grid.is_inside(point)) return false;
+
+    tile = at(point);
+    return true;
 }
 }
