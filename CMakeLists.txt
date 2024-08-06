@@ -40,8 +40,6 @@ add_executable(tower-server
     tower/item/equipment/fist.hpp
 
     tower/net/client.hpp
-    tower/net/client.cpp
-    tower/net/client_room.hpp
     tower/net/connection.hpp
     tower/net/listener.hpp
     tower/net/packet.hpp
