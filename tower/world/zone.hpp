@@ -28,7 +28,7 @@ public:
     void stop();
 
     void add_client_deferred(std::shared_ptr<net::Client>&& client);
-    void remove_client_deferred(std::shared_ptr<net::Client> client);
+    void remove_client_deferred(std::shared_ptr<net::Client>&& client);
 
 
 private:

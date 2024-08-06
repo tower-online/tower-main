@@ -1,8 +1,5 @@
 #include <tower/net/server.hpp>
 
-#include <memory>
-#include <utility>
-
 namespace tower::net {
 Server::Server() {
     _on_client_disconnected = std::make_shared<EventListener<std::shared_ptr<Client>>>(

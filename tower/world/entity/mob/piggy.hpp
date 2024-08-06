@@ -1,18 +1,23 @@
 #pragma once
 
-#include <tower/world/entity/entity.hpp>
 #include <tower/world/collision/collision_object.hpp>
 #include <tower/world/collision/rectangle_collision_shape.hpp>
+#include <tower/world/entity/entity.hpp>
 
 namespace tower::game {
 using namespace world;
 
 class Piggy : public Entity {
+    enum class State {IDLE, FOLLOWING};
 public:
     Piggy();
 
     static std::shared_ptr<Entity> create();
     void tick() override;
+
+private:
+    State _state {State::IDLE};
+    std::unique_ptr<CircleCollisionShape> _sensor {std::make_unique<CircleCollisionShape>(50.0f)};
 };
 
 inline Piggy::Piggy()

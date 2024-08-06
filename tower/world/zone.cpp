@@ -13,8 +13,8 @@ Zone::Zone(const uint32_t zone_id, const std::string_view tile_map_name)
     : zone_id {zone_id}, zone_name {tile_map_name},
     _tile_map {TileMap::load_tile_map(tile_map_name)} {
     _on_client_disconnected = std::make_shared<EventListener<std::shared_ptr<net::Client>>>(
-        [this](std::shared_ptr<net::Client> client) {
-            remove_client_deferred(client);
+        [this](std::shared_ptr<net::Client>&& client) {
+            remove_client_deferred(std::move(client));
         });
 }
 
@@ -56,7 +56,7 @@ void Zone::start() {
 
     const auto piggy = game::Piggy::create();
     _entities[piggy->entity_id] = piggy;
-    piggy->position = {_tile_map.get_size().x * Tile::TILE_SIZE / 2 + 50, _tile_map.get_size().y * Tile::TILE_SIZE / 2};
+    piggy->position = {_tile_map.get_size().x * Tile::TILE_SIZE / 2 + 100, _tile_map.get_size().y * Tile::TILE_SIZE / 2};
     add_collision_objects_from_tree(piggy);
 }
 
@@ -88,7 +88,7 @@ void Zone::add_client_deferred(std::shared_ptr<net::Client>&& client) {
     });
 }
 
-void Zone::remove_client_deferred(std::shared_ptr<net::Client> client) {
+void Zone::remove_client_deferred(std::shared_ptr<net::Client>&& client) {
     _jobs.push([this, client] {
         _clients.erase(client->id);
         remove_collision_objects_from_tree(client->player);
@@ -161,6 +161,8 @@ void Zone::broadcast(std::shared_ptr<flatbuffers::DetachedBuffer>&& buffer, cons
 }
 
 void Zone::handle_packet(std::shared_ptr<net::Packet>&& packet) {
+    if (!_clients.contains(packet->client->id)) return;
+
     const auto packet_base = GetPacketBase(packet->buffer.data());
     if (!packet_base) {
         spdlog::warn("[Zone] Invalid packet");

@@ -66,9 +66,11 @@ add_executable(tower-server
     tower/world/zone.hpp
     tower/world/zone.cpp
     tower/world/collision/circle_collision_shape.hpp
+    tower/world/collision/circle_collision_shape.cpp
     tower/world/collision/collision_object.hpp
     tower/world/collision/collision_shape.hpp
     tower/world/collision/rectangle_collision_shape.hpp
+    tower/world/collision/rectangle_collision_shape.cpp
     tower/world/entity/entity.hpp
     tower/world/entity/entity_manager.hpp
     tower/world/entity/mob/piggy.hpp
