@@ -17,7 +17,7 @@ std::shared_ptr<Player> Player::create() {
 
     const auto body_collider = CollisionObject::create(
         std::make_shared<RectangleCollisionShape>(glm::vec2 {12, 12}),
-        static_cast<uint32_t>(ColliderLayer::ENTITIES),
+        static_cast<uint32_t>(ColliderLayer::ENTITIES | ColliderLayer::PLAYERS),
         0
     );
     player->add_child(body_collider);

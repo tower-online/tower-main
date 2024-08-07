@@ -33,28 +33,32 @@ struct Point {
 };
 
 template <typename T>
-struct Grid {
-    std::vector<T> data;
-    const size_t size_x, size_y;
-
+class Grid {
+public:
     Grid(const size_t size_x, const size_t size_y,
-        std::function<bool(const Point& p)>&& is_blocked = [] { return false; })
-        : data {}, size_x {size_x}, size_y {size_y}, is_blocked {std::move(is_blocked)} {
+        std::function<bool(const Point& p, const T& x)>&& is_blocked_internal = [] { return false; })
+        : data {}, size_x {size_x}, size_y {size_y}, is_blocked_internal {std::move(is_blocked_internal)} {
         data.resize(size_x * size_y);
     }
 
     Grid(std::vector<T>&& data, const size_t size_x, const size_t size_y,
-        std::function<bool(const Point& p)>&& is_blocked = [] { return false; })
-        : data {std::move(data)}, size_x {size_x}, size_y {size_y}, is_blocked {std::move(is_blocked)} {}
+        std::function<bool(const Point& p, const T& x)>&& is_blocked_internal = [] { return false; })
+        : data {std::move(data)}, size_x {size_x}, size_y {size_y},
+        is_blocked_internal {std::move(is_blocked_internal)} {}
 
-    const T& at(const Point p) const { return data[p.y * size_x + p.x]; }
-    T& at(const Point p) { return data[p.y * size_x + p.x]; }
+    const T& at(const Point& p) const { return data[p.y * size_x + p.x]; }
+    T& at(const Point& p) { return data[p.y * size_x + p.x]; }
+    T& at(const size_t i) { return data[i]; }
 
-    bool is_inside(const Point p) const {
+    bool is_inside(const Point& p) const {
         return p.x >= 0 && p.x < size_x && p.y >= 0 && p.y < size_y;
     }
 
-    std::vector<Point> get_neighbors(const Point p) const {
+    bool is_blocked(const Point& p) const {
+        return is_blocked_internal(p, at(p));
+    }
+
+    std::vector<Point> get_neighbors(const Point& p) const {
         const auto x = p.x, y = p.y;
         std::vector<Point> neighbors {};
 
@@ -70,6 +74,10 @@ struct Grid {
         return neighbors;
     }
 
-    const std::function<bool(const Point& p)> is_blocked;
+    const size_t size_x, size_y;
+
+private:
+    std::vector<T> data;
+    const std::function<bool(const Point& p, const T& x)> is_blocked_internal;
 };
 }

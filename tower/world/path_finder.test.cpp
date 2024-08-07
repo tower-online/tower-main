@@ -1,7 +1,8 @@
 #include <catch2/catch_test_macros.hpp>
-#include <tower/utility/navigator.hpp>
+#include <tower/world/path_finder.hpp>
 
 using namespace tower;
+using namespace tower::world;
 
 TEST_CASE("Pathfinder returns the path", "[Pathfinder]") {
     const Grid<int> grid1 {

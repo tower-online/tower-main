@@ -30,6 +30,7 @@ public:
 
     static TileMap load_tile_map(std::string_view name);
     static Point position_to_point(const glm::vec2& position);
+    static glm::vec2 point_to_position(const Point& point);
 
     glm::uvec2 get_size() const { return {_grid.size_x, _grid.size_y}; }
     const Grid<Tile>& get_grid() const { return _grid; }
@@ -37,11 +38,12 @@ public:
 
     Tile& at(const Point& p) { return _grid.at(p); }
     Tile& at(const glm::vec2& p) { return at(position_to_point(p)); }
-    Tile& at(const size_t i) { return _grid.data[i]; }
+    Tile& at(const size_t i) { return _grid.at(i); }
     const Tile& at(const Point& p) const { return _grid.at(p); }
     const Tile& at(const glm::vec2& p) const { return at(position_to_point(p)); }
 
     bool try_at(const glm::vec2& p, Tile& tile);
+    bool try_at(const Point& p, Tile& tile);
 
 private:
     Grid<Tile> _grid;
@@ -49,10 +51,18 @@ private:
 };
 
 inline TileMap::TileMap()
-    : _grid {0, 0, [this](const Point& p) { return at(p).state == TileState::BLOCKED; }} {}
+    : _grid {
+        0, 0, [](const Point&, const Tile& t) {
+            return t.state == TileState::BLOCKED;
+        }
+    } {}
 
 inline TileMap::TileMap(const glm::uvec2& size)
-    : _grid {size.x, size.y, [this](const Point& p) { return at(p).state == TileState::BLOCKED; }} {}
+    : _grid {
+        size.x, size.y, [](const Point&, const Tile& t) {
+            return t.state == TileState::BLOCKED;
+        }
+    } {}
 
 // inline TileMap::TileMap(TileMap&& other) noexcept
 //     : _size {other._size}, _tiles {std::move(other._tiles)} {}
@@ -108,12 +118,26 @@ inline Point TileMap::position_to_point(const glm::vec2& position) {
     };
 }
 
+inline glm::vec2 TileMap::point_to_position(const Point& point) {
+    return glm::vec2 {
+        point.x * Tile::TILE_SIZE + Tile::TILE_SIZE / 2,
+        point.y * Tile::TILE_SIZE + Tile::TILE_SIZE / 2
+    };
+}
+
 inline bool TileMap::try_at(const glm::vec2& p, Tile& tile) {
     const auto point = position_to_point(p);
 
     if (!_grid.is_inside(point)) return false;
 
     tile = at(point);
+    return true;
+}
+
+inline bool TileMap::try_at(const Point& p, Tile& tile) {
+    if (!_grid.is_inside(p)) return false;
+
+    tile = at(p);
     return true;
 }
 }

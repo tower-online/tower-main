@@ -60,8 +60,8 @@ add_executable(tower-server
     tower/system/container/concurrent_queue.hpp
     tower/system/container/grid.hpp
 
-    tower/world/navigator.hpp
     tower/world/node.hpp
+    tower/world/path_finder.hpp
     tower/world/subworld.cpp
     tower/world/subworld.hpp
     tower/world/tile_map.hpp
@@ -111,7 +111,7 @@ FetchContent_MakeAvailable(Catch2)
 
 add_executable(tower-server-test
     tower/system/event.test.cpp
-    tower/world/navigator.test.cpp
+    tower/world/path_finder.test.cpp
 )
 target_compile_features(tower-server-test PRIVATE cxx_std_20)
 target_link_libraries(tower-server-test PRIVATE Catch2::Catch2WithMain glm)

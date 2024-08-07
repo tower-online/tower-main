@@ -49,4 +49,12 @@ inline bool CollisionObject::is_colliding(const std::shared_ptr<CollisionObject>
 inline CollisionObject::CollisionObject(const CollisionShape* shape,
     const uint32_t layer, const uint32_t mask)
     : shape {shape}, layer {layer}, mask {mask} {}
+
+constexpr uint32_t operator|(ColliderLayer a, ColliderLayer b) {
+    return static_cast<uint32_t>(a) | static_cast<uint32_t>(b);
+}
+
+constexpr uint32_t operator&(ColliderLayer a, ColliderLayer b) {
+    return static_cast<uint32_t>(a) & static_cast<uint32_t>(b);
+}
 }
