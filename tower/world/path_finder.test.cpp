@@ -13,7 +13,7 @@ TEST_CASE("Pathfinder returns the path", "[Pathfinder]") {
             0, 0, 0, 0, 0,
             0, 0, 0, 0, 0,
         },
-        5, 5, [&grid1](const Point& p) { return grid1.at(p) == 1; }
+        5, 5, [&grid1](const Point& p, const int&) { return grid1.at(p) == 1; }
     };
 
     const Grid<int> grid2 {
@@ -24,7 +24,7 @@ TEST_CASE("Pathfinder returns the path", "[Pathfinder]") {
                 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0,
             },
-            5, 5, [&grid2](const Point& p) { return grid2.at(p) == 1; }
+            5, 5, [&grid2](const Point& p, const int&) { return grid2.at(p) == 1; }
     };
 
     const Grid<int> grid3 {
@@ -35,7 +35,7 @@ TEST_CASE("Pathfinder returns the path", "[Pathfinder]") {
                 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0,
             },
-            5, 5, [&grid3](const Point& p) { return grid3.at(p) == 1; }
+            5, 5, [&grid3](const Point& p, const int&) { return grid3.at(p) == 1; }
     };
 
     SECTION("A* path found") {

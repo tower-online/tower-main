@@ -4,10 +4,12 @@ project(TowerServer
     LANGUAGES CXX
 )
 
+option(TOWER_BUILD_TESTS "Enable the build of tests" ON)
+
 ### DEPENDENCIES ###
 include(FetchContent)
 
-find_package(Boost 1.85.0 REQUIRED COMPONENTS system)
+find_package(Boost 1.84.0 REQUIRED COMPONENTS system)
 
 FetchContent_Declare(
     flatbuffers
@@ -15,6 +17,7 @@ FetchContent_Declare(
     GIT_TAG v24.3.25
 )
 FetchContent_MakeAvailable(flatbuffers)
+set(FLATBUFFERS_BUILD_TESTS false)
 
 FetchContent_Declare(
     spdlog
@@ -102,17 +105,19 @@ add_dependencies(tower-server tower-world-schema)
 message("world_schemas: ${world_schemas}")
 
 ### TESTS ###
-FetchContent_Declare(
-    Catch2
-    GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-    GIT_TAG v3.5.4
-)
-FetchContent_MakeAvailable(Catch2)
+if (TOWER_BUILD_TESTS)
+    FetchContent_Declare(
+        Catch2
+        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+        GIT_TAG v3.5.4
+    )
+    FetchContent_MakeAvailable(Catch2)
 
-add_executable(tower-server-test
-    tower/system/event.test.cpp
-    tower/world/path_finder.test.cpp
-)
-target_compile_features(tower-server-test PRIVATE cxx_std_20)
-target_link_libraries(tower-server-test PRIVATE Catch2::Catch2WithMain glm)
-target_include_directories(tower-server-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    add_executable(tower-server-test
+        tower/system/event.test.cpp
+        tower/world/path_finder.test.cpp
+    )
+    target_compile_features(tower-server-test PRIVATE cxx_std_20)
+    target_link_libraries(tower-server-test PRIVATE Catch2::Catch2WithMain glm)
+    target_include_directories(tower-server-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+endif ()
