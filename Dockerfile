@@ -1,17 +1,17 @@
 FROM alpine:latest
 
-RUN apk update && apk add --no-cache \
+RUN apk add --no-cache \
     git \
     g++ \
     cmake \
     ninja \
-    boost-dev
+    boost-dev \
+    libpq-dev
 
-RUN mkdir /app
 WORKDIR /app
-COPY . /app
+COPY . .
 
-RUN cmake -B build -G Ninja -DTOWER_BUILD_TESTS=OFF && \
+RUN cmake -B build -G Ninja -DTOWER_BUILD_TESTS=OFF -DFLATBUFFERS_BUILD_TESTS=OFF && \
     cmake --build build --config Release
 
 EXPOSE 30000

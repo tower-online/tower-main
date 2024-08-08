@@ -17,7 +17,7 @@ FetchContent_Declare(
     GIT_TAG v24.3.25
 )
 FetchContent_MakeAvailable(flatbuffers)
-set(FLATBUFFERS_BUILD_TESTS false)
+set(FLATBUFFERS_BUILD_TESTS OFF CACHE BOOL "Disable the build of flatbuffers tests" FORCE)
 
 FetchContent_Declare(
     spdlog
@@ -32,6 +32,13 @@ FetchContent_Declare(
     GIT_TAG 1.0.1
 )
 FetchContent_MakeAvailable(glm)
+
+FetchContent_Declare(
+    libpqxx
+    GIT_REPOSITORY https://github.com/jtv/libpqxx.git
+    GIT_TAG 7.9.2
+)
+FetchContent_MakeAvailable(libpqxx)
 
 
 ### TARGETS ###
@@ -81,7 +88,7 @@ add_executable(tower-server
     tower/world/entity/mob/piggy.hpp
 )
 target_compile_features(tower-server PRIVATE cxx_std_20)
-target_link_libraries(tower-server PRIVATE Boost::system spdlog flatbuffers glm)
+target_link_libraries(tower-server PRIVATE Boost::system spdlog flatbuffers glm libpqxx::pqxx)
 target_include_directories(tower-server PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(tower-server PRIVATE
     TILE_MAP_DATA_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/bin/tile_map"
