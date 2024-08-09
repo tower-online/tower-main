@@ -1,5 +1,5 @@
 services:
-  server:
+  main-server:
     build: .
     ports:
       - 30000:30000
@@ -10,6 +10,20 @@ services:
       POSTGRES_DB: tower
       POSTGRES_USER: tower_server
       POSTGRES_PASSWORD: password
+    depends_on:
+      - db
+
+  auth-server:
+    build: ./auth
+    working_dir: /app
+    volumes:
+      - ./auth/:/app
+    environment:
+      POSTGRES_DB: tower
+      POSTGRES_USER: tower_server
+      POSTGRES_PASSWORD: password
+    depends_on:
+      - db
 
   db:
     image: postgres:16-alpine
