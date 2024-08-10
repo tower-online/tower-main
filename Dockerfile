@@ -6,14 +6,15 @@ RUN apk add --no-cache \
     cmake \
     ninja \
     boost-dev \
-    libpq-dev
+    libpq-dev \
+    postgresql-client
 
 WORKDIR /app
 COPY . .
 
-RUN cmake -B build -G Ninja -DTOWER_BUILD_TESTS=OFF -DFLATBUFFERS_BUILD_TESTS=OFF && \
-    cmake --build build --config Release
-
 EXPOSE 30000
 
-ENTRYPOINT ["/app/build/tower-server"]
+RUN cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTOWER_BUILD_TESTS=OFF && \
+    cmake --build build --config Release --target tower-server
+
+ENTRYPOINT ["/app/entrypoint.sh" "/app/build/tower-server"]

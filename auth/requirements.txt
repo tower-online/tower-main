@@ -1,0 +1,5 @@
+fastapi[standard]
+pyjwt
+pydantic-settings
+psycopg[binary,pool]
+redis

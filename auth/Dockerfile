@@ -8,10 +8,8 @@ RUN apk add --no-cache \
 WORKDIR /app
 COPY . .
 
-RUN mkdir venv && \
-    python -m venv venv && \
+RUN python -m venv venv && \
     source venv/bin/activate && \
-    python -m pip install --upgrade pip && \
-    pip install fastapi
+    pip install -r requirements.txt
 
-ENTRYPOINT ["python3 /app/app.py"]
+ENTRYPOINT ["fastapi run app.py"]
