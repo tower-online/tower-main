@@ -5,8 +5,6 @@ services:
       - .env
     ports:
       - 30000:30000
-    # volumes:
-    #   - ./:/app
     secrets:
       - db-password
     depends_on:
@@ -23,8 +21,6 @@ services:
       - ./auth/auth.env
     ports:
       - 8000:8000
-    # volumes:
-    #   - ./auth/:/app
     secrets:
       - db-password
     depends_on:

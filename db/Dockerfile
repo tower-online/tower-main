@@ -1,3 +1,3 @@
 FROM postgres:alpine
 
-COPY users.sql /docker-entrypoint-initdb.d/
+COPY init /docker-entrypoint-initdb.d/

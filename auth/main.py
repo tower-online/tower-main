@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from datetime import datetime
-from enum import Enum
+from enum import Enum, StrEnum
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from functools import lru_cache
 from pydantic import BaseModel
@@ -12,15 +12,14 @@ from config import Settings
 from utility import *
 
 
-class Platform(str, Enum):
-    TEST = ("TEST",)
-    STEAM = ("STEAM",)
+class Platform(StrEnum):
+    TEST = "TEST"
+    STEAM = "STEAM"
 
 
 class TokenRequest(BaseModel):
     platform: Platform
     username: Annotated[str, Query(min_length=6, max_length=30)]
-    # password: Annotated[str | None, Query()] = None
     id: Annotated[str | None, Query(max_length=64)] = None
     key: Annotated[str | None, Query(max_length=64)] = None
 
@@ -31,10 +30,10 @@ class TokenResponse(BaseModel):
 
 
 class User(BaseModel):
-    class Status(Enum):
-        ACTIVE = ("ACTIVE",)
-        INACTIVE = ("INACTIVE",)
-        BLOCKED = ("BLOCKED",)
+    class Status(StrEnum):
+        ACTIVE = "ACTIVE"
+        INACTIVE = "INACTIVE"
+        BLOCKED = "BLOCKED"
 
     username: str
     platform: Platform
@@ -67,15 +66,15 @@ async def get_token(request: TokenRequest) -> Any:
     if not result:
         raise error
 
+    # TODO: timezone
     if request.platform is Platform.TEST:
-        return TokenResponse(jwt=encode_token(request.username))
+        jwt, expire = encode_token(request.username, timedelta(hours=1))
+        return TokenResponse(jwt=jwt, expire=expire)
     if request.platform is Platform.STEAM:
-        return TokenResponse(
-            jwt=encode_token(
-                request.username,
-                expires_delta=timedelta(hours=get_settings().token_expire_hours),
-            )
+        jwt, expire = encode_token(
+            request.username, timedelta(hours=settings.token_expire_hours)
         )
+        return TokenResponse(jwt=jwt, expire=expire)
 
 
 async def authenticate_user(
@@ -86,10 +85,10 @@ async def authenticate_user(
     if not user:
         return False, HTTPException(
             status_code=400,
-            detail="Incorrect username",
+            detail="Incorrect username or platform",
         )
 
-    if platform is Platform.TEST and not get_settings().debug:
+    if platform is Platform.TEST and not settings.debug:
         return False, HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Test user is disabled",
@@ -111,13 +110,13 @@ async def get_user(platform: Platform, username: str) -> User | None:
     async with pool.connection() as connection:
         async with connection.cursor() as cursor:
             await cursor.execute(
-                "SELECT user_name, platform, status FROM users WHERE user_name=%s AND platform=%s",
+                "SELECT username, platform, status FROM users WHERE username=%s AND platform=%s",
                 (username, platform),
             )
-            await cursor.fetchone()
 
-            user = None
-            async for record in cursor:
-                user = User(username=record[0], platform=record[1], status=record[2])
-                break
-            return user
+            record = await cursor.fetchone()
+            return (
+                User(username=record[0], platform=record[1], status=record[2])
+                if record
+                else None
+            )
