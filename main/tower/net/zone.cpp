@@ -55,11 +55,11 @@ void Zone::start() {
     });
     _worker_thread.detach();
 
-    auto piggy = game::Piggy::create();
-    piggy->position = {
-        _subworld.get_size().x * Tile::TILE_SIZE / 2 + 100, _subworld.get_size().y * Tile::TILE_SIZE / 2
-    };
-    _subworld.add_entity(std::move(piggy));
+    // auto piggy = game::Piggy::create();
+    // piggy->position = {
+    //     _subworld.get_size().x * Tile::TILE_SIZE / 2 + 100, _subworld.get_size().y * Tile::TILE_SIZE / 2
+    // };
+    // _subworld.add_entity(std::move(piggy));
 }
 
 void Zone::stop() {
@@ -78,7 +78,8 @@ void Zone::add_client_deferred(std::shared_ptr<Client>&& client) {
         client->disconnected.subscribe(_on_client_disconnected->shared_from_this());
 
         const auto& player = client->player;
-        player->position = {_subworld.get_size().x * Tile::TILE_SIZE / 2, _subworld.get_size().y * Tile::TILE_SIZE / 2};
+        // player->position = {_subworld.get_size().x * Tile::TILE_SIZE / 2, _subworld.get_size().y * Tile::TILE_SIZE / 2};
+        player->position = {0, 0};
 
         _subworld.add_entity(player);
 

@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from datetime import datetime
 from enum import Enum
 from fastapi import Depends, FastAPI, HTTPException, Query, status
@@ -5,8 +6,10 @@ from functools import lru_cache
 from pydantic import BaseModel
 from typing import Annotated, Any, Tuple
 
-from .utility import *
-from .config import Settings
+from psycopg_pool import AsyncConnectionPool
+
+from config import Settings
+from utility import *
 
 
 class Platform(str, Enum):
@@ -38,7 +41,26 @@ class User(BaseModel):
     status: Status
 
 
-app = FastAPI()
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await pool.open()
+    await pool.wait()
+
+    yield
+
+    await pool.close()
+
+
+app = FastAPI(lifespan=lifespan)
+pool = AsyncConnectionPool(
+    f"dbname={get_settings().db_name} user={get_settings().db_user} password={get_settings().db_password}",
+    open=False,
+)
 
 
 @app.post("/token", response_model=TokenResponse)
@@ -90,9 +112,16 @@ async def authenticate_user(
 
 
 async def get_user(platform: Platform, username: str) -> User | None:
-    pass
+    async with pool.connection() as connection:
+        async with connection.cursor() as cursor:
+            await cursor.execute(
+                "SELECT user_name, platform, status FROM users WHERE user_name=%s AND platform=%s",
+                (username, platform),
+            )
+            await cursor.fetchone()
 
-
-@lru_cache
-def get_settings():
-    return Settings()
+            user = None
+            async for record in cursor:
+                user = User(username=record[0], platform=record[1], status=record[2])
+                break
+            return user

@@ -11,7 +11,7 @@ std::shared_ptr<Player> Player::create() {
     auto player = std::make_shared<Player>();
     player->add_child(player->pivot);
 
-    player->movement_speed_base = 10.0f;
+    player->movement_speed_base = 0.1f;
     player->resource.max_health = 100.0f;
     player->resource.health = player->resource.max_health;
 

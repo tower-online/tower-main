@@ -2,10 +2,3 @@
 .idea
 .vscode
 .vs
-
-# Build
-build
-cmake-build-*
-
-# Resources
-bin

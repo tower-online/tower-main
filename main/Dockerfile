@@ -17,4 +17,4 @@ EXPOSE 30000
 RUN cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTOWER_BUILD_TESTS=OFF && \
     cmake --build build --config Release --target tower-server
 
-ENTRYPOINT ["/app/entrypoint.sh" "/app/build/tower-server"]
+ENTRYPOINT ["/app/build/tower-server"]

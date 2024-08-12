@@ -1,14 +1,14 @@
 services:
   main:
     build: .
-    ports:
-      - 30000:30000
-    working_dir: /app
-    volumes:
-      - ./:/app
     environment:
       TOWER_DB_USER: tower
       TOWER_DB_PASSWORD_FILE: /run/secrets/db-password
+      TOWER_DB_NAME: tower
+    ports:
+      - 30000:30000
+    # volumes:
+    #   - ./:/app
     secrets:
       - db-password
     depends_on:
@@ -20,12 +20,16 @@ services:
 
   auth:
     build: ./auth
-    working_dir: /app
-    volumes:
-      - ./auth/:/app
+    env_file:
+      - ./auth/auth.env
     environment:
       TOWER_DB_USER: tower
       TOWER_DB_PASSWORD_FILE: /run/secrets/db-password
+      TOWER_DB_NAME: tower
+    ports:
+      - 8000:8000
+    # volumes:
+    #   - ./auth/:/app
     secrets:
       - db-password
     depends_on:
@@ -37,22 +41,23 @@ services:
 
   db:
     image: postgres:alpine
-    restart: unless-stopped
-    ports:
-      - "5432:5432"
-    volumes:
-      - db-data:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: tower
       POSTGRES_PASSWORD_FILE: /run/secrets/db-password
+      POSTGRES_DB: tower
+    ports:
+      - 5432:5432
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    restart: unless-stopped
     secrets:
       - db-password
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      interval: 10s
+      start_period: 0s
+      interval: 5s
+      timeout: 5s
       retries: 5
-      start_period: 30s
-      timeout: 10s
   
   redis:
     image: redis:alpine

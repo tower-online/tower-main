@@ -1,15 +1,10 @@
-FROM alpine:latest
-
-RUN apk add --no-cache \
-    python3 \
-    py3-pip \
-    py3-virtualenv
+FROM python:alpine
 
 WORKDIR /app
 COPY . .
 
-RUN python -m venv venv && \
-    source venv/bin/activate && \
-    pip install -r requirements.txt
+RUN python3 -m venv venv
+RUN venv/bin/pip install --no-cache-dir --upgrade -r requirements.txt
+ENV PATH=/app/venv/bin:${PATH}
 
-ENTRYPOINT ["fastapi run app.py"]
+ENTRYPOINT ["fastapi", "run", "main.py"]

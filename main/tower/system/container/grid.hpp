@@ -37,25 +37,25 @@ class Grid {
 public:
     Grid(const size_t size_x, const size_t size_y,
         std::function<bool(const Point& p, const T& x)>&& is_blocked_internal = [] { return false; })
-        : data {}, size_x {size_x}, size_y {size_y}, is_blocked_internal {std::move(is_blocked_internal)} {
-        data.resize(size_x * size_y);
+        : _data {}, size_x {size_x}, size_y {size_y}, _is_blocked_internal {std::move(is_blocked_internal)} {
+        _data.resize(size_x * size_y);
     }
 
     Grid(std::vector<T>&& data, const size_t size_x, const size_t size_y,
         std::function<bool(const Point& p, const T& x)>&& is_blocked_internal = [] { return false; })
-        : data {std::move(data)}, size_x {size_x}, size_y {size_y},
-        is_blocked_internal {std::move(is_blocked_internal)} {}
+        : _data {std::move(data)}, size_x {size_x}, size_y {size_y},
+        _is_blocked_internal {std::move(is_blocked_internal)} {}
 
-    const T& at(const Point& p) const { return data[p.y * size_x + p.x]; }
-    T& at(const Point& p) { return data[p.y * size_x + p.x]; }
-    T& at(const size_t i) { return data[i]; }
+    const T& at(const Point& p) const { return _data[p.y * size_x + p.x]; }
+    T& at(const Point& p) { return _data[p.y * size_x + p.x]; }
+    T& at(const size_t i) { return _data[i]; }
 
     bool is_inside(const Point& p) const {
         return p.x >= 0 && p.x < size_x && p.y >= 0 && p.y < size_y;
     }
 
     bool is_blocked(const Point& p) const {
-        return is_blocked_internal(p, at(p));
+        return _is_blocked_internal(p, at(p));
     }
 
     std::vector<Point> get_neighbors(const Point& p) const {
@@ -77,7 +77,7 @@ public:
     const size_t size_x, size_y;
 
 private:
-    std::vector<T> data;
-    const std::function<bool(const Point& p, const T& x)> is_blocked_internal;
+    std::vector<T> _data;
+    const std::function<bool(const Point& p, const T& x)> _is_blocked_internal;
 };
 }
