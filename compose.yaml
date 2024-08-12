@@ -1,10 +1,8 @@
 services:
   main:
-    build: .
-    environment:
-      TOWER_DB_USER: tower
-      TOWER_DB_PASSWORD_FILE: /run/secrets/db-password
-      TOWER_DB_NAME: tower
+    build: ./main
+    env_file:
+      - .env
     ports:
       - 30000:30000
     # volumes:
@@ -21,11 +19,8 @@ services:
   auth:
     build: ./auth
     env_file:
+      - .env
       - ./auth/auth.env
-    environment:
-      TOWER_DB_USER: tower
-      TOWER_DB_PASSWORD_FILE: /run/secrets/db-password
-      TOWER_DB_NAME: tower
     ports:
       - 8000:8000
     # volumes:
@@ -40,11 +35,13 @@ services:
         condition: service_started
 
   db:
-    image: postgres:alpine
+    build: ./db
     environment:
-      POSTGRES_USER: tower
-      POSTGRES_PASSWORD_FILE: /run/secrets/db-password
-      POSTGRES_DB: tower
+      POSTGRES_HOST: ${TOWER_DB_HOST}
+      POSTGRES_PORT: ${TOWER_DB_PORT}
+      POSTGRES_USER: ${TOWER_DB_USER}
+      POSTGRES_PASSWORD_FILE: ${TOWER_DB_PASSWORD_FILE}
+      POSTGRES_DB: ${TOWER_DB_NAME}
     ports:
       - 5432:5432
     volumes:
@@ -67,4 +64,4 @@ volumes:
 
 secrets:
   db-password:
-    file: config/secrets/db-password
+    file: db/secrets/db-password

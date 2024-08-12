@@ -41,14 +41,9 @@ class User(BaseModel):
     status: Status
 
 
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await pool.open()
+    await pool.open(timeout=5)
     await pool.wait()
 
     yield
@@ -57,8 +52,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+settings = Settings()
 pool = AsyncConnectionPool(
-    f"dbname={get_settings().db_name} user={get_settings().db_user} password={get_settings().db_password}",
+    f"postgresql://{settings.db_user}:{settings.db_password}@{settings.db_host}:{settings.db_port}/{settings.db_name}",
     open=False,
 )
 

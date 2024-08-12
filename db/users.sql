@@ -11,4 +11,4 @@ CREATE TABLE users (
 );
 
 INSERT INTO users (user_name, platform, status) VALUES
-('leesin', 'TEST', 'ACTIVE')
+('leesin', 'TEST', 'ACTIVE');
