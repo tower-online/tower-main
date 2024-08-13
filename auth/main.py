@@ -63,7 +63,7 @@ async def issue_token_test(username: Annotated[str, Query()]) -> Any:
         )
 
     jwt = encode_token(username, timedelta(hours=1), settings.token_encode_key)
-    await _set_user_token(username, jwt, timedelta(hours=1))
+    await _set_user_token(username, User.Platform.TEST, jwt, timedelta(hours=1))
     return TokenResponse(jwt=jwt)
 
 
@@ -80,8 +80,17 @@ async def issue_token_steam(username: Annotated[str, Query()]) -> Any:
         timedelta(hours=settings.token_expire_hours),
         settings.token_encode_key,
     )
-    await _set_user_token(username, jwt, timedelta(hours=settings.token_expire_hours))
+    await _set_user_token(
+        username, User.Platform.STEAM, jwt, timedelta(hours=settings.token_expire_hours)
+    )
     return TokenResponse(jwt=jwt)
+
+
+@app.post("/register/steam")
+async def register_steam(
+    username: Annotated[str, Query(pattern="^[a-zA-Z0-9_]{6,30}$")]
+) -> Any:
+    pass
 
 
 async def get_active_user(
@@ -129,6 +138,10 @@ async def _get_user_token(username: str) -> str | None:
         return await client.get(f"token:{username}")
 
 
-async def _set_user_token(username: str, token: str, expire: timedelta) -> None:
+async def _set_user_token(
+    username: str, platform: User.Platform, token: str, expire: timedelta
+) -> None:
     async with redis.Redis(connection_pool=redis_pool) as client:
-        await client.setex(f"token:{username}", expire.seconds, token)
+        await client.setex(
+            f"token:{platform.lower()}:{username}", expire.seconds, token
+        )
