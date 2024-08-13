@@ -1,12 +1,13 @@
 services:
   main:
-    build: ./main
+    build: main
     env_file:
       - .env
     ports:
       - 30000:30000
     secrets:
       - db-password
+      - redis-password
     depends_on:
       db:
         condition: service_healthy
@@ -15,14 +16,16 @@ services:
         condition: service_started
 
   auth:
-    build: ./auth
+    build: auth
     env_file:
       - .env
-      - ./auth/auth.env
+      - auth/auth.env
     ports:
       - 8000:8000
     secrets:
       - db-password
+      - redis-password
+      - auth-jwt-encode-key
     depends_on:
       db:
         condition: service_healthy
@@ -31,7 +34,9 @@ services:
         condition: service_started
 
   db:
-    build: ./db
+    build: db
+    env_file:
+      - .env
     environment:
       POSTGRES_HOST: ${TOWER_DB_HOST}
       POSTGRES_PORT: ${TOWER_DB_PORT}
@@ -39,7 +44,7 @@ services:
       POSTGRES_PASSWORD_FILE: ${TOWER_DB_PASSWORD_FILE}
       POSTGRES_DB: ${TOWER_DB_NAME}
     ports:
-      - 5432:5432
+      - ${TOWER_DB_PORT}:${TOWER_DB_PORT}
     volumes:
       - db-data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -49,11 +54,18 @@ services:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       start_period: 0s
       interval: 5s
-      timeout: 5s
+      timeout: 5s 
       retries: 5
   
   redis:
     image: redis:alpine
+    environment:
+      REDIS_PASSWORD_FILE: /run/secrets/redis-password
+    ports:
+      - 6379:6379
+    secrets:
+      - redis-password
+    command: sh -c "redis-server --requirepass $(cat $$REDIS_PASSWORD_FILE)"
 
 volumes:
   db-data:
@@ -61,3 +73,7 @@ volumes:
 secrets:
   db-password:
     file: db/secrets/db-password
+  redis-password:
+    file: redis/secrets/redis-password
+  auth-jwt-encode-key:
+    file: auth/secrets/jwt-encode-key

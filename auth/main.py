@@ -1,113 +1,111 @@
 from contextlib import asynccontextmanager
 from datetime import datetime
-from enum import Enum, StrEnum
+from enum import StrEnum
 from fastapi import Depends, FastAPI, HTTPException, Query, status
-from functools import lru_cache
 from pydantic import BaseModel
 from typing import Annotated, Any, Tuple
 
-from psycopg_pool import AsyncConnectionPool
+import psycopg_pool as pyscorg
+import redis.asyncio as redis
 
 from config import Settings
 from utility import *
 
 
-class Platform(StrEnum):
-    TEST = "TEST"
-    STEAM = "STEAM"
-
-
-class TokenRequest(BaseModel):
-    platform: Platform
-    username: Annotated[str, Query(min_length=6, max_length=30)]
-    id: Annotated[str | None, Query(max_length=64)] = None
-    key: Annotated[str | None, Query(max_length=64)] = None
-
-
-class TokenResponse(BaseModel):
-    jwt: Annotated[str, Query()]
-    expire: Annotated[datetime | None, Query()] = None
-
-
 class User(BaseModel):
+    class Platform(StrEnum):
+        TEST = "TEST"
+        STEAM = "STEAM"
+
     class Status(StrEnum):
         ACTIVE = "ACTIVE"
         INACTIVE = "INACTIVE"
         BLOCKED = "BLOCKED"
 
-    username: str
-    platform: Platform
-    status: Status
+    def __init__(self, username: str, platform: Platform, status: Status):
+        self.username = username
+        self.platform = platform
+        self.status = status
+
+
+class TokenResponse(BaseModel):
+    jwt: Annotated[str, Query()]
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await pool.open(timeout=5)
-    await pool.wait()
+    await db_pool.open(timeout=5)
+    await db_pool.wait()
 
     yield
 
-    await pool.close()
+    await db_pool.close()
+    await redis_pool.aclose()
 
 
 app = FastAPI(lifespan=lifespan)
 settings = Settings()
-pool = AsyncConnectionPool(
+db_pool = pyscorg.AsyncConnectionPool(
     f"postgresql://{settings.db_user}:{settings.db_password}@{settings.db_host}:{settings.db_port}/{settings.db_name}",
     open=False,
 )
+redis_pool = redis.ConnectionPool.from_url(
+    f"redis://:{settings.redis_password}@{settings.redis_host}"
+)
 
 
-@app.post("/token", response_model=TokenResponse)
-async def get_token(request: TokenRequest) -> Any:
-    result, error = await authenticate_user(
-        request.platform, request.username, request.key
-    )
-    if not result:
+@app.post("/token/test", response_model=TokenResponse)
+async def issue_token_test(username: Annotated[str, Query()]) -> Any:
+    if not settings.debug:
+        raise HTTPException(
+            status_code=400,
+            detail="Testing is disabled",
+        )
+
+    jwt = encode_token(username, timedelta(hours=1), settings.token_encode_key)
+    await _set_user_token(username, jwt, timedelta(hours=1))
+    return TokenResponse(jwt=jwt)
+
+
+@app.post("/token/steam", response_model=TokenResponse)
+async def issue_token_steam(username: Annotated[str, Query()]) -> Any:
+    # TODO: Validate with Steam Web API
+
+    user, error = await get_active_user(User.Platform.STEAM, username)
+    if not user:
         raise error
 
-    # TODO: timezone
-    if request.platform is Platform.TEST:
-        jwt, expire = encode_token(request.username, timedelta(hours=1))
-        return TokenResponse(jwt=jwt, expire=expire)
-    if request.platform is Platform.STEAM:
-        jwt, expire = encode_token(
-            request.username, timedelta(hours=settings.token_expire_hours)
-        )
-        return TokenResponse(jwt=jwt, expire=expire)
+    jwt = encode_token(
+        username,
+        timedelta(hours=settings.token_expire_hours),
+        settings.token_encode_key,
+    )
+    await _set_user_token(username, jwt, timedelta(hours=settings.token_expire_hours))
+    return TokenResponse(jwt=jwt)
 
 
-async def authenticate_user(
-    platform: Platform, username: str, key: str | None
-) -> Tuple[bool, HTTPException]:
+async def get_active_user(
+    platform: User.Platform, username: str
+) -> Tuple[User | None, HTTPException]:
     user = await get_user(platform, username)
 
     if not user:
-        return False, HTTPException(
+        return None, HTTPException(
             status_code=400,
             detail="Incorrect username or platform",
         )
 
-    if platform is Platform.TEST and not settings.debug:
-        return False, HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Test user is disabled",
-        )
-
     if user.status is not User.Status.ACTIVE:
-        return False, HTTPException(
+        return None, HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Inactive user",
         )
 
-    if platform is Platform.STEAM:
-        url = f"https://partner.steam-api.com/ISteamUserAuth/AuthenticateUserTicket/v1/"
-
-    return True, HTTPException(status_code=status.HTTP_200_OK)
+    return None, HTTPException(status_code=status.HTTP_200_OK)
 
 
-async def get_user(platform: Platform, username: str) -> User | None:
-    async with pool.connection() as connection:
+async def get_user(platform: User.Platform, username: str) -> User | None:
+    async with db_pool.connection() as connection:
         async with connection.cursor() as cursor:
             await cursor.execute(
                 "SELECT username, platform, status FROM users WHERE username=%s AND platform=%s",
@@ -116,7 +114,21 @@ async def get_user(platform: Platform, username: str) -> User | None:
 
             record = await cursor.fetchone()
             return (
-                User(username=record[0], platform=record[1], status=record[2])
+                User(
+                    username=record["username"],
+                    platform=record["platform"],
+                    status=record["status"],
+                )
                 if record
                 else None
             )
+
+
+async def _get_user_token(username: str) -> str | None:
+    async with redis.Redis(connection_pool=redis_pool) as client:
+        return await client.get(f"token:{username}")
+
+
+async def _set_user_token(username: str, token: str, expire: timedelta) -> None:
+    async with redis.Redis(connection_pool=redis_pool) as client:
+        await client.setex(f"token:{username}", expire.seconds, token)
