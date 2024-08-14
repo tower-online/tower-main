@@ -9,8 +9,8 @@ def _read_file(path: str) -> str:
 
 class Settings(BaseSettings):
     debug: bool = os.environ["TOWER_DEBUG"] == "true"
-    token_expire_hours: int = int(os.environ["TOWER_TOKEN_EXPIRE_HOURS"])
-    token_encode_key: str = _read_file(os.environ["TOWER_JWT_ENCODE_KEY_FILE"])
+    token_expire_hours: int = int(os.environ["TOWER_AUTH_TOKEN_EXPIRE_HOURS"])
+    token_key: str = _read_file(os.environ["TOWER_AUTH_JWT_KEY_FILE"])
 
     db_host: str = os.environ["TOWER_DB_HOST"]
     db_port: str = os.environ["TOWER_DB_PORT"]

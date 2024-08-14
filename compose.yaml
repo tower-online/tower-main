@@ -4,10 +4,11 @@ services:
     env_file:
       - .env
     ports:
-      - 30000:30000
+      - ${TOWER_MAIN_LISTEN_PORT}:${TOWER_MAIN_LISTEN_PORT}
     secrets:
       - db-password
       - redis-password
+      - auth-jwt-key
     depends_on:
       db:
         condition: service_healthy
@@ -19,13 +20,12 @@ services:
     build: auth
     env_file:
       - .env
-      - auth/auth.env
     ports:
       - 8000:8000
     secrets:
       - db-password
       - redis-password
-      - auth-jwt-encode-key
+      - auth-jwt-key
     depends_on:
       db:
         condition: service_healthy
@@ -43,8 +43,8 @@ services:
       POSTGRES_USER: ${TOWER_DB_USER}
       POSTGRES_PASSWORD_FILE: ${TOWER_DB_PASSWORD_FILE}
       POSTGRES_DB: ${TOWER_DB_NAME}
-    ports:
-      - ${TOWER_DB_PORT}:${TOWER_DB_PORT}
+    expose:
+      - ${TOWER_DB_PORT}
     volumes:
       - db-data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -61,8 +61,8 @@ services:
     image: redis:alpine
     environment:
       REDIS_PASSWORD_FILE: /run/secrets/redis-password
-    ports:
-      - 6379:6379
+    expose:
+      - 6379
     secrets:
       - redis-password
     command: sh -c "redis-server --requirepass $(cat $$REDIS_PASSWORD_FILE)"
@@ -75,5 +75,5 @@ secrets:
     file: db/secrets/db-password
   redis-password:
     file: redis/secrets/redis-password
-  auth-jwt-encode-key:
-    file: auth/secrets/jwt-encode-key
+  auth-jwt-key:
+    file: auth/secrets/auth-jwt-key

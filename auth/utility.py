@@ -4,10 +4,16 @@ import jwt
 
 
 def encode_token(
-    username: str, expires_delta: timedelta, key: str, algorithm: str = "HS256"
+    username: str,
+    platform: str,
+    expires_delta: timedelta,
+    key: str,
+    algorithm: str = "HS256",
 ) -> str:
     data = {
         "sub": username,
+        "aud": platform,
+        "iat": datetime.now(timezone.utc),
         "exp": datetime.now(timezone.utc) + expires_delta,
     }
     return jwt.encode(data, key=key, algorithm=algorithm)

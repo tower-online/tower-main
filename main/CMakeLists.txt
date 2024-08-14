@@ -9,7 +9,9 @@ option(TOWER_BUILD_TESTS "Enable the build of tests" ON)
 ### DEPENDENCIES ###
 include(FetchContent)
 
-find_package(Boost 1.84.0 REQUIRED COMPONENTS system)
+find_package(Python REQUIRED COMPONENTS Development)
+find_package(Boost 1.84.0 REQUIRED COMPONENTS system python3)
+find_package(OpenSSL REQUIRED)
 
 FetchContent_Declare(
     flatbuffers
@@ -44,7 +46,7 @@ set(SKIP_BUILD_TEST ON CACHE BOOL "Disable the build of libpqxx tests" FORCE)
 
 ### TARGETS ###
 add_executable(tower-server
-    tower/app.cpp
+    tower/main.cpp
 
     tower/item/item.hpp
     tower/item/equipment/equipment.hpp
@@ -66,6 +68,8 @@ add_executable(tower-server
 
     tower/system/event.hpp
     tower/system/math.hpp
+    tower/system/settings.hpp
+    tower/system/settings.cpp
     tower/system/timer.hpp
     tower/system/container/concurrent_map.hpp
     tower/system/container/concurrent_queue.hpp
@@ -89,9 +93,19 @@ add_executable(tower-server
     tower/world/entity/mob/piggy.hpp
 )
 target_compile_features(tower-server PRIVATE cxx_std_20)
-target_link_libraries(tower-server PRIVATE Boost::system spdlog flatbuffers glm libpqxx::pqxx)
+target_link_libraries(tower-server PRIVATE
+    Python::Python
+    Boost::system
+    Boost::python
+    OpenSSL::SSL
+    spdlog
+    flatbuffers
+    glm
+    libpqxx::pqxx
+)
 target_include_directories(tower-server PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(tower-server PRIVATE
+    TOWER_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
     TILE_MAP_DATA_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/bin/tile_map"
     ZONE_DATA_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/bin/zone"
 )
