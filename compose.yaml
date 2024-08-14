@@ -12,9 +12,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
-        restart: true
       redis:
-        condition: service_started
+        condition: service_healthy
+    command: sh -c "echo hello"
 
   auth:
     build: auth
@@ -29,9 +29,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
-        restart: true
       redis:
-        condition: service_started
+        condition: service_healthy
 
   db:
     build: db
@@ -65,6 +64,12 @@ services:
       - 6379
     secrets:
       - redis-password
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      start_period: 5s
+      interval: 5s
+      timeout: 5s
+      retries: 5
     command: sh -c "redis-server --requirepass $(cat $$REDIS_PASSWORD_FILE)"
 
 volumes:

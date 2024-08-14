@@ -9,6 +9,7 @@ RUN apt update -y && \
     ninja-build \
     python3-pip \
     python3-dev \
+    libssl-dev \
     libpq-dev
 
 # Install Boost library
@@ -26,4 +27,4 @@ RUN pip install --no-cache-dir --break-system-packages -r requirements.txt
 RUN cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTOWER_BUILD_TESTS=OFF && \
     cmake --build build --config Release --target tower-server
 
-ENTRYPOINT ["/app/build/tower-server"]
+CMD ["/app/build/tower-server"]
