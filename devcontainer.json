@@ -1,6 +1,6 @@
 {
   "name": "tower-main container development",
-  "dockerComposeFile": ["../compose.yaml"],
+  "dockerComposeFile": ["compose.yaml"],
   "service": "main",
   "workspaceFolder": "/app",
 }
