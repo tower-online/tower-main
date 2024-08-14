@@ -77,8 +77,8 @@ volumes:
 
 secrets:
   db-password:
-    file: db/secrets/db-password
+    file: secrets/db-password
   redis-password:
-    file: redis/secrets/redis-password
+    file: secrets/redis-password
   auth-jwt-key:
-    file: auth/secrets/auth-jwt-key
+    file: secrets/auth-jwt-key

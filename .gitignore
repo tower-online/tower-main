@@ -2,3 +2,7 @@
 .idea
 .vscode
 .vs
+
+# secrets
+secrets/*
+!secrets/README.md
