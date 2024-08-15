@@ -1,3 +1,6 @@
 # Build
 build
 cmake-build-*
+
+venv
+lib/py/**/__pycache__/

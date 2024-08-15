@@ -43,11 +43,13 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(libpqxx)
 set(SKIP_BUILD_TEST ON CACHE BOOL "Disable the build of libpqxx tests" FORCE)
 
+# lib
+set(ENV{PYTHONPATH} "${CMAKE_CURRENT_SOURCE_DIR}/lib/py:$ENV{PYTHONPATH}")
+message("PYTHONPATH: $ENV{PYTHONPATH}")
+
 
 ### TARGETS ###
-add_executable(tower-server
-    tower/main.cpp
-
+add_library(libtower STATIC
     tower/item/item.hpp
     tower/item/equipment/equipment.hpp
     tower/item/equipment/fist.hpp
@@ -67,6 +69,7 @@ add_executable(tower-server
     tower/player/inventory.cpp
 
     tower/system/event.hpp
+    tower/system/jwt.hpp
     tower/system/math.hpp
     tower/system/settings.hpp
     tower/system/settings.cpp
@@ -92,39 +95,45 @@ add_executable(tower-server
     tower/world/entity/entity_manager.hpp
     tower/world/entity/mob/piggy.hpp
 )
-target_compile_features(tower-server PRIVATE cxx_std_20)
-target_link_libraries(tower-server PRIVATE
+add_library(tower::libtower ALIAS libtower)
+
+target_compile_features(libtower PUBLIC cxx_std_20)
+target_link_libraries(libtower
+    PUBLIC
     Python::Python
-    Boost::system
-    Boost::python
-    OpenSSL::SSL
     spdlog
     flatbuffers
     glm
+
+    PRIVATE
+    Boost::system
+    Boost::python
+    OpenSSL::SSL
     libpqxx::pqxx
 )
-target_include_directories(tower-server PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_compile_definitions(tower-server PRIVATE
+target_include_directories(libtower PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_definitions(libtower PUBLIC
     TOWER_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
     TILE_MAP_DATA_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/bin/tile_map"
     ZONE_DATA_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/bin/zone"
+    TOWER_LIB_PYTHONPATH="${CMAKE_CURRENT_SOURCE_DIR}/lib/py:$ENV{PYTHONPATH}"
 )
+
+add_executable(tower-server
+    tower/main.cpp
+)
+target_link_libraries(tower-server PRIVATE tower::libtower)
 
 
 ### SCHEMAS ###
 add_subdirectory(tower/net/packet/schema)
-add_tower_packet_target("tower/net/packet/schema" "tower/net/packet")
-add_dependencies(tower-server tower-packet)
 
-file(GLOB world_schemas tower/world/schema/*.fbs)
-add_custom_target(
-    tower-world-schema
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND flatc -o tower/world/schema --cpp --cpp-std c++17 --filename-suffix "\"\"" --filename-ext hpp ${world_schemas}
-    DEPENDS flatc
-)
-add_dependencies(tower-server tower-world-schema)
-message("world_schemas: ${world_schemas}")
+add_tower_packet_target("tower/net/packet/schema" "tower/net/packet")
+add_dependencies(libtower tower-packet)
+
+add_tower_world_schema_target("tower/net/packet/schema" "tower/world/schema")
+add_dependencies(libtower tower-world-schema)
+
 
 ### TESTS ###
 if (TOWER_BUILD_TESTS)
@@ -135,11 +144,11 @@ if (TOWER_BUILD_TESTS)
     )
     FetchContent_MakeAvailable(Catch2)
 
-    add_executable(tower-server-test
+    add_executable(libtower-test
         tower/system/event.test.cpp
+        tower/system/jwt.test.cpp
         tower/world/path_finder.test.cpp
     )
-    target_compile_features(tower-server-test PRIVATE cxx_std_20)
-    target_link_libraries(tower-server-test PRIVATE Catch2::Catch2WithMain glm)
-    target_include_directories(tower-server-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_compile_features(libtower-test PRIVATE cxx_std_20)
+    target_link_libraries(libtower-test PRIVATE tower::libtower Catch2::Catch2WithMain)
 endif ()
