@@ -1,5 +1,7 @@
 services:
   main:
+    build:
+      target: base
     volumes:
       - .:/app:cached
     # Keep the process running

@@ -4,10 +4,9 @@
     "compose.extend.yaml"
   ],
   "service": "main",
-//  "mounts": [
-//    "source=${localWorkspaceFolder}/main,target=/app,type=bind,consistency=cached"
-//  ],
-  "workspaceMount": "source=${localWorkspaceFolder}/main,target=/app,type=bind,consistency=cached",
+  "mounts": [
+    "source=${localWorkspaceFolder}/main,target=/app,type=bind,consistency=cached"
+  ],
   "workspaceFolder": "/app",
   "shutdownAction": "stopCompose"
 }
