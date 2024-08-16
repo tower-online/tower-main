@@ -25,6 +25,6 @@ WORKDIR /app
 COPY . .
 RUN pip install --no-cache-dir --break-system-packages -r requirements.txt
 RUN cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTOWER_BUILD_TESTS=OFF && \
-    cmake --build build --config Release --target tower-server
+    cmake --build build --keep-going --config Release --target tower-server
 
 CMD ["/app/build/tower-server"]
