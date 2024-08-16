@@ -8,6 +8,8 @@ namespace tower::net {
 using boost::asio::ip::tcp;
 
 class Client : public std::enable_shared_from_this<Client> {
+    class HeartBeater;
+
 public:
     Client(boost::asio::io_context& ctx, tcp::socket&& socket, uint32_t id,
         std::function<void(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)>&& packet_received);
@@ -27,31 +29,27 @@ private:
     Connection _connection;
     const std::function<void(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)> _packet_received;
     std::atomic<bool> _is_running {false};
+
+    std::unique_ptr<HeartBeater> _heart_beater;
 };
 
-inline Client::Client(boost::asio::io_context& ctx, tcp::socket&& socket, const uint32_t id,
-    std::function<void(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)>&& packet_received)
-    : id(id),
-    _connection(ctx, std::move(socket),
-        [this](std::vector<uint8_t>&& buffer) {
-            _packet_received(shared_from_this(), std::move(buffer));
-        },
-        [this] { disconnected.notify(shared_from_this()); }),
-    _packet_received(std::move(packet_received)) {}
+class Client::HeartBeater {
+    static constexpr uint32_t MAX_DEAD_BEATS = 3;
+    static constexpr seconds BEAT_INTERVAL = 5s;
 
-inline void Client::start() {
-    if (_is_running.exchange(true)) return;
+public:
+    HeartBeater(boost::asio::io_context& ctx, std::function<void()>&& on_dead);
 
-    _connection.open();
-}
+    void start();
+    void stop();
+    void beat();
 
-inline void Client::stop() {
-    if (!_is_running.exchange(false)) return;
+private:
+    std::atomic<steady_clock::time_point> _last_beat;
+    std::atomic<uint32_t> _dead_beats{0};
 
-    _connection.disconnect();
-}
-
-inline void Client::send_packet(std::shared_ptr<flatbuffers::DetachedBuffer> buffer) {
-    _connection.send_packet(std::move(buffer));
-}
+    Timer _timer;
+    std::shared_ptr<EventListener<>> _on_beat;
+    std::function<void()> _on_dead;
+};
 }

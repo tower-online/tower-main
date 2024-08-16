@@ -43,10 +43,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(libpqxx)
 set(SKIP_BUILD_TEST ON CACHE BOOL "Disable the build of libpqxx tests" FORCE)
 
-# lib
-set(ENV{PYTHONPATH} "${CMAKE_CURRENT_SOURCE_DIR}/lib/py:$ENV{PYTHONPATH}")
-message("PYTHONPATH: $ENV{PYTHONPATH}")
-
 
 ### TARGETS ###
 add_library(libtower STATIC
@@ -55,7 +51,9 @@ add_library(libtower STATIC
     tower/item/equipment/fist.hpp
 
     tower/net/client.hpp
+    tower/net/client.cpp
     tower/net/connection.hpp
+    tower/net/connection.cpp
     tower/net/listener.hpp
     tower/net/packet.hpp
     tower/net/server.hpp
@@ -115,7 +113,6 @@ target_include_directories(libtower PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(libtower PUBLIC
     TOWER_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
     TILE_MAP_DATA_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/bin/tile_map"
-    ZONE_DATA_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/bin/zone"
     TOWER_LIB_PYTHONPATH="${CMAKE_CURRENT_SOURCE_DIR}/lib/py:$ENV{PYTHONPATH}"
 )
 

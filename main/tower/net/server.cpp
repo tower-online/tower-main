@@ -1,4 +1,5 @@
 #include <tower/net/server.hpp>
+#include <tower/system/jwt.hpp>
 
 namespace tower::net {
 Server::Server() {
@@ -49,6 +50,13 @@ void Server::stop() {
 void Server::add_client(tcp::socket&& socket) {
     static std::atomic<uint32_t> id_generator {0};
 
+    try {
+        socket.set_option(tcp::no_delay(true));
+    }
+    catch (const boost::system::system_error& e) {
+        spdlog::error("[Connection] Error setting no-delay: {}", e.what());
+    }
+
     const auto new_id = ++id_generator;
     auto new_client = std::make_shared<Client>(_ctx, std::move(socket), new_id,
         [this](std::shared_ptr<Client>&& client, std::vector<uint8_t>&& buffer) {
@@ -87,7 +95,7 @@ void Server::handle_packet(std::unique_ptr<Packet> packet) {
 
     switch (packet_base->packet_base_type()) {
     case PacketType::ClientJoinRequest:
-        handle_client_join_request_deferred(std::move(packet->client),
+        handle_client_join_request(std::move(packet->client),
             packet_base->packet_base_as<ClientJoinRequest>());
         break;
 
@@ -97,27 +105,29 @@ void Server::handle_packet(std::unique_ptr<Packet> packet) {
     }
 }
 
-void Server::handle_client_join_request_deferred(std::shared_ptr<Client>&& client, const ClientJoinRequest* request) {
+void Server::handle_client_join_request(std::shared_ptr<Client>&& client, const ClientJoinRequest* request) {
     if (!request->username() || !request->token()) {
         client->stop();
         return;
     }
 
-    // if (!validate_token(cached_token)) {
-    //     flatbuffers::FlatBufferBuilder builder {64};
-    //     const auto client_join = CreateClientJoinResponse(builder, ClientJoinResult::INVALID_TOKEN);
-    //     builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::ClientJoinResponse,
-    //         client_join.Union()));
-    //     client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
-    //
-    //     return;
-    // }
+    if (!JWT::authenticate(request->token()->string_view(), Settings::auth_jwt_key(), Settings::auth_jwt_algorithm(),
+        platform_to_string(request->platform()), request->username()->string_view())) {
+
+        flatbuffers::FlatBufferBuilder builder {64};
+        const auto client_join = CreateClientJoinResponse(builder, ClientJoinResult::INVALID_TOKEN);
+        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::ClientJoinResponse,
+            client_join.Union()));
+        client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+
+        client->stop();
+        return;
+    }
 
     flatbuffers::FlatBufferBuilder builder {64};
     const auto client_join = CreateClientJoinResponse(builder, ClientJoinResult::OK);
     builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::ClientJoinResponse, client_join.Union()));
     client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
-
 
     _jobs.push([this, client = std::move(client)]() mutable {
         //TODO: Find player's last stayed zone

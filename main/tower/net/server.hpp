@@ -27,7 +27,7 @@ private:
     void remove_client(std::shared_ptr<Client>&& client);
 
     void handle_packet(std::unique_ptr<Packet> packet);
-    void handle_client_join_request_deferred(std::shared_ptr<Client>&& client, const ClientJoinRequest* request);
+    void handle_client_join_request(std::shared_ptr<Client>&& client, const ClientJoinRequest* request);
 
     // Network
     boost::asio::io_context _ctx {};

@@ -15,6 +15,7 @@ public:
     static milliseconds main_tick_interval() { return _main_tick_interval; }
 
     static std::string_view auth_jwt_key() { return _auth_jwt_key; }
+    static std::string_view auth_jwt_algorithm() { return _auth_jwt_algorithm; }
 
     static std::string_view db_user() { return _db_user; }
     static std::string_view db_password() { return _db_password; }
@@ -32,6 +33,7 @@ private:
     inline static milliseconds _main_tick_interval;
 
     inline static std::string _auth_jwt_key;
+    inline static std::string _auth_jwt_algorithm;
 
     inline static std::string _db_user;
     inline static std::string _db_password;

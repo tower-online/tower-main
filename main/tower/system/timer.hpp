@@ -1,33 +1,56 @@
 #pragma once
 
+#include <boost/asio.hpp>
 #include <tower/system/event.hpp>
 
 #include <chrono>
+
+#include "spdlog/spdlog.h"
 
 namespace tower {
 using namespace std::chrono;
 
 class Timer {
 public:
-    explicit Timer(milliseconds duration, bool one_shot = true);
+    explicit Timer(boost::asio::io_context& ctx, milliseconds duration, bool autostart = false, bool one_shot = false);
+
+    void start();
+    void stop();
 
     Event<> timeout;
 
-    const bool one_shot;
-
-    bool is_timedout() const;
-
 private:
-    time_point<steady_clock> _start_time;
     milliseconds _duration;
+    bool _one_shot;
+
+    boost::asio::io_context& _ctx;
+    std::atomic<bool> _is_running{false};
 };
 
-inline Timer::Timer(const milliseconds duration, const bool one_shot)
-    : one_shot {one_shot}, _duration {duration} {
-    _start_time = steady_clock::now();
+inline Timer::Timer(boost::asio::io_context& ctx, milliseconds duration, bool autostart, bool one_shot)
+    : _ctx{ctx}, _one_shot{one_shot}, _duration{duration} {
+    if (autostart) start();
 }
 
-inline bool Timer::is_timedout() const {
-    return steady_clock::now() >= _start_time + _duration;
+inline void Timer::start() {
+    _is_running = true;
+
+    co_spawn(_ctx, [this]()-> boost::asio::awaitable<void> {
+        boost::asio::steady_timer timer{_ctx};
+
+        do {
+            timer.expires_after(_duration);
+            if (auto [e] = co_await timer.async_wait(as_tuple(boost::asio::use_awaitable)); e || !_is_running) {
+                break;
+            }
+
+            spdlog::info("timer notifying...");
+            timeout.notify();
+        } while (!_one_shot && _is_running);
+    }, boost::asio::detached);
+}
+
+inline void Timer::stop() {
+    _is_running = false;
 }
 }

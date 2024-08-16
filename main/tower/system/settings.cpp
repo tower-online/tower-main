@@ -9,6 +9,7 @@ void Settings::init() {
     _main_tick_interval = milliseconds {std::stoi(std::getenv("TOWER_MAIN_TICK_INTERVAL_MILLISECONDS"))};
 
     _auth_jwt_key = read_file(std::getenv("TOWER_AUTH_JWT_KEY_FILE"));
+    _auth_jwt_algorithm = std::getenv("TOWER_AUTH_JWT_ALGORITHM");
 
     _db_user = std::getenv("TOWER_DB_USER");
     _db_password = read_file(std::getenv("TOWER_DB_PASSWORD_FILE"));

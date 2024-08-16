@@ -18,7 +18,9 @@ int main(int argc, char *argv[]) {
     // const auto nthreads = std::thread::hardware_concurrency();
     Settings::init();
 
+    // Initialize python module embeddings
     setenv("PYTHONPATH", TOWER_LIB_PYTHONPATH, true);
+    spdlog::info("set PYTHONPATH={}", std::getenv("PYTHONPATH"));
     Py_Initialize();
     if (!JWT::init()) {
         EXIT_FAILURE;
