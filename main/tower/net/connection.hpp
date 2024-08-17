@@ -4,7 +4,6 @@
 #include <boost/core/noncopyable.hpp>
 #include <flatbuffers/flatbuffers.h>
 #include <tower/system/timer.hpp>
-#include <tower/system/container/concurrent_queue.hpp>
 
 #include <chrono>
 
@@ -38,7 +37,7 @@ private:
     std::atomic<bool> _is_connected;
     std::function<void(std::vector<uint8_t>&&)> _packet_received;
     std::function<void()> _disconnected;
-    ConcurrentQueue<std::shared_ptr<flatbuffers::DetachedBuffer>> _send_queue{};
-    std::atomic<bool> _is_sending{false};
+
+    boost::asio::io_context::strand _send_strand;
 };
 }

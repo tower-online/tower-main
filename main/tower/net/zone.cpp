@@ -11,8 +11,8 @@
 namespace tower::net {
 using namespace tower::player;
 
-Zone::Zone(const uint32_t zone_id, const std::string_view tile_map_name)
-    : zone_id {zone_id}, _subworld {tile_map_name} {
+Zone::Zone(const uint32_t zone_id, boost::asio::thread_pool& work_ctx)
+    : zone_id {zone_id}, _work_ctx {work_ctx} {
     _on_client_disconnected = std::make_shared<EventListener<std::shared_ptr<net::Client>>>(
         [this](std::shared_ptr<Client>&& client) {
             remove_client_deferred(std::move(client));
@@ -21,8 +21,6 @@ Zone::Zone(const uint32_t zone_id, const std::string_view tile_map_name)
 
 Zone::~Zone() {
     stop();
-
-    if (_worker_thread.joinable()) _worker_thread.join();
 }
 
 void Zone::handle_packet_deferred(std::shared_ptr<Packet>&& packet) {
@@ -32,40 +30,20 @@ void Zone::handle_packet_deferred(std::shared_ptr<Packet>&& packet) {
     });
 }
 
+void Zone::init(std::string_view tile_map) {
+    _subworld = std::make_unique<Subworld>(tile_map);
+}
+
 void Zone::start() {
     if (_is_running.exchange(true)) return;
 
-    _worker_thread = std::thread([this] {
-        auto last_tick_time = steady_clock::now();
-
-        while (_is_running) {
-            std::queue<std::function<void()>> jobs;
-            _jobs.swap(jobs);
-            while (!jobs.empty()) {
-                const auto& job = jobs.front();
-                job();
-                jobs.pop();
-            }
-
-            const auto current_time = steady_clock::now();
-            if (current_time - last_tick_time < TICK_INTERVAL) continue;
-            tick();
-            last_tick_time = current_time;
-        }
+    post(_work_ctx, [this] {
+        handle_jobs(true);
     });
-    _worker_thread.detach();
-
-    // auto piggy = game::Piggy::create();
-    // piggy->position = {
-    //     _subworld.get_size().x * Tile::TILE_SIZE / 2 + 100, _subworld.get_size().y * Tile::TILE_SIZE / 2
-    // };
-    // _subworld.add_entity(std::move(piggy));
 }
 
 void Zone::stop() {
     if (!_is_running.exchange(false)) return;
-
-    //TODO: Flush jobs before stopping
 }
 
 void Zone::add_client_deferred(std::shared_ptr<Client>&& client) {
@@ -81,10 +59,10 @@ void Zone::add_client_deferred(std::shared_ptr<Client>&& client) {
         // player->position = {_subworld.get_size().x * Tile::TILE_SIZE / 2, _subworld.get_size().y * Tile::TILE_SIZE / 2};
         player->position = {0, 0};
 
-        _subworld.add_entity(player);
+        _subworld->add_entity(player);
 
         flatbuffers::FlatBufferBuilder builder {128};
-        const auto enter = CreatePlayerEnterZoneDirect(builder, zone_id, _subworld.get_tilemap().get_name().data());
+        const auto enter = CreatePlayerEnterZoneDirect(builder, zone_id, _subworld->get_tilemap().get_name().data());
         builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerEnterZone, enter.Union()));
         client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
     });
@@ -93,7 +71,7 @@ void Zone::add_client_deferred(std::shared_ptr<Client>&& client) {
 void Zone::remove_client_deferred(std::shared_ptr<Client>&& client) {
     _jobs.push([this, client] {
         _clients.erase(client->id);
-        _subworld.remove_entity(client->player);
+        _subworld->remove_entity(client->player);
         spdlog::info("[Zone] Removed client ({})", client->id);
 
         // Broadcast EntityDespawn
@@ -108,18 +86,39 @@ void Zone::remove_client_deferred(std::shared_ptr<Client>&& client) {
     });
 }
 
+void Zone::handle_jobs(const bool loop) {
+    std::queue<std::function<void()>> jobs;
+    _jobs.swap(jobs);
+
+    while (!jobs.empty()) {
+        const auto& job = jobs.front();
+        job();
+        jobs.pop();
+    }
+
+    if (const auto now = steady_clock::now(); now >= _last_tick + TICK_INTERVAL) {
+        tick();
+        _last_tick = now;
+    }
+
+    if (!loop || !_is_running) return;
+    post(_work_ctx, [this] {
+        handle_jobs(true);
+    });
+}
+
 void Zone::tick() {
-    _subworld.tick();
+    _subworld->tick();
 
     // Broadcast entities' transform
     {
         std::vector<EntityMovement> movements {};
-        for (const auto& [_, entity] : _subworld.get_entities()) {
-            movements.push_back(EntityMovement {
+        for (const auto& [_, entity] : _subworld->get_entities()) {
+            movements.emplace_back(
                 entity->entity_id,
-                net::packet::Vector2 {entity->position.x, entity->position.y},
-                net::packet::Vector2 {entity->target_direction.x, entity->target_direction.y}
-            });
+                Vector2 {entity->position.x, entity->position.y},
+                Vector2 {entity->target_direction.x, entity->target_direction.y}
+            );
         }
 
         flatbuffers::FlatBufferBuilder builder {};
@@ -148,7 +147,7 @@ void Zone::handle_packet(std::shared_ptr<Packet>&& packet) {
 
     switch (packet_base->packet_base_type()) {
     case PacketType::PlayerMovement:
-        hanlde_player_movement(std::move(packet->client), packet_base->packet_base_as<PlayerMovement>());
+        handle_player_movement(std::move(packet->client), packet_base->packet_base_as<PlayerMovement>());
         break;
 
     case PacketType::PlayerEnterZone:
@@ -156,7 +155,7 @@ void Zone::handle_packet(std::shared_ptr<Packet>&& packet) {
         break;
 
     case PacketType::EntityMeleeAttack:
-        hanlde_entity_melee_attack(std::move(packet->client), packet_base->packet_base_as<EntityMeleeAttack>());
+        handle_entity_melee_attack(std::move(packet->client), packet_base->packet_base_as<EntityMeleeAttack>());
         break;
 
     default:
@@ -164,7 +163,7 @@ void Zone::handle_packet(std::shared_ptr<Packet>&& packet) {
     }
 }
 
-void Zone::hanlde_player_movement(std::shared_ptr<Client>&& client, const PlayerMovement* movement) {
+void Zone::handle_player_movement(std::shared_ptr<Client>&& client, const PlayerMovement* movement) {
     glm::vec2 target_direction;
     if (const auto target_direction_ptr = movement->target_direction(); !target_direction_ptr) {
         return;
@@ -188,8 +187,8 @@ void Zone::hanlde_player_movement(std::shared_ptr<Client>&& client, const Player
 }
 
 void Zone::handle_player_enter_zone(std::shared_ptr<Client>&& client, const PlayerEnterZone* enter) {
-    // Spawn every entities in the zone
-    for (const auto& [_, entity] : _subworld.get_entities()) {
+    // Spawn every entity in the zone
+    for (const auto& [_, entity] : _subworld->get_entities()) {
         flatbuffers::FlatBufferBuilder builder {256};
         const Vector2 position {entity->position.x, entity->position.y};
 
@@ -213,7 +212,7 @@ void Zone::handle_player_enter_zone(std::shared_ptr<Client>&& client, const Play
     }
 }
 
-void Zone::hanlde_entity_melee_attack(std::shared_ptr<Client>&& client, const EntityMeleeAttack* attack) {
+void Zone::handle_entity_melee_attack(std::shared_ptr<Client>&& client, const EntityMeleeAttack* attack) {
     // Replicate player's melee attack
     {
         flatbuffers::FlatBufferBuilder builder {128};
@@ -229,7 +228,7 @@ void Zone::hanlde_entity_melee_attack(std::shared_ptr<Client>&& client, const En
         return;
     }
 
-    auto collisions = _subworld.get_collisions(fist->attack_shape.get(), static_cast<uint32_t>(ColliderLayer::ENTITIES));
+    auto collisions = _subworld->get_collisions(fist->attack_shape.get(), static_cast<uint32_t>(ColliderLayer::ENTITIES));
 
     for (auto& c : collisions) {
         auto collider_root = c->get_root();
@@ -242,7 +241,7 @@ void Zone::hanlde_entity_melee_attack(std::shared_ptr<Client>&& client, const En
         const auto amount_damaged = fist->damage;
         entity->modify_resource(EntityResourceType::HEALTH, EntityResourceModifyMode::NEGATIVE, amount_damaged);
 
-        // Brodacst that entity is damaged
+        // Broadcast that entity is damaged
         flatbuffers::FlatBufferBuilder builder {128};
         const auto modify = CreateEntityResourceModify(builder,
             EntityResourceModifyMode::NEGATIVE, EntityResourceType::HEALTH, entity->entity_id,

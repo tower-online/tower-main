@@ -15,7 +15,7 @@ int main(int argc, char *argv[]) {
     spdlog::set_level(spdlog::level::debug);
 #endif
 
-    // const auto nthreads = std::thread::hardware_concurrency();
+    const auto num_threads = std::thread::hardware_concurrency();
     Settings::init();
 
     // Initialize python module embeddings
@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
         EXIT_FAILURE;
     }
 
-    net::Server server {};
+    net::Server server {num_threads / 2, num_threads / 2};
     server.start();
 
     spdlog::info("Terminating...");

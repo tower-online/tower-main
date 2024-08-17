@@ -5,12 +5,13 @@ project(TowerServer
 )
 
 option(TOWER_BUILD_TESTS "Enable the build of tests" ON)
+option(TOWER_BUILD_DUMMY "Enable the build of dummy client" ON)
 
 ### DEPENDENCIES ###
 include(FetchContent)
 
 find_package(Python REQUIRED COMPONENTS Development)
-find_package(Boost 1.84.0 REQUIRED COMPONENTS system python3)
+find_package(Boost 1.84.0 REQUIRED COMPONENTS python3 system thread)
 find_package(OpenSSL REQUIRED)
 
 FetchContent_Declare(
@@ -102,12 +103,13 @@ target_link_libraries(libtower
     spdlog
     flatbuffers
     glm
+    libpqxx::pqxx
 
     PRIVATE
-    Boost::system
     Boost::python
+    Boost::system
+    Boost::thread
     OpenSSL::SSL
-    libpqxx::pqxx
 )
 target_include_directories(libtower PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(libtower PUBLIC
@@ -131,6 +133,22 @@ add_dependencies(libtower tower-packet)
 add_tower_world_schema_target("tower/net/packet/schema" "tower/world/schema")
 add_dependencies(libtower tower-world-schema)
 
+if (TOWER_BUILD_DUMMY)
+    set(schema_path "tower/net/packet/schema")
+
+    file(GLOB schemas
+        "${schema_path}/packet/*.fbs"
+        "${schema_path}/packet/client/*.fbs"
+    )
+
+    add_custom_target(
+        dummy-packet
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMAND flatc -I ${schema_path}/packet -o dummy --python --filename-suffix "\"\"" ${schemas}
+        DEPENDS flatc
+    )
+    message("dummy-packet: ${schemas}")
+endif ()
 
 ### TESTS ###
 if (TOWER_BUILD_TESTS)
@@ -141,11 +159,17 @@ if (TOWER_BUILD_TESTS)
     )
     FetchContent_MakeAvailable(Catch2)
 
-    add_executable(libtower-test
+    add_executable(tower-unit-tests
         tower/system/event.test.cpp
         tower/system/jwt.test.cpp
         tower/world/path_finder.test.cpp
     )
-    target_compile_features(libtower-test PRIVATE cxx_std_20)
-    target_link_libraries(libtower-test PRIVATE tower::libtower Catch2::Catch2WithMain)
+    target_compile_features(tower-unit-tests PRIVATE cxx_std_20)
+    target_link_libraries(tower-unit-tests PRIVATE tower::libtower Catch2::Catch2WithMain)
+
+    add_executable(tower-integration-tests
+        test/db/psql_connection.test.cpp
+    )
+    target_compile_features(tower-integration-tests PRIVATE cxx_std_20)
+    target_link_libraries(tower-integration-tests PRIVATE tower::libtower Catch2::Catch2WithMain)
 endif ()

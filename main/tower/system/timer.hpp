@@ -44,7 +44,6 @@ inline void Timer::start() {
                 break;
             }
 
-            spdlog::info("timer notifying...");
             timeout.notify();
         } while (!_one_shot && _is_running);
     }, boost::asio::detached);

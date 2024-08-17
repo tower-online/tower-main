@@ -13,6 +13,8 @@ class Client : public std::enable_shared_from_this<Client> {
 public:
     Client(boost::asio::io_context& ctx, tcp::socket&& socket, uint32_t id,
         std::function<void(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)>&& packet_received);
+    ~Client();
+
     Client(const Client&) = delete;
     Client& operator=(const Client&) = delete;
 
@@ -38,18 +40,18 @@ class Client::HeartBeater {
     static constexpr seconds BEAT_INTERVAL = 5s;
 
 public:
-    HeartBeater(boost::asio::io_context& ctx, std::function<void()>&& on_dead);
+    HeartBeater(boost::asio::io_context& ctx, Client& client);
 
     void start();
     void stop();
     void beat();
 
 private:
+    Client& _client;
     std::atomic<steady_clock::time_point> _last_beat;
     std::atomic<uint32_t> _dead_beats{0};
 
     Timer _timer;
     std::shared_ptr<EventListener<>> _on_beat;
-    std::function<void()> _on_dead;
 };
 }

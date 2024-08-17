@@ -1,16 +1,19 @@
 #include <tower/net/server.hpp>
 #include <tower/system/jwt.hpp>
 
+
 namespace tower::net {
-Server::Server() {
+Server::Server(const size_t num_io_threads, const size_t num_worker_threads)
+    : _num_io_threads {num_io_threads}, _worker_threads {num_worker_threads} {
     _on_client_disconnected = std::make_shared<EventListener<std::shared_ptr<Client>>>(
         [this](std::shared_ptr<Client>&& client) {
-            remove_client(std::move(client));
+            remove_client_deferred(std::move(client));
         }
     );
 
     // default zone
-    _zones.insert_or_assign(0, std::make_unique<Zone>(0, "test_zone"));
+    _zones.insert_or_assign(0, std::make_unique<Zone>(0, _worker_threads));
+    _zones[0]->init("test_zone");
 
     redis::config redis_config {};
     redis_config.addr.host = Settings::redis_host();
@@ -21,61 +24,92 @@ Server::Server() {
 Server::~Server() {
     stop();
 
-    if (_worker_thread.joinable()) _worker_thread.join();
+    _io_threads.join_all();
+    _worker_threads.join();
 }
 
 void Server::start() {
     if (_is_running.exchange(true)) return;
+    spdlog::info("[Server] Starting...");
 
     _listener.start();
 
-    _worker_thread = std::thread([this] {
-        spdlog::info("[Server] Worker thread entering");
-        while (_is_running) {
-            std::function<void()> job;
-            if (!_jobs.try_pop(job)) continue;
-            job();
-        }
-        spdlog::info("[Server] Worker thread exiting");
-    });
-    _worker_thread.detach();
+    _io_guard = std::make_unique<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>>(
+        make_work_guard(_ctx));
+    for (auto i {0}; i < _num_io_threads; ++i) {
+        _io_threads.create_thread([this] {
+            while (_is_running) {
+                _ctx.run();
+            }
+        });
+    }
 
-    _ctx.run();
+    post(_worker_threads, [this] {
+        handle_jobs(true);
+    });
 }
 
 void Server::stop() {
     if (!_is_running.exchange(false)) return;
+    spdlog::info("[Server] Stopping...");
+
+    _io_guard->reset();
+    _io_guard = nullptr;
+
+    for (auto& [_, client] : _clients) {
+        client->stop();
+    }
+
+    for (auto& [_, zone] : _zones) {
+        zone->stop();
+    }
+
+    _listener.stop();
 }
 
-void Server::add_client(tcp::socket&& socket) {
+void Server::handle_jobs(const bool loop) {
+    std::queue<std::function<void()>> jobs;
+    _jobs.swap(jobs);
+
+    while (!jobs.empty()) {
+        const auto& job = jobs.front();
+        job();
+        jobs.pop();
+    }
+
+    if (!loop || !_is_running) return;
+    post(_worker_threads, [this] {
+        handle_jobs(true);
+    });
+}
+
+void Server::add_client_deferred(tcp::socket&& socket) {
     static std::atomic<uint32_t> id_generator {0};
 
     try {
         socket.set_option(tcp::no_delay(true));
-    }
-    catch (const boost::system::system_error& e) {
+    } catch (const boost::system::system_error& e) {
         spdlog::error("[Connection] Error setting no-delay: {}", e.what());
+        return;
     }
 
-    const auto new_id = ++id_generator;
-    auto new_client = std::make_shared<Client>(_ctx, std::move(socket), new_id,
+    uint32_t id = ++id_generator;
+    auto client = std::make_shared<Client>(_ctx, std::move(socket), id,
         [this](std::shared_ptr<Client>&& client, std::vector<uint8_t>&& buffer) {
             handle_packet(std::make_unique<Packet>(std::move(client), std::move(buffer)));
         }
     );
 
-    _jobs.push([this, client = std::move(new_client)] {
+    _jobs.push([this, client = std::move(client)] {
         _clients.insert_or_assign(client->id, client);
         client->start();
         client->disconnected.subscribe(_on_client_disconnected->shared_from_this());
 
         spdlog::info("[Server] Added client ({})", client->id);
-
-        //TODO: Heartbeat and prune
     });
 }
 
-void Server::remove_client(std::shared_ptr<Client>&& client) {
+void Server::remove_client_deferred(std::shared_ptr<Client>&& client) {
     _jobs.push([this, client = std::move(client)] {
         _clients.erase(client->id);
         _clients_current_zone.erase(client->id);
@@ -113,7 +147,6 @@ void Server::handle_client_join_request(std::shared_ptr<Client>&& client, const 
 
     if (!JWT::authenticate(request->token()->string_view(), Settings::auth_jwt_key(), Settings::auth_jwt_algorithm(),
         platform_to_string(request->platform()), request->username()->string_view())) {
-
         flatbuffers::FlatBufferBuilder builder {64};
         const auto client_join = CreateClientJoinResponse(builder, ClientJoinResult::INVALID_TOKEN);
         builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::ClientJoinResponse,
