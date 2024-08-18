@@ -190,11 +190,11 @@ void Server::handle_client_join_request(std::shared_ptr<Client>&& client, const 
     builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::ClientJoinResponse, client_join.Union()));
     client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
 
-    _jobs.push([this, client = std::move(client)]() mutable {
-        //TODO: Find player's last stayed zone
-        _clients_current_zone.insert_or_assign(client->id, 0);
-        _zones[0]->add_client_deferred(std::move(client));
-    });
+    // _jobs.push([this, client = std::move(client)]() mutable {
+    //     //TODO: Find player's last stayed zone
+    //     _clients_current_zone.insert_or_assign(client->id, 0);
+    //     _zones[0]->add_client_deferred(std::move(client));
+    // });
 }
 
 std::string_view platform_to_string(const ClientPlatform platform, const bool lower) {

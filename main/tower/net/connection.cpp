@@ -7,7 +7,7 @@ Connection::Connection(boost::asio::io_context& ctx, tcp::socket&& socket,
     std::function<void()>&& disconnected)
     : _ctx {ctx}, _socket {std::move(socket)}, _is_connected {_socket.is_open()},
     _packet_received {std::move(packet_received)}, _disconnected {std::move(disconnected)},
-    _send_strand {_ctx} {}
+    _send_strand {make_strand(_ctx)} {}
 
 Connection::~Connection() {
     disconnect();
@@ -56,7 +56,7 @@ void Connection::disconnect() {
 void Connection::send_packet(std::shared_ptr<flatbuffers::DetachedBuffer> buffer) {
     if (!buffer || !_is_connected) return;
 
-    post(_send_strand, [this, buffer = std::move(buffer)]()->boost::asio::awaitable<void> {
+    co_spawn(_send_strand, [this, buffer = std::move(buffer)]()->boost::asio::awaitable<void> {
         if (!_is_connected) co_return;
 
         const auto [ec, _] = co_await _socket.async_send(
@@ -66,19 +66,7 @@ void Connection::send_packet(std::shared_ptr<flatbuffers::DetachedBuffer> buffer
             disconnect();
             co_return;
         }
-    });
-
-    // co_spawn(_send_strand, [this, buffer = std::move(buffer)]()->boost::asio::awaitable<void> {
-    //     if (!_is_connected) co_return;
-    //
-    //     const auto [ec, _] = co_await _socket.async_send(
-    //         boost::asio::buffer(buffer->data(), buffer->size()), as_tuple(boost::asio::use_awaitable));
-    //     if (ec) {
-    //         spdlog::error("[Connection] Error sending packet: {}", ec.what());
-    //         disconnect();
-    //         co_return;
-    //     }
-    // }, boost::asio::detached);
+    }, boost::asio::detached);
 }
 
 boost::asio::awaitable<void> Connection::receive_packet() {
