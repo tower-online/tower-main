@@ -125,26 +125,21 @@ target_link_libraries(tower-server PRIVATE tower::libtower)
 
 
 ### SCHEMAS ###
-add_subdirectory(tower/net/packet/schema)
-
-add_tower_packet_target("tower/net/packet/schema" "tower/net/packet")
-add_dependencies(libtower tower-packet)
-
-add_tower_world_schema_target("tower/net/packet/schema" "tower/world/schema")
-add_dependencies(libtower tower-world-schema)
+add_subdirectory(schema)
+tower_add_packet_schemas("${CMAKE_CURRENT_SOURCE_DIR}/schema/packet" "${CMAKE_CURRENT_SOURCE_DIR}/tower/net/packet")
+tower_add_world_schemas("${CMAKE_CURRENT_SOURCE_DIR}/schema/world" "${CMAKE_CURRENT_SOURCE_DIR}/tower/world/schema")
+add_dependencies(libtower tower-schema-packet tower-schema-world)
 
 if (TOWER_BUILD_DUMMY)
-    set(schema_path "tower/net/packet/schema")
-
     file(GLOB schemas
-        "${schema_path}/packet/*.fbs"
-        "${schema_path}/packet/client/*.fbs"
+        "schema/packet/*.fbs"
+        "schema/packet/client/*.fbs"
     )
 
     add_custom_target(
         dummy-packet
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        COMMAND flatc -I ${schema_path}/packet -o dummy --python --filename-suffix "\"\"" ${schemas}
+        COMMAND flatc -I schema/packet -o dummy --python --filename-suffix "\"\"" --python-typing ${schemas}
         DEPENDS flatc
     )
     message("dummy-packet: ${schemas}")

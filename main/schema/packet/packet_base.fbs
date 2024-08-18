@@ -1,0 +1,43 @@
+include "client/client_join_request.fbs";
+include "client/client_join_response.fbs";
+include "client/heart_beat.fbs";
+
+include "entity/entity_despawn.fbs";
+include "entity/entity_movements.fbs";
+include "entity/entity_resource_modify.fbs";
+include "entity/entity_spawn.fbs";
+include "entity/skill/entity_melee_attack.fbs";
+
+include "player/player_enter_zone.fbs";
+include "player/player_exit_zone.fbs";
+include "player/player_movement.fbs";
+include "player/player_spawn.fbs";
+
+namespace tower.net.packet;
+
+union PacketType {
+    // client
+    ClientJoinRequest,
+    ClientJoinResponse,
+    HeartBeat,
+
+    // entity
+    EntityDespawn,
+    EntityResourceModify,
+    EntityMovements,
+    EntitySpawn,
+    // entity/skill
+    EntityMeleeAttack,
+
+    // player
+    PlayerEnterZone,
+    PlayerExitZone,
+    PlayerMovement,
+    PlayerSpawn,
+}
+
+table PacketBase {
+    packet_base: PacketType;
+}
+
+root_type PacketBase;

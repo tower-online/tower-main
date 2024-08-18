@@ -1,3 +1,0 @@
-[submodule "main/tower/net/packet/schema"]
-	path = main/tower/net/packet/schema
-	url = git@github.com:SanitoGonzalez/tower-packet.git

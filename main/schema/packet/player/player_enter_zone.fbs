@@ -1,0 +1,10 @@
+include "types.fbs";
+
+namespace tower.net.packet;
+
+table PlayerEnterZone {
+    zone_id: uint32;
+    zone_name: string;
+}
+
+root_type PlayerEnterZone;

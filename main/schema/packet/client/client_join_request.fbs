@@ -1,0 +1,11 @@
+include "types.fbs";
+
+namespace tower.net.packet;
+
+table ClientJoinRequest {
+    platform: ClientPlatform;
+    username: string;
+    token: string;
+}
+
+root_type ClientJoinRequest;

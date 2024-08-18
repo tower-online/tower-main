@@ -67,6 +67,11 @@ void Server::stop() {
     _listener.stop();
 }
 
+void Server::join() {
+    _io_threads.join_all();
+    _worker_threads.join();
+}
+
 void Server::handle_jobs(const bool loop) {
     std::queue<std::function<void()>> jobs;
     _jobs.swap(jobs);
@@ -145,8 +150,16 @@ void Server::handle_client_join_request(std::shared_ptr<Client>&& client, const 
         return;
     }
 
-    if (!JWT::authenticate(request->token()->string_view(), Settings::auth_jwt_key(), Settings::auth_jwt_algorithm(),
-        platform_to_string(request->platform()), request->username()->string_view())) {
+    const auto platform = platform_to_string(request->platform());
+    const auto username = request->username()->string_view();
+    const auto token = request->token()->string_view();
+
+    spdlog::info("[Server] [ClientJoinRequest] {}/{}", platform, username);
+
+    if (!JWT::authenticate(
+        token, Settings::auth_jwt_key(), Settings::auth_jwt_algorithm(), platform, username)) {
+        spdlog::info("[Server] [ClientJoinRequest] {}/{}: Invalid", platform, username);
+
         flatbuffers::FlatBufferBuilder builder {64};
         const auto client_join = CreateClientJoinResponse(builder, ClientJoinResult::INVALID_TOKEN);
         builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::ClientJoinResponse,
@@ -156,6 +169,8 @@ void Server::handle_client_join_request(std::shared_ptr<Client>&& client, const 
         client->stop();
         return;
     }
+
+    spdlog::info("[Server] [ClientJoinRequest] {}/{}: OK", platform, username);
 
     flatbuffers::FlatBufferBuilder builder {64};
     const auto client_join = CreateClientJoinResponse(builder, ClientJoinResult::OK);

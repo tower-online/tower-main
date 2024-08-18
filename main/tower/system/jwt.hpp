@@ -1,11 +1,8 @@
 #pragma once
 
 #include <boost/python.hpp>
-#include <spdlog/spdlog.h>
 
 #include <chrono>
-#include <ctime>
-#include <map>
 
 namespace tower {
 using namespace std::chrono;

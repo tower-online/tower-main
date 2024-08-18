@@ -1,0 +1,9 @@
+include "types.fbs";
+
+namespace tower.net.packet;
+
+table PlayerMovement {
+    target_direction: Vector2;
+}
+
+root_type PlayerMovement;

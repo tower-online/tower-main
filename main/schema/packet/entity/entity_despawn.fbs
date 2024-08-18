@@ -1,0 +1,9 @@
+include "entity_types.fbs";
+
+namespace tower.net.packet;
+
+table EntityDespawn {
+    entity_id: uint32;
+}
+
+root_type EntityDespawn;

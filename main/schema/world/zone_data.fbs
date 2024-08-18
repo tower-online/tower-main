@@ -1,0 +1,20 @@
+include "types.fbs";
+
+namespace tower.world.schema;
+
+struct ObjectData {
+    type: ObjectType;
+    id: uint32;
+    position: Vector2i;
+    rotation: float32;
+    owner: uint32;
+}
+
+table ZoneData {
+    id: uint32;
+    size: Vector2i;
+    tiles: [TileData];
+    objects: [ObjectData];
+}
+
+root_type ZoneData;

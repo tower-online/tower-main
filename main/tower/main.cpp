@@ -28,6 +28,7 @@ int main(int argc, char *argv[]) {
 
     net::Server server {num_threads / 2, num_threads / 2};
     server.start();
+    server.join();
 
     spdlog::info("Terminating...");
     return EXIT_SUCCESS;

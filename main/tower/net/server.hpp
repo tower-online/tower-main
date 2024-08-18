@@ -21,6 +21,7 @@ public:
 
     void start();
     void stop();
+    void join();
 
 private:
     void handle_jobs(bool loop);

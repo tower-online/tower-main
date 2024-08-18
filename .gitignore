@@ -1,5 +1,6 @@
 # IDE
-.idea
+.idea/*
+!.idea/Default.xml
 .vscode
 .vs
 

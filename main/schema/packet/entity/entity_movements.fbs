@@ -1,0 +1,15 @@
+include "entity_types.fbs";
+
+namespace tower.net.packet;
+
+struct EntityMovement {
+    entity_id: uint32;
+    target_position: Vector2;
+    target_direction: Vector2;
+}
+
+table EntityMovements {
+    movements: [EntityMovement];
+}
+
+root_type EntityMovements;

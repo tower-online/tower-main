@@ -1,29 +1,19 @@
-from tower.net.packet import *
-import flatbuffers
-import requests
+import asyncio
 import os
 
-def get_token() -> str | None:
-    url = f"http://localhost:{8000}?username=dummy"
+from connection import Connection, request_token
 
-    try:
-        response = requests.post(url)
-    except requests.exceptions.ConnectionError:
-        print("Error connecting auth server")
-        return None
+async def main():
+    username = "dummy"
 
-    if response.status_code != 200:
-        print(f"POST {url} failed")
-        return None
+    token = request_token(port=8000, username=username)
+    if not token:
+        exit(1)
 
-    payload = response.json()
-    if "jwt" not in payload:
-        print("Invalid response")
-        return None
+    connection = Connection()
+    if not await connection.connect("localhost", 30000):
+        exit(1)
 
-    print("token: ", payload["jwt"])
-    return payload["jwt"]
+    await connection.start(username=username, token=token)
 
-token = get_token()
-if not token:
-    exit(1)
+asyncio.run(main())
