@@ -8,11 +8,10 @@ option(TOWER_BUILD_TESTS "Enable the build of tests" ON)
 option(TOWER_BUILD_DUMMY "Enable the build of dummy client" ON)
 
 ### DEPENDENCIES ###
-include(FetchContent)
-
-find_package(Python REQUIRED COMPONENTS Development)
-find_package(Boost 1.84.0 REQUIRED COMPONENTS python3 system thread)
+find_package(Boost 1.84.0 REQUIRED COMPONENTS system thread)
 find_package(OpenSSL REQUIRED)
+
+include(FetchContent)
 
 FetchContent_Declare(
     flatbuffers
@@ -44,6 +43,13 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(libpqxx)
 set(SKIP_BUILD_TEST ON CACHE BOOL "Disable the build of libpqxx tests" FORCE)
 
+FetchContent_Declare(jwt-cpp
+        GIT_REPOSITORY https://github.com/Thalhammer/jwt-cpp.git
+        GIT_TAG v0.7.0
+)
+set(JWT_BUILD_EXAMPLES OFF CACHE BOOL "Disable the build of jwt-cpp examples" FORCE)
+FetchContent_MakeAvailable(jwt-cpp)
+
 
 ### TARGETS ###
 add_library(libtower STATIC
@@ -68,7 +74,6 @@ add_library(libtower STATIC
     tower/player/inventory.cpp
 
     tower/system/event.hpp
-    tower/system/jwt.hpp
     tower/system/math.hpp
     tower/system/settings.hpp
     tower/system/settings.cpp
@@ -99,23 +104,21 @@ add_library(tower::libtower ALIAS libtower)
 target_compile_features(libtower PUBLIC cxx_std_20)
 target_link_libraries(libtower
     PUBLIC
-    Python::Python
     spdlog
     flatbuffers
     glm
     libpqxx::pqxx
 
     PRIVATE
-    Boost::python
     Boost::system
     Boost::thread
     OpenSSL::SSL
+    jwt-cpp::jwt-cpp
 )
 target_include_directories(libtower PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(libtower PUBLIC
     TOWER_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
     TILE_MAP_DATA_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/bin/tile_map"
-    TOWER_LIB_PYTHONPATH="${CMAKE_CURRENT_SOURCE_DIR}/lib/py:$ENV{PYTHONPATH}"
 )
 
 add_executable(tower-server
@@ -125,21 +128,21 @@ target_link_libraries(tower-server PRIVATE tower::libtower)
 
 
 ### SCHEMAS ###
-add_subdirectory(schema)
-tower_add_packet_schemas("${CMAKE_CURRENT_SOURCE_DIR}/schema/packet" "${CMAKE_CURRENT_SOURCE_DIR}/tower/net/packet")
-tower_add_world_schemas("${CMAKE_CURRENT_SOURCE_DIR}/schema/world" "${CMAKE_CURRENT_SOURCE_DIR}/tower/world/schema")
+add_subdirectory(schemas)
+tower_add_packet_schemas("${CMAKE_CURRENT_SOURCE_DIR}/schemas/packet" "${CMAKE_CURRENT_SOURCE_DIR}/tower/net/packet")
+tower_add_world_schemas("${CMAKE_CURRENT_SOURCE_DIR}/schemas/world" "${CMAKE_CURRENT_SOURCE_DIR}/tower/world/schema")
 add_dependencies(libtower tower-schema-packet tower-schema-world)
 
 if (TOWER_BUILD_DUMMY)
     file(GLOB schemas
-        "schema/packet/*.fbs"
-        "schema/packet/client/*.fbs"
+        "schemas/packet/*.fbs"
+        "schemas/packet/client/*.fbs"
     )
 
     add_custom_target(
         dummy-packet
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        COMMAND flatc -I schema/packet -o dummy --python --filename-suffix "\"\"" --python-typing ${schemas}
+        COMMAND flatc -I schemas/packet -o dummy --python --filename-suffix "\"\"" --python-typing ${schemas}
         DEPENDS flatc
     )
     message("dummy-packet: ${schemas}")
@@ -147,6 +150,7 @@ endif ()
 
 ### TESTS ###
 if (TOWER_BUILD_TESTS)
+    # unit tests
     FetchContent_Declare(
         Catch2
         GIT_REPOSITORY https://github.com/catchorg/Catch2.git
@@ -156,15 +160,11 @@ if (TOWER_BUILD_TESTS)
 
     add_executable(tower-unit-tests
         tower/system/event.test.cpp
-        tower/system/jwt.test.cpp
         tower/world/path_finder.test.cpp
     )
     target_compile_features(tower-unit-tests PRIVATE cxx_std_20)
     target_link_libraries(tower-unit-tests PRIVATE tower::libtower Catch2::Catch2WithMain)
 
-    add_executable(tower-integration-tests
-        test/db/psql_connection.test.cpp
-    )
-    target_compile_features(tower-integration-tests PRIVATE cxx_std_20)
-    target_link_libraries(tower-integration-tests PRIVATE tower::libtower Catch2::Catch2WithMain)
+    # integration tests
+    add_subdirectory(tests)
 endif ()

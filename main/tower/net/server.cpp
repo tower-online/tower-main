@@ -1,6 +1,5 @@
+#include <jwt-cpp/jwt.h>
 #include <tower/net/server.hpp>
-#include <tower/system/jwt.hpp>
-
 
 namespace tower::net {
 Server::Server(const size_t num_io_threads, const size_t num_worker_threads)
@@ -154,10 +153,23 @@ void Server::handle_client_join_request(std::shared_ptr<Client>&& client, const 
     const auto username = request->username()->string_view();
     const auto token = request->token()->string_view();
 
-    spdlog::info("[Server] [ClientJoinRequest] {}/{}", platform, username);
 
-    if (!JWT::authenticate(
-        token, Settings::auth_jwt_key(), Settings::auth_jwt_algorithm(), platform, username)) {
+    bool verification_ok {true};
+    try {
+        const auto decoded_token = jwt::decode(token.data());
+        const auto verifier = jwt::verify()
+            .allow_algorithm(jwt::algorithm::hs256 {Settings::auth_jwt_key().data()});
+
+        verifier.verify(decoded_token);
+    } catch (const std::invalid_argument&) {
+        verification_ok = false;
+    } catch (const std::runtime_error&) {
+        verification_ok = false;
+    } catch (const jwt::error::token_verification_error&) {
+        verification_ok = false;
+    }
+
+    if (!verification_ok) {
         spdlog::info("[Server] [ClientJoinRequest] {}/{}: Invalid", platform, username);
 
         flatbuffers::FlatBufferBuilder builder {64};
@@ -168,9 +180,10 @@ void Server::handle_client_join_request(std::shared_ptr<Client>&& client, const 
 
         client->stop();
         return;
+    } else {
+        spdlog::info("[Server] [ClientJoinRequest] {}/{}: OK", platform, username);
     }
 
-    spdlog::info("[Server] [ClientJoinRequest] {}/{}: OK", platform, username);
 
     flatbuffers::FlatBufferBuilder builder {64};
     const auto client_join = CreateClientJoinResponse(builder, ClientJoinResult::OK);

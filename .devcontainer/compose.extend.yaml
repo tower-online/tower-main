@@ -2,7 +2,5 @@ services:
   main:
     build:
       target: base
-    # volumes:
-    #   - .:/app:cached
     # Keep the process running
     command: /bin/sh -c "while sleep 1000; do :; done"
