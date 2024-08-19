@@ -31,7 +31,6 @@ private:
     Connection _connection;
     const std::function<void(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)> _packet_received;
     std::atomic<bool> _is_running {false};
-
     std::unique_ptr<HeartBeater> _heart_beater;
 };
 

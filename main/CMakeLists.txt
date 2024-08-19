@@ -140,7 +140,7 @@ if (TOWER_BUILD_DUMMY)
     )
 
     add_custom_target(
-        dummy-packet
+        dummy-schema-packet
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         COMMAND flatc -I schemas/packet -o dummy --python --filename-suffix "\"\"" --python-typing ${schemas}
         DEPENDS flatc

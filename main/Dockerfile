@@ -7,6 +7,7 @@ RUN apt update -y && \
     g++ \
     cmake \
     ninja-build \
+    python3 \
     libssl-dev \
     libpq-dev
 

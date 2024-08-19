@@ -1,7 +1,6 @@
 namespace tower.net.packet;
 
 table HeartBeat {
-    id: uint16;
 }
 
 root_type HeartBeat;

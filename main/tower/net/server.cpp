@@ -137,6 +137,10 @@ void Server::handle_packet(std::unique_ptr<Packet> packet) {
             packet_base->packet_base_as<ClientJoinRequest>());
         break;
 
+    case PacketType::HeartBeat:
+        // Client already heart-beated by itself
+        break;
+
     default:
         _zones[_clients_current_zone[packet->client->id]]->handle_packet_deferred(std::move(packet));
         break;
@@ -180,10 +184,9 @@ void Server::handle_client_join_request(std::shared_ptr<Client>&& client, const 
 
         client->stop();
         return;
-    } else {
-        spdlog::info("[Server] [ClientJoinRequest] {}/{}: OK", platform, username);
     }
 
+    spdlog::info("[Server] [ClientJoinRequest] {}/{}: OK", platform, username);
 
     flatbuffers::FlatBufferBuilder builder {64};
     const auto client_join = CreateClientJoinResponse(builder, ClientJoinResult::OK);
