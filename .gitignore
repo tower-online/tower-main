@@ -3,7 +3,3 @@
 !.idea/Default.xml
 .vscode
 .vs
-
-# secrets
-secrets/*
-!secrets/README.md

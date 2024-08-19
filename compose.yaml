@@ -20,11 +20,13 @@ services:
     env_file:
       - .env
     ports:
-      - 8000:8000
+      - "8000:8000"
     secrets:
       - db-password
       - redis-password
       - auth-jwt-key
+      - key.pem
+      - cert.pem
     depends_on:
       db:
         condition: service_healthy
@@ -60,7 +62,7 @@ services:
     environment:
       REDIS_PASSWORD_FILE: /run/secrets/redis-password
     expose:
-      - 6379
+      - "6379"
     secrets:
       - redis-password
     healthcheck:
@@ -81,3 +83,7 @@ secrets:
     file: secrets/redis-password
   auth-jwt-key:
     file: secrets/auth-jwt-key
+  key.pem:
+    file: secrets/key.pem
+  cert.pem:
+    file: secrets/cert.pem
