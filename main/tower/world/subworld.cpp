@@ -22,13 +22,13 @@ void Subworld::tick() {
         for (const auto& [_, body] : _collision_objects) {
             if (area->is_colliding(body)) {
                 if (_contacts[area->node_id].contains(body->node_id)) {
-                    area->body_staying.notify(body);
+                    area->body_staying(body);
                 } else {
-                    area->body_entered.notify(body);
+                    area->body_entered(body);
                     _contacts[area->node_id].insert(body->node_id);
                 }
             } else if (_contacts[area->node_id].contains(body->node_id)) {
-                area->body_exited.notify(body);
+                area->body_exited(body);
                 _contacts[area->node_id].erase(body->node_id);
             }
         }

@@ -6,8 +6,7 @@ table EntityResourceModify {
     modify_mode: EntityResourceModifyMode;
     resource_type: EntityResourceType;
     entity_id: uint32;
-    modifying_amount: uint32;
-    modified_amount: uint32;
+    modifying_amount: int32;
 }
 
 root_type EntityResourceModify;

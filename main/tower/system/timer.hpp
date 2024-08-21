@@ -1,14 +1,13 @@
 #pragma once
 
 #include <boost/asio.hpp>
-#include <tower/system/event.hpp>
+#include <boost/signals2.hpp>
 
 #include <chrono>
 
-#include "spdlog/spdlog.h"
-
 namespace tower {
 using namespace std::chrono;
+namespace signals = boost::signals2;
 
 class Timer {
 public:
@@ -17,14 +16,14 @@ public:
     void start();
     void stop();
 
-    Event<> timeout;
+    signals::signal<void()> timeout {};
 
 private:
     milliseconds _duration;
     bool _one_shot;
 
     boost::asio::io_context& _ctx;
-    std::atomic<bool> _is_running{false};
+    std::atomic<bool> _is_running {false};
 };
 
 inline Timer::Timer(boost::asio::io_context& ctx, milliseconds duration, bool autostart, bool one_shot)
@@ -44,7 +43,7 @@ inline void Timer::start() {
                 break;
             }
 
-            timeout.notify();
+            timeout();
         } while (!_one_shot && _is_running);
     }, boost::asio::detached);
 }

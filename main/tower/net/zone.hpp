@@ -48,7 +48,7 @@ private:
     ConcurrentQueue<std::function<void()>> _jobs {};
 
     std::unordered_map<uint32_t, std::shared_ptr<Client>> _clients {};
-    std::shared_ptr<EventListener<std::shared_ptr<Client>>> _on_client_disconnected;
+    std::unordered_map<uint32_t, signals::connection> _clients_on_disconnected {};
 
     std::unique_ptr<world::Subworld> _subworld;
     steady_clock::time_point _last_tick;

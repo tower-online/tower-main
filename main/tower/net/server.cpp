@@ -4,12 +4,6 @@
 namespace tower::net {
 Server::Server(const size_t num_io_threads, const size_t num_worker_threads)
     : _num_io_threads {num_io_threads}, _worker_threads {num_worker_threads} {
-    _on_client_disconnected = std::make_shared<EventListener<std::shared_ptr<Client>>>(
-        [this](std::shared_ptr<Client>&& client) {
-            remove_client_deferred(std::move(client));
-        }
-    );
-
     // default zone
     _zones.insert_or_assign(0, std::make_unique<Zone>(0, _worker_threads));
     _zones[0]->init("test_zone");
@@ -105,17 +99,20 @@ void Server::add_client_deferred(tcp::socket&& socket) {
     );
 
     _jobs.push([this, client = std::move(client)] {
-        _clients.insert_or_assign(client->id, client);
-        client->start();
-        client->disconnected.subscribe(_on_client_disconnected->shared_from_this());
-
+        _clients[client->id] = client;
+        _clients_on_disconnected[client->id] = client->disconnected.connect([this](std::shared_ptr<Client> disconnecting_client) {
+            remove_client_deferred(std::move(disconnecting_client));
+        });
         spdlog::info("[Server] Added client ({})", client->id);
+
+        client->start();
     });
 }
 
 void Server::remove_client_deferred(std::shared_ptr<Client>&& client) {
     _jobs.push([this, client = std::move(client)] {
         _clients.erase(client->id);
+        _clients_on_disconnected.erase(client->id);
         _clients_current_zone.erase(client->id);
         spdlog::info("[Server] Removed client ({})", client->id);
     });

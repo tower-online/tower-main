@@ -1,3 +1,4 @@
+#include <spdlog/spdlog.h>
 #include <tower/net/client.hpp>
 #include <tower/net/packet/packet_base.hpp>
 
@@ -15,7 +16,7 @@ Client::Client(boost::asio::io_context& ctx, tcp::socket&& socket, const uint32_
 
             _packet_received(shared_from_this(), std::move(buffer));
         },
-        [this] { disconnected.notify(shared_from_this()); }),
+        [this] { disconnected(shared_from_this()); }),
     _packet_received(std::move(packet_received)) {
     _heart_beater = std::make_unique<HeartBeater>(ctx, *this);
 }
@@ -44,7 +45,7 @@ void Client::send_packet(std::shared_ptr<flatbuffers::DetachedBuffer> buffer) {
 
 Client::HeartBeater::HeartBeater(boost::asio::io_context& ctx, Client& client)
     : _client {client}, _timer {ctx, BEAT_INTERVAL} {
-    _on_beat = std::make_shared<EventListener<>>([this] {
+    _on_beat = _timer.timeout.connect([this] {
         if (_dead_beats >= MAX_DEAD_BEATS) {
             spdlog::info("[Client] ({}) is not heart-beating. Disconnecting...", _client.id);
             _timer.stop();
@@ -61,8 +62,6 @@ Client::HeartBeater::HeartBeater(boost::asio::io_context& ctx, Client& client)
         builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::HeartBeat, beat.Union()));
         _client.send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
     });
-
-    _timer.timeout.subscribe(_on_beat->shared_from_this());
 }
 
 void Client::HeartBeater::start() {

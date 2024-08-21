@@ -1,6 +1,5 @@
 #pragma once
 
-#include <tower/system/event.hpp>
 #include <tower/world/tile_map.hpp>
 #include <tower/world/collision/collision_object.hpp>
 #include <tower/world/entity/entity.hpp>

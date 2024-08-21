@@ -14,8 +14,6 @@ enum EntityResourceType: uint8 {
 }
 
 enum EntityResourceModifyMode : uint8 {
-    NONE,
-    POSITIVE,
-    NEGATIVE,
+    ARITHMETIC,
     SET
 }

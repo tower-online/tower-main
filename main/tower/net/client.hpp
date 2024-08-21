@@ -1,8 +1,8 @@
 #pragma once
 
+#include <boost/signals2.hpp>
 #include <tower/net/connection.hpp>
 #include <tower/player/player.hpp>
-#include <tower/system/event.hpp>
 
 namespace tower::net {
 using boost::asio::ip::tcp;
@@ -25,7 +25,7 @@ public:
 public:
     const uint32_t id;
     std::shared_ptr<player::Player> player {player::Player::create()};
-    Event<std::shared_ptr<Client>> disconnected {};
+    signals::signal<void(std::shared_ptr<Client>)> disconnected {};
     bool is_authenticated {false};
 
 private:
@@ -52,6 +52,6 @@ private:
     std::atomic<uint32_t> _dead_beats{0};
 
     Timer _timer;
-    std::shared_ptr<EventListener<>> _on_beat;
+    signals::connection _on_beat;
 };
 }

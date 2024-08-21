@@ -13,10 +13,6 @@ using namespace tower::player;
 
 Zone::Zone(const uint32_t zone_id, boost::asio::thread_pool& work_ctx)
     : zone_id {zone_id}, _work_ctx {work_ctx} {
-    _on_client_disconnected = std::make_shared<EventListener<std::shared_ptr<net::Client>>>(
-        [this](std::shared_ptr<Client>&& client) {
-            remove_client_deferred(std::move(client));
-        });
 }
 
 Zone::~Zone() {
@@ -53,7 +49,9 @@ void Zone::add_client_deferred(std::shared_ptr<Client>&& client) {
 
     _jobs.push([this, client = std::move(client)] {
         _clients[client->id] = client;
-        client->disconnected.subscribe(_on_client_disconnected->shared_from_this());
+        _clients_on_disconnected[client->id] = client->disconnected.connect([this](std::shared_ptr<Client> disconnecting_client) {
+            remove_client_deferred(std::move(disconnecting_client));
+        });
 
         const auto& player = client->player;
         // player->position = {_subworld.get_size().x * Tile::TILE_SIZE / 2, _subworld.get_size().y * Tile::TILE_SIZE / 2};
@@ -71,6 +69,7 @@ void Zone::add_client_deferred(std::shared_ptr<Client>&& client) {
 void Zone::remove_client_deferred(std::shared_ptr<Client>&& client) {
     _jobs.push([this, client] {
         _clients.erase(client->id);
+        _clients_on_disconnected.erase(client->id);
         _subworld->remove_entity(client->player);
         spdlog::info("[Zone] Removed client ({})", client->id);
 
@@ -238,14 +237,13 @@ void Zone::handle_entity_melee_attack(std::shared_ptr<Client>&& client, const En
         if (!entity || entity->entity_id == client->player->entity_id) continue;
 
         //TODO: Calculate armor
-        const auto amount_damaged = fist->damage;
-        entity->modify_resource(EntityResourceType::HEALTH, EntityResourceModifyMode::NEGATIVE, amount_damaged);
+        const int amount_damaged = fist->damage;
+        entity->resource.change_health(EntityResourceModifyMode::ARITHMETIC, -amount_damaged);
 
         // Broadcast that entity is damaged
         flatbuffers::FlatBufferBuilder builder {128};
         const auto modify = CreateEntityResourceModify(builder,
-            EntityResourceModifyMode::NEGATIVE, EntityResourceType::HEALTH, entity->entity_id,
-            amount_damaged, entity->resource.health);
+            EntityResourceModifyMode::ARITHMETIC, EntityResourceType::HEALTH, entity->entity_id, amount_damaged);
         builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityResourceModify, modify.Union()));
         broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
     }

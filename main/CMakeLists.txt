@@ -74,7 +74,6 @@ add_library(libtower STATIC
     tower/player/inventory.hpp
     tower/player/inventory.cpp
 
-    tower/system/event.hpp
     tower/system/math.hpp
     tower/system/probe.hpp
     tower/system/settings.hpp
@@ -162,8 +161,6 @@ if (TOWER_BUILD_TESTS)
 
     add_executable(tower-unit-tests
         tower/net/connection.test.cpp
-
-        tower/system/event.test.cpp
 
         tower/world/path_finder.test.cpp
     )
