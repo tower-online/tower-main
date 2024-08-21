@@ -1,14 +1,10 @@
-CREATE TYPE UserStatus AS ENUM ('ACTIVE', 'INACTIVE', 'BLOCKED');
-
-CREATE TYPE UserPlatform AS ENUM ('TEST', 'STEAM');
-
 CREATE TABLE users (
-    id SERIAL NOT NULL PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     username VARCHAR(30) UNIQUE NOT NULL CHECK (username ~ '^[a-zA-Z0-9_]{6,30}$'),
-    platform UserPlatform NOT NULL,
-    status UserStatus NOT NULL,
+    platform VARCHAR(8) NOT NULL CHECK (platform in ('TEST', 'STEAM')),
+    status UserStatus NOT NULL CHECK (status in ('ACTIVE', 'INACTIVE', 'BLOCKED')),
     created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 INSERT INTO users (username, platform, status)
-VALUES ('leesin', 'TEST', 'ACTIVE');
+VALUES ('dummy_00001', 'TEST', 'ACTIVE');
