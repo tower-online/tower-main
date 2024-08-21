@@ -3,15 +3,15 @@
 #include <glm/vec2.hpp>
 #include <spdlog/spdlog.h>
 #include <tower/system/container/grid.hpp>
-#include <tower/world/schema/tile_map_data.hpp>
+#include <tower/world/data/tile_map_data.hpp>
 
 #include <format>
 #include <fstream>
 
 namespace tower::world {
 using Pixels = uint32_t;
-using schema::TileType;
-using schema::TileState;
+using tower::world::data::TileType;
+using tower::world::data::TileState;
 
 struct Tile {
     static constexpr Pixels TILE_SIZE = 32;
@@ -85,7 +85,7 @@ inline TileMap TileMap::load_tile_map(std::string_view name) {
     }
     const std::vector<uint8_t> buffer {std::istreambuf_iterator<char> {stream}, std::istreambuf_iterator<char> {}};
 
-    using namespace world::schema;
+    using namespace tower::world::data;
     const auto tile_map_data = GetTileMapData(buffer.data());
     if (flatbuffers::Verifier verifier {buffer.data(), buffer.size()}; !tile_map_data || !tile_map_data->
         Verify(verifier)) {

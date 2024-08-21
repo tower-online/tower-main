@@ -16,7 +16,7 @@ Server::Server(const size_t num_io_threads, const size_t num_worker_threads)
 
     redis::config redis_config {};
     redis_config.addr.host = Settings::redis_host();
-    redis_config.password = Settings::redist_password();
+    redis_config.password = Settings::redis_password();
     _redis_connection.async_run(redis_config, {}, boost::asio::detached);
 }
 
@@ -122,15 +122,13 @@ void Server::remove_client_deferred(std::shared_ptr<Client>&& client) {
 }
 
 void Server::handle_packet(std::unique_ptr<Packet> packet) {
-    using namespace net::packet;
-
-    const auto packet_base = GetPacketBase(packet->buffer.data());
-    if (!packet_base) {
-        spdlog::warn("[Server] Invalid packet");
-        // disconnect();
+    if (flatbuffers::Verifier verifier {packet->buffer.data(), packet->buffer.size()}; !VerifyPacketBaseBuffer(verifier)) {
+        spdlog::warn("[Server] Invalid PacketBase from client({})", packet->client->id);
+        packet->client->stop();
         return;
     }
 
+    const auto packet_base = GetPacketBase(packet->buffer.data());
     switch (packet_base->packet_base_type()) {
     case PacketType::ClientJoinRequest:
         handle_client_join_request(std::move(packet->client),
@@ -138,7 +136,7 @@ void Server::handle_packet(std::unique_ptr<Packet> packet) {
         break;
 
     case PacketType::HeartBeat:
-        // Client already heart-beated by itself
+        // Ignore, because the client already heart-beated by itself
         break;
 
     default:
@@ -187,6 +185,8 @@ void Server::handle_client_join_request(std::shared_ptr<Client>&& client, const 
     }
 
     spdlog::info("[Server] [ClientJoinRequest] {}/{}: OK", platform, username);
+
+    client->is_authenticated = true;
 
     flatbuffers::FlatBufferBuilder builder {64};
     const auto client_join = CreateClientJoinResponse(builder, ClientJoinResult::OK);

@@ -7,7 +7,6 @@ RUN apt update -y && \
     g++ \
     cmake \
     ninja-build \
-    python3 \
     libssl-dev \
     libpq-dev
 
@@ -26,6 +25,6 @@ WORKDIR /app
 COPY . .
 
 RUN cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTOWER_BUILD_TESTS=OFF -DTOWER_BUILD_DUMMY=OFF && \
-    cmake --build build --config Release --target tower-server
+    cmake --build build --config Release --target tower-schema-packet tower-schema-world tower-server
 
 CMD ["/app/build/tower-server"]

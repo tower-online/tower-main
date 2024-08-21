@@ -24,16 +24,14 @@ class Connection:
 
         return True
 
-    async def start(self, username: str, token: str):
-        self.is_running = True
-        while self.is_running:
-            await self.receive_packet()
-
     def stop(self):
         # logging.info("Stopping connection...")
 
         self.is_running = False
-        self._writer.close()
+        try:
+            self._writer.close()
+        except Exception:
+            pass
 
     async def receive_packet(self):
         PACKET_SIZE_PREFIX_BYTES = 4
@@ -56,5 +54,9 @@ class Connection:
         await self.packet_handler(body_buffer)
 
     async def send_packet(self, buffer: bytes):
-        self._writer.write(buffer)
-        await self._writer.drain()
+        try:
+            self._writer.write(buffer)
+            await self._writer.drain()
+        except ConnectionError:
+            self.stop()
+            return

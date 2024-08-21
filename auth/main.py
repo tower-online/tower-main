@@ -28,6 +28,9 @@ class User(BaseModel):
         self.status = status
 
 
+class TokenRequest(BaseModel):
+    username: Annotated[str, Query(pattern="^[a-zA-Z0-9_]{6,30}$")]
+
 class TokenResponse(BaseModel):
     jwt: Annotated[str, Query()]
 
@@ -55,7 +58,7 @@ redis_pool = redis.ConnectionPool.from_url(
 
 
 @app.post("/token/test", response_model=TokenResponse)
-async def issue_token_test(username: Annotated[str, Query()]) -> Any:
+async def issue_token_test(request: TokenRequest) -> Any:
     if not settings.debug:
         raise HTTPException(
             status_code=400,
@@ -63,7 +66,7 @@ async def issue_token_test(username: Annotated[str, Query()]) -> Any:
         )
 
     jwt = encode_token(
-        username, User.Platform.TEST, timedelta(hours=1), settings.token_key
+        request.username, User.Platform.TEST, timedelta(hours=1), settings.token_key
     )
     return TokenResponse(jwt=jwt)
 

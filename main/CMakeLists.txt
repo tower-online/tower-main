@@ -61,6 +61,7 @@ add_library(libtower STATIC
     tower/net/client.cpp
     tower/net/connection.hpp
     tower/net/connection.cpp
+    tower/net/db.hpp
     tower/net/listener.hpp
     tower/net/packet.hpp
     tower/net/server.hpp
@@ -75,6 +76,7 @@ add_library(libtower STATIC
 
     tower/system/event.hpp
     tower/system/math.hpp
+    tower/system/probe.hpp
     tower/system/settings.hpp
     tower/system/settings.cpp
     tower/system/timer.hpp
@@ -108,9 +110,9 @@ target_link_libraries(libtower
     flatbuffers
     glm
     libpqxx::pqxx
+    Boost::system
 
     PRIVATE
-    Boost::system
     Boost::thread
     OpenSSL::SSL
     jwt-cpp::jwt-cpp
@@ -128,15 +130,15 @@ target_link_libraries(tower-server PRIVATE tower::libtower)
 
 
 ### SCHEMAS ###
-add_subdirectory(schemas)
-tower_add_packet_schemas("${CMAKE_CURRENT_SOURCE_DIR}/schemas/packet" "${CMAKE_CURRENT_SOURCE_DIR}/tower/net/packet")
-tower_add_world_schemas("${CMAKE_CURRENT_SOURCE_DIR}/schemas/world" "${CMAKE_CURRENT_SOURCE_DIR}/tower/world/schema")
-add_dependencies(libtower tower-schema-packet tower-schema-world)
+add_subdirectory(schema)
+tower_add_packet_schemas("${CMAKE_CURRENT_SOURCE_DIR}/schema/packet" "${CMAKE_CURRENT_SOURCE_DIR}/tower/net/packet")
+tower_add_world_schemas("${CMAKE_CURRENT_SOURCE_DIR}/schema/world" "${CMAKE_CURRENT_SOURCE_DIR}/tower/world/data")
+#add_dependencies(libtower tower-schema-packet tower-schema-world)
 
 if (TOWER_BUILD_DUMMY)
     file(GLOB schemas
-        "schemas/packet/*.fbs"
-        "schemas/packet/client/*.fbs"
+        "schema/packet/*.fbs"
+        "schema/packet/client/*.fbs"
     )
 
     add_custom_target(
@@ -154,17 +156,20 @@ if (TOWER_BUILD_TESTS)
     FetchContent_Declare(
         Catch2
         GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-        GIT_TAG v3.5.4
+        GIT_TAG v3.7.0
     )
     FetchContent_MakeAvailable(Catch2)
 
     add_executable(tower-unit-tests
+        tower/net/connection.test.cpp
+
         tower/system/event.test.cpp
+
         tower/world/path_finder.test.cpp
     )
     target_compile_features(tower-unit-tests PRIVATE cxx_std_20)
-    target_link_libraries(tower-unit-tests PRIVATE tower::libtower Catch2::Catch2WithMain)
+    target_link_libraries(tower-unit-tests PRIVATE Catch2::Catch2WithMain tower::libtower)
 
     # integration tests
-    add_subdirectory(tests)
+    add_subdirectory(test)
 endif ()

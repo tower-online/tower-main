@@ -81,6 +81,11 @@ boost::asio::awaitable<void> Connection::receive_packet() {
     }
 
     const auto length = flatbuffers::GetSizePrefixedBufferLength(header_buffer.data());
+    //TODO: Optional limit rather than hard limit?
+    if (length > 65536) {
+        disconnect();
+        co_return;
+    }
     std::vector<uint8_t> body_buffer(length - PACKET_SIZE_PREFIX_BYTES);
 
     if (const auto [ec, _] = co_await async_read(_socket,

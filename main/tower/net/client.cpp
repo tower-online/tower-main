@@ -9,7 +9,10 @@ Client::Client(boost::asio::io_context& ctx, tcp::socket&& socket, const uint32_
     : id(id),
     _connection(ctx, std::move(socket),
         [this](std::vector<uint8_t>&& buffer) {
-            _heart_beater->beat();
+            if (is_authenticated) {
+                _heart_beater->beat();
+            }
+
             _packet_received(shared_from_this(), std::move(buffer));
         },
         [this] { disconnected.notify(shared_from_this()); }),

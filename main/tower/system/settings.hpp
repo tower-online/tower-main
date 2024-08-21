@@ -18,12 +18,12 @@ public:
 
     static std::string_view db_user() { return _db_user; }
     static std::string_view db_password() { return _db_password; }
-    static std::string_view db_host() { return _db_user; }
+    static std::string_view db_host() { return _db_host; }
     static std::string_view db_name() { return _db_name; }
     static uint16_t db_port() { return _db_port; }
 
     static std::string_view redis_host() { return _redis_host; }
-    static std::string_view redist_password() { return _redis_password; }
+    static std::string_view redis_password() { return _redis_password; }
 
 private:
     static std::string read_file(std::string_view path);

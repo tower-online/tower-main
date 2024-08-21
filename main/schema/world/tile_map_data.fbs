@@ -1,6 +1,6 @@
 include "types.fbs";
 
-namespace tower.world.schema;
+namespace tower.world.data;
 
 table TileMapData {
     name: string;
