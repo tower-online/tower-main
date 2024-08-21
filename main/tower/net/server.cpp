@@ -1,4 +1,5 @@
 #include <jwt-cpp/jwt.h>
+#include <tower/net/db.hpp>
 #include <tower/net/server.hpp>
 
 namespace tower::net {
@@ -19,6 +20,16 @@ Server::~Server() {
 
     _io_threads.join_all();
     _worker_threads.join();
+}
+
+void Server::init() {
+    boost::mysql::pool_params params {};
+    params.server_address.emplace_host_and_port(Settings::db_host().data(), Settings::db_port());
+    params.username = Settings::db_user();
+    params.password = Settings::db_password();
+    params.database = Settings::db_name();
+
+    DB::init(_ctx, std::move(params));
 }
 
 void Server::start() {

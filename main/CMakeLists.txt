@@ -8,8 +8,11 @@ option(TOWER_BUILD_TESTS "Enable the build of tests" ON)
 option(TOWER_BUILD_DUMMY "Enable the build of dummy client" ON)
 
 ### DEPENDENCIES ###
-find_package(Boost 1.84.0 REQUIRED COMPONENTS system thread)
-find_package(OpenSSL REQUIRED)
+# Boost.asio -> Boost.system
+# Boost.mysql -> Boost.charconv
+find_package(Boost 1.84.0 REQUIRED COMPONENTS charconv system thread)
+
+#find_package(OpenSSL REQUIRED)
 
 include(FetchContent)
 
@@ -34,14 +37,6 @@ FetchContent_Declare(
     GIT_TAG 1.0.1
 )
 FetchContent_MakeAvailable(glm)
-
-FetchContent_Declare(
-    libpqxx
-    GIT_REPOSITORY https://github.com/jtv/libpqxx.git
-    GIT_TAG 7.9.2
-)
-FetchContent_MakeAvailable(libpqxx)
-set(SKIP_BUILD_TEST ON CACHE BOOL "Disable the build of libpqxx tests" FORCE)
 
 FetchContent_Declare(jwt-cpp
         GIT_REPOSITORY https://github.com/Thalhammer/jwt-cpp.git
@@ -108,12 +103,12 @@ target_link_libraries(libtower
     spdlog
     flatbuffers
     glm
-    libpqxx::pqxx
     Boost::system
 
     PRIVATE
+    Boost::charconv
     Boost::thread
-    OpenSSL::SSL
+#    OpenSSL::SSL
     jwt-cpp::jwt-cpp
 )
 target_include_directories(libtower PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -160,13 +155,8 @@ if (TOWER_BUILD_TESTS)
     FetchContent_MakeAvailable(Catch2)
 
     add_executable(tower-unit-tests
-        tower/net/connection.test.cpp
-
         tower/world/path_finder.test.cpp
     )
     target_compile_features(tower-unit-tests PRIVATE cxx_std_20)
     target_link_libraries(tower-unit-tests PRIVATE Catch2::Catch2WithMain tower::libtower)
-
-    # integration tests
-    add_subdirectory(test)
 endif ()

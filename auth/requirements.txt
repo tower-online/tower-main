@@ -1,5 +1,5 @@
 fastapi[standard]
 pyjwt
 pydantic-settings
-psycopg[binary,pool]
+mariadb
 redis

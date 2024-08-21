@@ -37,21 +37,21 @@ class TokenResponse(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await db_pool.open(timeout=5)
-    await db_pool.wait()
+    # await db_pool.open(timeout=5)
+    # await db_pool.wait()
 
     yield
 
-    await db_pool.close()
+    # await db_pool.close()
     await redis_pool.aclose()
 
 
 app = FastAPI(lifespan=lifespan)
 settings = Settings()
-db_pool = pyscorg.AsyncConnectionPool(
-    f"postgresql://{settings.db_user}:{settings.db_password}@{settings.db_host}:{settings.db_port}/{settings.db_name}",
-    open=False,
-)
+# db_pool = pyscorg.AsyncConnectionPool(
+#     f"postgresql://{settings.db_user}:{settings.db_password}@{settings.db_host}:{settings.db_port}/{settings.db_name}",
+#     open=False,
+# )
 redis_pool = redis.ConnectionPool.from_url(
     f"redis://:{settings.redis_password}@{settings.redis_host}"
 )

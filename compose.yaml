@@ -38,15 +38,16 @@ services:
     env_file:
       - .env
     environment:
-      POSTGRES_HOST: ${TOWER_DB_HOST}
-      POSTGRES_PORT: ${TOWER_DB_PORT}
-      POSTGRES_USER: ${TOWER_DB_USER}
-      POSTGRES_PASSWORD_FILE: ${TOWER_DB_PASSWORD_FILE}
-      POSTGRES_DB: ${TOWER_DB_NAME}
+      MARIADB_RANDOM_ROOT_PASSWORD: 1
+      MARIADB_HOST: ${TOWER_DB_HOST}
+      MARIADB_PORT: ${TOWER_DB_PORT}
+      MARIADB_USER: ${TOWER_DB_USER}
+      MARIADB_PASSWORD_FILE: ${TOWER_DB_PASSWORD_FILE}
+      MARIADB_DATABASE: ${TOWER_DB_NAME}
     expose:
       - ${TOWER_DB_PORT}
     volumes:
-      - db-data:/var/lib/postgresql/data
+      - db-data:/var/lib/mysql
     restart: unless-stopped
     secrets:
       - db-password

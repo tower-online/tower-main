@@ -1,4 +1,4 @@
-FROM ubuntu:24.04 as base
+FROM ubuntu:24.04 AS base
 
 RUN apt update -y && \
     apt install -y \
@@ -7,19 +7,18 @@ RUN apt update -y && \
     g++ \
     cmake \
     ninja-build \
-    libssl-dev \
-    libpq-dev
+    libssl-dev
 
 # Install boost
 WORKDIR /root
 RUN wget https://archives.boost.io/release/1.85.0/source/boost_1_85_0.tar.gz && \
     tar -xf boost_1_85_0.tar.gz
 WORKDIR /root/boost_1_85_0
-RUN ./bootstrap.sh --with-libraries=system,thread && \
+RUN ./bootstrap.sh --with-libraries=charconv,system,thread && \
     ./b2 install
 
 
-FROM base as build
+FROM base AS build
 
 WORKDIR /app
 COPY . .

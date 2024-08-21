@@ -19,6 +19,7 @@ public:
     Server(size_t num_io_threads, size_t num_worker_threads);
     ~Server();
 
+    void init();
     void start();
     void stop();
     void join();

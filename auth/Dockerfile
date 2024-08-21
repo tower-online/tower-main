@@ -1,6 +1,11 @@
-FROM python:alpine
+FROM ubuntu:24.04
 
-# RUN apk add --no-cache redis
+RUN apt update -y && \
+    apt install -y \
+    python3 \
+    python3-pip \
+    python3-venv \
+    libmariadb-dev
 
 WORKDIR /app
 COPY . .
