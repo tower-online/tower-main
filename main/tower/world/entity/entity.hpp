@@ -1,16 +1,16 @@
 #pragma once
 
 #include <boost/signals2.hpp>
-#include <tower/net/packet/entity_types.hpp>
+#include <tower/network/packet/entity_types.hpp>
 #include <tower/world/node.hpp>
 
 #include <atomic>
 
 namespace tower::world {
 namespace signal = boost::signals2;
-using net::packet::EntityType;
-using net::packet::EntityResourceType;
-using net::packet::EntityResourceModifyMode;
+using network::packet::EntityType;
+using network::packet::EntityResourceType;
+using network::packet::EntityResourceChangeMode;
 
 class Subworld;
 
@@ -18,9 +18,9 @@ struct EntityResource {
     int32_t max_health {0};
     int32_t health {0};
 
-    signal::signal<void(EntityResourceModifyMode, int32_t)> health_changed;
+    signal::signal<void(EntityResourceChangeMode, int32_t)> health_changed;
 
-    void change_health(EntityResourceModifyMode mode, int32_t amount);
+    void change_health(EntityResourceChangeMode mode, int32_t amount);
 };
 
 
@@ -29,7 +29,7 @@ public:
     explicit Entity(EntityType entity_type);
 
     static uint32_t generate_entity_id();
-    void modify_resource(EntityResourceType type, EntityResourceModifyMode mode, uint32_t amount);
+    void modify_resource(EntityResourceType type, EntityResourceChangeMode mode, uint32_t amount);
 
     virtual void tick(Subworld& subworld) = 0;
 
@@ -42,16 +42,16 @@ public:
     EntityResource resource;
 
 private:
-    static void modify_resource_internal(EntityResourceModifyMode mode, uint32_t amount, uint32_t& target,
+    static void modify_resource_internal(EntityResourceChangeMode mode, uint32_t amount, uint32_t& target,
         uint32_t target_max);
 };
 
 
-inline void EntityResource::change_health(EntityResourceModifyMode mode, int32_t amount) {
-    if (mode == EntityResourceModifyMode::ARITHMETIC) {
+inline void EntityResource::change_health(EntityResourceChangeMode mode, int32_t amount) {
+    if (mode == EntityResourceChangeMode::ADD) {
         health = std::clamp(health + amount, 0, max_health);
         health_changed(mode, amount);
-    } else if (mode == EntityResourceModifyMode::SET) {
+    } else if (mode == EntityResourceChangeMode::SET) {
         const auto health_old = health;
         health = std::clamp(amount, 0, max_health);
         health_changed(mode, health - health_old);

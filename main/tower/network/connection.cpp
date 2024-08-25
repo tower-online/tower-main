@@ -1,7 +1,7 @@
 #include <spdlog/spdlog.h>
-#include <tower/net/connection.hpp>
+#include <tower/network/connection.hpp>
 
-namespace tower::net {
+namespace tower::network {
 Connection::Connection(boost::asio::io_context& ctx, tcp::socket&& socket,
     std::function<void(std::vector<uint8_t>&&)>&& packet_received,
     std::function<void()>&& disconnected)

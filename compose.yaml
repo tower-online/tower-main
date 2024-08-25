@@ -52,11 +52,11 @@ services:
     secrets:
       - db-password
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      start_period: 0s
-      interval: 5s
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 1m
+      interval: 1m
       timeout: 5s 
-      retries: 5
+      retries: 3
   
   redis:
     image: redis:alpine

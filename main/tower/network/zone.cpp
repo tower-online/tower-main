@@ -1,19 +1,18 @@
 #include <glm/geometric.hpp>
 #include <glm/trigonometric.hpp>
 #include <tower/item/equipment/fist.hpp>
-#include <tower/net/zone.hpp>
+#include <tower/network/zone.hpp>
 #include <tower/system/math.hpp>
 #include <tower/world/entity/entity.hpp>
 #include <tower/world/entity/mob/piggy.hpp>
 
 #include <cmath>
 
-namespace tower::net {
+namespace tower::network {
 using namespace tower::player;
 
 Zone::Zone(const uint32_t zone_id, boost::asio::thread_pool& work_ctx)
-    : zone_id {zone_id}, _work_ctx {work_ctx} {
-}
+    : zone_id {zone_id}, _work_ctx {work_ctx} {}
 
 Zone::~Zone() {
     stop();
@@ -43,15 +42,15 @@ void Zone::stop() {
 }
 
 void Zone::add_client_deferred(std::shared_ptr<Client>&& client) {
-    if (_clients.empty()) {
-        start();
-    }
+    // Start in case of clients are empty so that zone has been stopped.
+    start();
 
     _jobs.push([this, client = std::move(client)] {
         _clients[client->id] = client;
-        _clients_on_disconnected[client->id] = client->disconnected.connect([this](std::shared_ptr<Client> disconnecting_client) {
-            remove_client_deferred(std::move(disconnecting_client));
-        });
+        _clients_on_disconnected[client->id] = client->disconnected.connect(
+            [this](std::shared_ptr<Client> disconnecting_client) {
+                remove_client_deferred(std::move(disconnecting_client));
+            });
 
         const auto& player = client->player;
         // player->position = {_subworld.get_size().x * Tile::TILE_SIZE / 2, _subworld.get_size().y * Tile::TILE_SIZE / 2};
@@ -59,10 +58,42 @@ void Zone::add_client_deferred(std::shared_ptr<Client>&& client) {
 
         _subworld->add_entity(player);
 
-        flatbuffers::FlatBufferBuilder builder {128};
-        const auto enter = CreatePlayerEnterZoneDirect(builder, zone_id, _subworld->get_tilemap().get_name().data());
-        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerEnterZone, enter.Union()));
-        client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+        {
+            flatbuffers::FlatBufferBuilder builder {128};
+           const auto enter = CreatePlayerEnterZoneDirect(builder, zone_id, _subworld->get_tilemap().get_name().data());
+           builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerEnterZone, enter.Union()));
+           client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+        }
+
+        // Spawn every entity in the zone
+        {
+            std::vector<EntitySpawn> spawns {};
+            for (const auto& [entity_id, entity] : _subworld->get_entities()) {
+                if (entity_id == player->entity_id) continue;
+
+                spawns.emplace_back(entity->entity_type, entity->entity_id,
+                    Vector2 {entity->position.x, entity->position.y}, entity->rotation);
+            }
+
+            flatbuffers::FlatBufferBuilder builder {1024};
+            const auto entity_spawns = CreateEntitySpawnsDirect(builder, &spawns);
+            builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntitySpawns, entity_spawns.Union()));
+            client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+        }
+
+        // Notify other clients for new player spawn
+        {
+            const auto& player = client->player;
+
+            std::vector<EntitySpawn> spawns {};
+            spawns.emplace_back(player->entity_type, player->entity_id,
+                Vector2 {player->position.x, player->position.y}, player->rotation);
+
+            flatbuffers::FlatBufferBuilder builder {256};
+            const auto spawn = CreateEntitySpawnsDirect(builder, &spawns);
+            builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntitySpawns, spawn.Union()));
+            broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()), client->id);
+        }
     });
 }
 
@@ -149,10 +180,6 @@ void Zone::handle_packet(std::shared_ptr<Packet>&& packet) {
         handle_player_movement(std::move(packet->client), packet_base->packet_base_as<PlayerMovement>());
         break;
 
-    case PacketType::PlayerEnterZone:
-        handle_player_enter_zone(std::move(packet->client), packet_base->packet_base_as<PlayerEnterZone>());
-        break;
-
     case PacketType::EntityMeleeAttack:
         handle_entity_melee_attack(std::move(packet->client), packet_base->packet_base_as<EntityMeleeAttack>());
         break;
@@ -185,32 +212,6 @@ void Zone::handle_player_movement(std::shared_ptr<Client>&& client, const Player
     }
 }
 
-void Zone::handle_player_enter_zone(std::shared_ptr<Client>&& client, const PlayerEnterZone* enter) {
-    // Spawn every entity in the zone
-    for (const auto& [_, entity] : _subworld->get_entities()) {
-        flatbuffers::FlatBufferBuilder builder {256};
-        const Vector2 position {entity->position.x, entity->position.y};
-
-
-        const auto spawn = CreateEntitySpawn(builder,
-            entity->entity_type, entity->entity_id, &position, entity->rotation);
-        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntitySpawn, spawn.Union()));
-        client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
-    }
-
-    // Notify other clients for new player spawn
-    {
-        const auto& player = client->player;
-
-        flatbuffers::FlatBufferBuilder builder {256};
-        const Vector2 position {player->position.x, player->position.y};
-        const auto spawn = CreateEntitySpawn(builder,
-            player->entity_type, player->entity_id, &position, player->rotation);
-        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntitySpawn, spawn.Union()));
-        broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()), client->id);
-    }
-}
-
 void Zone::handle_entity_melee_attack(std::shared_ptr<Client>&& client, const EntityMeleeAttack* attack) {
     // Replicate player's melee attack
     {
@@ -227,25 +228,25 @@ void Zone::handle_entity_melee_attack(std::shared_ptr<Client>&& client, const En
         return;
     }
 
-    auto collisions = _subworld->get_collisions(fist->attack_shape.get(), static_cast<uint32_t>(ColliderLayer::ENTITIES));
-
-    for (auto& c : collisions) {
-        auto collider_root = c->get_root();
-        if (!collider_root) continue;
-
-        auto entity = std::dynamic_pointer_cast<Entity>(collider_root);
-        if (!entity || entity->entity_id == client->player->entity_id) continue;
-
-        //TODO: Calculate armor
-        const int amount_damaged = fist->damage;
-        entity->resource.change_health(EntityResourceModifyMode::ARITHMETIC, -amount_damaged);
-
-        // Broadcast that entity is damaged
-        flatbuffers::FlatBufferBuilder builder {128};
-        const auto modify = CreateEntityResourceModify(builder,
-            EntityResourceModifyMode::ARITHMETIC, EntityResourceType::HEALTH, entity->entity_id, amount_damaged);
-        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityResourceModify, modify.Union()));
-        broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
-    }
+    // auto collisions = _subworld->get_collisions(fist->attack_shape.get(), static_cast<uint32_t>(ColliderLayer::ENTITIES));
+    //
+    // for (auto& c : collisions) {
+    //     auto collider_root = c->get_root();
+    //     if (!collider_root) continue;
+    //
+    //         auto entity = std::dynamic_pointer_cast<Entity>(collider_root);
+    //     if (!entity || entity->entity_id == client->player->entity_id) continue;
+    //
+    //     //TODO: Calculate armor
+    //     const int amount_damaged = fist->damage;
+    //     entity->resource.change_health(EntityResourceChangeMode::ADD, -amount_damaged);
+    //
+    //     // Broadcast that entity is damaged
+    //     flatbuffers::FlatBufferBuilder builder {128};
+    //     const auto modify = CreateEntityResourceChange(builder,
+    //         EntityResourceChangeMode::ADD, EntityResourceType::HEALTH, entity->entity_id, amount_damaged);
+    //     builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityResourceChange, modify.Union()));
+    //     broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+    // }
 }
 }

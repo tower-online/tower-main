@@ -52,17 +52,17 @@ add_library(libtower STATIC
     tower/item/equipment/equipment.hpp
     tower/item/equipment/fist.hpp
 
-    tower/net/client.hpp
-    tower/net/client.cpp
-    tower/net/connection.hpp
-    tower/net/connection.cpp
-    tower/net/db.hpp
-    tower/net/listener.hpp
-    tower/net/packet.hpp
-    tower/net/server.hpp
-    tower/net/server.cpp
-    tower/net/zone.hpp
-    tower/net/zone.cpp
+    tower/network/client.hpp
+    tower/network/client.cpp
+    tower/network/connection.hpp
+    tower/network/connection.cpp
+    tower/network/db.hpp
+    tower/network/listener.hpp
+    tower/network/packet.hpp
+    tower/network/server.hpp
+    tower/network/server.cpp
+    tower/network/zone.hpp
+    tower/network/zone.cpp
 
     tower/player/player.hpp
     tower/player/player.cpp
@@ -125,7 +125,7 @@ target_link_libraries(tower-server PRIVATE tower::libtower)
 
 ### SCHEMAS ###
 add_subdirectory(schema)
-tower_add_packet_schemas("${CMAKE_CURRENT_SOURCE_DIR}/schema/packet" "${CMAKE_CURRENT_SOURCE_DIR}/tower/net/packet")
+tower_add_packet_schemas("${CMAKE_CURRENT_SOURCE_DIR}/schema/packet" "${CMAKE_CURRENT_SOURCE_DIR}/tower/network/packet")
 tower_add_world_schemas("${CMAKE_CURRENT_SOURCE_DIR}/schema/world" "${CMAKE_CURRENT_SOURCE_DIR}/tower/world/data")
 #add_dependencies(libtower tower-schema-packet tower-schema-world)
 

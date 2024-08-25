@@ -11,9 +11,11 @@ void Subworld::tick() {
         //TODO: Pull out if entity is already in collider
         if (entity->target_direction != glm::vec2 {0.0f, 0.0f}) {
             const auto target_position = entity->position + entity->target_direction * entity->movement_speed_base;
-            if (Tile tile; _tile_map.try_at(target_position, tile) && tile.state != TileState::BLOCKED) {
-                entity->position = target_position;
-            }
+
+            //TODO: Uncomment and Check block
+            // if (Tile tile; _tile_map.try_at(target_position, tile) && tile.state != TileState::BLOCKED) {
+            entity->position = target_position;
+            // }
         }
     }
 
@@ -42,16 +44,6 @@ void Subworld::tick() {
 void Subworld::add_entity(const std::shared_ptr<Entity>& entity) {
     add_collision_objects_from_tree(entity);
     _entities[entity->entity_id] = entity;
-}
-
-void Subworld::add_entity(std::shared_ptr<Entity>&& entity) {
-    add_collision_objects_from_tree(entity);
-    _entities[entity->entity_id] = std::move(entity);
-}
-
-void Subworld::remove_entity(std::shared_ptr<Entity>&& entity) {
-    remove_collision_objects_from_tree(entity);
-    _entities.erase(entity->entity_id);
 }
 
 void Subworld::remove_entity(const std::shared_ptr<Entity>& entity) {

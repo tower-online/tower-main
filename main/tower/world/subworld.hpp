@@ -14,8 +14,6 @@ public:
     void tick();
 
     void add_entity(const std::shared_ptr<Entity>& entity);
-    void add_entity(std::shared_ptr<Entity>&& entity);
-    void remove_entity(std::shared_ptr<Entity>&& entity);
     void remove_entity(const std::shared_ptr<Entity>& entity);
 
     void add_collision_objects_from_tree(const std::shared_ptr<Node>& node);

@@ -1,10 +1,10 @@
 #pragma once
 
 #include <boost/signals2.hpp>
-#include <tower/net/connection.hpp>
+#include <tower/network/connection.hpp>
 #include <tower/player/player.hpp>
 
-namespace tower::net {
+namespace tower::network {
 using boost::asio::ip::tcp;
 
 class Client : public std::enable_shared_from_this<Client> {

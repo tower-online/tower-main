@@ -4,7 +4,7 @@
 #include <boost/core/noncopyable.hpp>
 #include <spdlog/spdlog.h>
 
-namespace tower::net {
+namespace tower::network {
     using boost::asio::ip::tcp;
 
     class Listener final : boost::noncopyable {

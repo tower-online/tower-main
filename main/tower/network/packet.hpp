@@ -1,8 +1,8 @@
 #pragma once
 
-#include <tower/net/client.hpp>
+#include <tower/network/client.hpp>
 
-namespace tower::net {
+namespace tower::network {
 struct Packet {
     std::shared_ptr<Client> client;
     std::vector<uint8_t> buffer;

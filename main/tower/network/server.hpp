@@ -3,14 +3,15 @@
 #include <boost/redis.hpp>
 #include <boost/thread.hpp>
 #include <boost/thread/detail/thread_group.hpp>
-#include <tower/net/client.hpp>
-#include <tower/net/listener.hpp>
-#include <tower/net/packet.hpp>
-#include <tower/net/zone.hpp>
+#include <tower/network/client.hpp>
+#include <tower/network/listener.hpp>
+#include <tower/network/packet.hpp>
+#include <tower/network/zone.hpp>
+#include <tower/network/packet/packet_base.hpp>
 #include <tower/system/settings.hpp>
 
-namespace tower::net {
-using namespace tower::net::packet;
+namespace tower::network {
+using namespace tower::network::packet;
 using namespace tower::world;
 namespace redis = boost::redis;
 
@@ -25,8 +26,6 @@ public:
     void join();
 
 private:
-    void handle_jobs(bool loop);
-
     void add_client_deferred(tcp::socket&& socket);
     void remove_client_deferred(std::shared_ptr<Client>&& client);
 

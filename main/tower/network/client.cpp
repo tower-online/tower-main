@@ -1,9 +1,9 @@
 #include <spdlog/spdlog.h>
-#include <tower/net/client.hpp>
-#include <tower/net/packet/packet_base.hpp>
+#include <tower/network/client.hpp>
+#include <tower/network/packet/packet_base.hpp>
 
-namespace tower::net {
-using namespace tower::net::packet;
+namespace tower::network {
+using namespace tower::network::packet;
 
 Client::Client(boost::asio::io_context& ctx, tcp::socket&& socket, const uint32_t id,
     std::function<void(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)>&& packet_received)
@@ -57,7 +57,7 @@ Client::HeartBeater::HeartBeater(boost::asio::io_context& ctx, Client& client)
 
         ++_dead_beats;
 
-        flatbuffers::FlatBufferBuilder builder {32};
+        flatbuffers::FlatBufferBuilder builder {64};
         const auto beat = CreateHeartBeat(builder);
         builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::HeartBeat, beat.Union()));
         _client.send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));

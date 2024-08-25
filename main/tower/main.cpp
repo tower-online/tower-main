@@ -1,5 +1,5 @@
 #include <boost/redis/src.hpp>
-#include <tower/net/server.hpp>
+#include <tower/network/server.hpp>
 #include <tower/system/settings.hpp>
 
 #include <cstdlib>
@@ -18,7 +18,7 @@ int main(int argc, char* argv[]) {
     // DB::init(num_threads / 2, std::format("postgresql://{}:{}@{}:{}/{}",
     //     Settings::db_user(), Settings::db_password(), Settings::db_host(), Settings::db_port(), Settings::db_name()));
 
-    net::Server server {num_threads / 2, num_threads / 2};
+    network::Server server {num_threads / 2, num_threads / 2};
     server.start();
     server.join();
 

@@ -7,7 +7,7 @@
 
 #include <chrono>
 
-namespace tower::net {
+namespace tower::network {
 using namespace std::chrono;
 using boost::asio::ip::tcp;
 
