@@ -1,6 +1,0 @@
-namespace tower.net.packet;
-
-table HeartBeat {
-}
-
-root_type HeartBeat;

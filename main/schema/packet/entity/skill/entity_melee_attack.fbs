@@ -1,9 +1,0 @@
-include "entity_types.fbs";
-
-namespace tower.net.packet;
-
-table EntityMeleeAttack {
-    entity_id: uint32;
-}
-
-root_type EntityMeleeAttack;

@@ -1,9 +1,0 @@
-include "types.fbs";
-
-namespace tower.net.packet;
-
-table PlayerExitZone {
-    zone_id: uint32;
-}
-
-root_type PlayerExitZone;
