@@ -5,7 +5,6 @@ from fastapi import Depends, FastAPI, HTTPException, Query, status
 from pydantic import BaseModel
 from typing import Annotated, Any, Tuple
 
-import psycopg_pool as pyscorg
 import redis.asyncio as redis
 
 from config import Settings

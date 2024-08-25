@@ -7,12 +7,14 @@ RUN apt update -y && \
     python3-venv \
     libmariadb-dev
 
+WORKDIR /root
+RUN python3 -m venv venv
+COPY requirements.txt venv
+RUN venv/bin/pip install --no-cache-dir --upgrade -r venv/requirements.txt
+ENV PATH=/root/venv/bin:${PATH}
+
 WORKDIR /app
 COPY . .
-
-RUN python3 -m venv venv
-RUN venv/bin/pip install --no-cache-dir --upgrade -r requirements.txt
-ENV PATH=/app/venv/bin:${PATH}
 
 #CMD ["fastapi", "run", "main.py"]
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--ssl-keyfile", "/run/secrets/key.pem", "--ssl-certfile", "/run/secrets/cert.pem"]
