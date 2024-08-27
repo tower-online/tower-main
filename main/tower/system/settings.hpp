@@ -12,6 +12,7 @@ public:
     static void init();
 
     static uint16_t main_listen_port() { return _main_listen_port; }
+    static int main_listen_backlog() { return _main_listen_backlog; }
     static milliseconds main_tick_interval() { return _main_tick_interval; }
 
     static std::string_view auth_jwt_key() { return _auth_jwt_key; }
@@ -29,6 +30,7 @@ private:
     static std::string read_file(std::string_view path);
 
     inline static uint16_t _main_listen_port;
+    inline static uint16_t _main_listen_backlog;
     inline static milliseconds _main_tick_interval;
 
     inline static std::string _auth_jwt_key;

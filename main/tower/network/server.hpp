@@ -41,7 +41,8 @@ private:
 
     Listener _listener {
         _ctx, Settings::main_listen_port(),
-        [this](tcp::socket&& socket) { add_client_deferred(std::move(socket)); }
+        [this](tcp::socket&& socket) { add_client_deferred(std::move(socket)); },
+        Settings::main_listen_backlog()
     };
     std::unordered_map<uint32_t, std::shared_ptr<Client>> _clients {};
     std::unordered_map<uint32_t, signals::connection> _clients_on_disconnected {};

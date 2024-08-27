@@ -5,61 +5,66 @@
 #include <spdlog/spdlog.h>
 
 namespace tower::network {
-    using boost::asio::ip::tcp;
+using boost::asio::ip::tcp;
 
-    class Listener final : boost::noncopyable {
-    public:
-        Listener(boost::asio::io_context& ctx, uint16_t port,
-            std::function<void(tcp::socket&&)>&& on_acceptance);
-        ~Listener() = default;
+class Listener final : boost::noncopyable {
+public:
+    Listener(boost::asio::io_context& ctx, uint16_t port,
+        std::function<void(tcp::socket&&)>&& on_acceptance,
+        int backlog = boost::asio::socket_base::max_listen_connections);
+    ~Listener() = default;
 
-        void start();
-        void stop();
+    void start();
+    void stop();
 
-    private:
-        boost::asio::awaitable<void> listen();
+private:
+    boost::asio::awaitable<void> listen();
 
-        boost::asio::io_context& ctx_;
-        tcp::acceptor acceptor_;
-        std::function<void(tcp::socket&&)> on_acceptance_;
+    boost::asio::io_context& _ctx;
+    tcp::acceptor _acceptor;
+    std::function<void(tcp::socket&&)> _on_acceptance;
 
-        std::atomic<bool> listening_ {false};
-    };
+    std::atomic<bool> _listening {false};
+};
 
-    inline Listener::Listener(boost::asio::io_context& ctx, const uint16_t port,
-        std::function<void(tcp::socket&&)>&& on_acceptance)
-        : ctx_(ctx), acceptor_(ctx, tcp::endpoint(tcp::v4(), port)),
-        on_acceptance_(std::move(on_acceptance)) {}
+inline Listener::Listener(boost::asio::io_context& ctx, const uint16_t port,
+    std::function<void(tcp::socket&&)>&& on_acceptance,
+    const int backlog)
+    : _ctx(ctx), _acceptor(ctx, tcp::endpoint(tcp::v4(), port)),
+    _on_acceptance(std::move(on_acceptance)) {
+    _acceptor.listen(backlog);
+}
 
-    inline void Listener::start() {
-        listening_ = true;
-        co_spawn(ctx_, listen(), boost::asio::detached);
+inline void Listener::start() {
+    _listening = true;
+    co_spawn(_ctx, listen(), boost::asio::detached);
+}
+
+inline void Listener::stop() {
+    if (!_listening.exchange(false)) return;
+
+    try {
+        _acceptor.close();
+    } catch (const boost::system::system_error& e) {
+        spdlog::error("[Listener] Error closing: {}", e.what());
     }
+}
 
-    inline void Listener::stop() {
-        if (!listening_.exchange(false)) return;
+inline boost::asio::awaitable<void> Listener::listen() {
+    spdlog::info("[Listener] Starts accepting on {}:{}", _acceptor.local_endpoint().address().to_string(),
+        _acceptor.local_endpoint().port());
 
-        try {
-            acceptor_.close();
-        } catch (const boost::system::system_error& e) {
-            spdlog::error("[Listener] Error closing: {}", e.what());
+    while (_listening) {
+        tcp::socket socket {_ctx};
+
+        if (const auto [ec] = co_await _acceptor.async_accept(socket, as_tuple(boost::asio::use_awaitable)); ec) {
+            spdlog::error("[Listener] Error on accepting: {}", ec.what());
+            continue;
         }
+
+        spdlog::info("[Listener] Accepting from {}:{}", socket.remote_endpoint().address().to_string(),
+            socket.remote_endpoint().port());
+        _on_acceptance(std::move(socket));
     }
-
-    inline boost::asio::awaitable<void> Listener::listen() {
-        spdlog::info("[Listener] Starts accepting on {}:{}", acceptor_.local_endpoint().address().to_string(),
-            acceptor_.local_endpoint().port());
-
-        while (listening_) {
-            tcp::socket socket {ctx_};
-
-            if (const auto [ec] = co_await acceptor_.async_accept(socket, as_tuple(boost::asio::use_awaitable)); ec) {
-                spdlog::error("[Listener] Error on accepting: {}", ec.what());
-                continue;
-            }
-
-            spdlog::info("[Listener] Accepting from {}:{}", socket.remote_endpoint().address().to_string(), socket.remote_endpoint().port());
-            on_acceptance_(std::move(socket));
-        }
-    }
+}
 }
