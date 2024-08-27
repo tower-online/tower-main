@@ -2,13 +2,17 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from enum import StrEnum
 from fastapi import Depends, FastAPI, HTTPException, Query, status
+import logging
 from pydantic import BaseModel
-from typing import Annotated, Any, Tuple
+from typing import Annotated, Any, Tuple, List
 
+import aiomysql
 import redis.asyncio as redis
 
 from config import Settings
 from utility import *
+
+USERNAME_PATTERN = "^[a-zA-Z0-9_]{6,30}$"
 
 
 class User(BaseModel):
@@ -21,39 +25,62 @@ class User(BaseModel):
         INACTIVE = "INACTIVE"
         BLOCKED = "BLOCKED"
 
-    def __init__(self, username: str, platform: Platform, status: Status):
-        self.username = username
-        self.platform = platform
-        self.status = status
+    username: Annotated[str, Query()]
+    platform: Annotated[Platform, Query()]
+    status: Annotated[Status, Query()]
+
+
+class Characters(BaseModel):
+    class Character(BaseModel):
+        name: Annotated[str, Query()]
+        # level: Annotated[int, Query()]
+
+    characters: Annotated[List[Character], Query()] = []
 
 
 class TokenRequest(BaseModel):
-    username: Annotated[str, Query(pattern="^[a-zA-Z0-9_]{6,30}$")]
+    username: Annotated[str, Query(pattern=USERNAME_PATTERN)]
+
 
 class TokenResponse(BaseModel):
     jwt: Annotated[str, Query()]
 
 
+class RequestBase(BaseModel):
+    platform: Annotated[User.Platform, Query()]
+    username: Annotated[str, Query(pattern=USERNAME_PATTERN)]
+    jwt: Annotated[str, Query()]
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # await db_pool.open(timeout=5)
-    # await db_pool.wait()
+    global db_pool
+
+    db_pool = await aiomysql.create_pool(
+        host=settings.db_host,
+        port=settings.db_port,
+        user=settings.db_user,
+        password=settings.db_password,
+        db=settings.db_name,
+    )
 
     yield
 
-    # await db_pool.close()
+    db_pool.close()
+    await db_pool.wait_closed()
     await redis_pool.aclose()
 
 
 app = FastAPI(lifespan=lifespan)
 settings = Settings()
-# db_pool = pyscorg.AsyncConnectionPool(
-#     f"postgresql://{settings.db_user}:{settings.db_password}@{settings.db_host}:{settings.db_port}/{settings.db_name}",
-#     open=False,
-# )
+db_pool: aiomysql.Pool = None
 redis_pool = redis.ConnectionPool.from_url(
     f"redis://:{settings.redis_password}@{settings.redis_host}"
 )
+logger = logging.getLogger("uvicorn.error")
+
+if settings.debug:
+    logger.setLevel(logging.DEBUG)
 
 
 @app.post("/token/test", response_model=TokenResponse)
@@ -74,9 +101,7 @@ async def issue_token_test(request: TokenRequest) -> Any:
 async def issue_token_steam(username: Annotated[str, Query()]) -> Any:
     # TODO: Validate with Steam Web API
 
-    user, error = await get_active_user(User.Platform.STEAM, username)
-    if not user:
-        raise error
+    user = await get_active_user(User.Platform.STEAM, username)
 
     jwt = encode_token(
         username,
@@ -94,41 +119,70 @@ async def register_steam(
     pass
 
 
-async def get_active_user(
-    platform: User.Platform, username: str
-) -> Tuple[User | None, HTTPException]:
-    user = await get_user(platform, username)
+@app.post("/characters", response_model=Characters)
+async def request_characters(request: RequestBase) -> Any:
+    if not (payload := decode_token(request.jwt, settings.token_key)):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid token",
+        )
 
-    if not user:
-        return None, HTTPException(
+    if payload["username"] != request.username:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid username",
+        )
+
+    async with db_pool.acquire() as connection, connection.cursor() as cursor:
+        await cursor.execute(
+            """
+            SELECT characters.name
+            FROM characters 
+            JOIN users ON characters.user_id = users.id
+            WHERE username = '%s'
+            """,
+            (request.username,),
+        )
+
+        characters = Characters()
+        if not (r := await cursor.fetchall()):
+            return characters
+        for (character_name,) in r:
+            characters.characters.append(Characters.Character(name=character_name))
+
+        return characters
+
+
+async def get_active_user(platform: User.Platform, username: str) -> User:
+    if not (user := await get_user(platform, username)):
+        raise HTTPException(
             status_code=400,
             detail="Incorrect username or platform",
         )
 
-    if user.status is not User.Status.ACTIVE:
-        return None, HTTPException(
+    if user.status != User.Status.ACTIVE:
+        raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Inactive user",
         )
 
-    return None, HTTPException(status_code=status.HTTP_200_OK)
+    return user
 
 
 async def get_user(platform: User.Platform, username: str) -> User | None:
-    async with db_pool.connection() as connection:
-        async with connection.cursor() as cursor:
-            await cursor.execute(
-                "SELECT username, platform, status FROM users WHERE username=%s AND platform=%s",
-                (username, platform),
-            )
+    async with db_pool.acquire() as connection, connection.cursor() as cursor:
+        await cursor.execute(
+            "SELECT status FROM users WHERE username=%s AND platform=%s",
+            (username, platform),
+        )
 
-            record = await cursor.fetchone()
-            return (
-                User(
-                    username=record["username"],
-                    platform=record["platform"],
-                    status=record["status"],
-                )
-                if record
-                else None
-            )
+        if r := await cursor.fetchone():
+            (status,) = r
+        else:
+            return None
+
+        return User(
+            username=username,
+            platform=platform,
+            status=status,
+        )

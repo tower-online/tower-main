@@ -1,13 +1,13 @@
 CREATE TABLE characters
 (
-    id       INT AUTO_INCREMENT PRIMARY KEY,
-    user_id  INT,
+    id      INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
 
-    name     VARCHAR(30)    NOT NULL,
-    race     ENUM ('HUMAN') NOT NULL,
+    name    VARCHAR(30)    NOT NULL,
+    race    ENUM ('HUMAN') NOT NULL,
 
-    is_alive BOOLEAN        NOT NULL DEFAULT TRUE,
-    created  TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status  VARCHAR(8)     NOT NULL CHECK (status IN ('ALIVE', 'DEAD', 'DELETED')) DEFAULT 'ALIVE',
+    created TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     FOREIGN KEY (user_id) REFERENCES users (id),
 

@@ -1,10 +1,11 @@
 CREATE TABLE users
 (
-    id       INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(30) UNIQUE NOT NULL,
-    platform VARCHAR(8)         NOT NULL CHECK (platform IN ('TEST', 'STEAM')),
-    status   VARCHAR(8)         NOT NULL CHECK (status IN ('ACTIVE', 'INACTIVE', 'BLOCKED')),
-    created  TIMESTAMP          NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id        INT AUTO_INCREMENT PRIMARY KEY,
+    username  VARCHAR(30) UNIQUE NOT NULL,
+    platform  VARCHAR(8)         NOT NULL CHECK (platform IN ('TEST', 'STEAM')),
+    status    VARCHAR(8)         NOT NULL CHECK (status IN ('ACTIVE', 'INACTIVE', 'BLOCKED')),
+    privilege VARCHAR(8)         NULL CHECK (privilege IN (NULL, 'ADMIN')),
+    created   TIMESTAMP          NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT check_username CHECK (username REGEXP '^[a-zA-Z0-9_]{6,30}$')
 );

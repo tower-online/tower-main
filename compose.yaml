@@ -44,8 +44,10 @@ services:
       MARIADB_USER: ${TOWER_DB_USER}
       MARIADB_PASSWORD_FILE: ${TOWER_DB_PASSWORD_FILE}
       MARIADB_DATABASE: ${TOWER_DB_NAME}
-    expose:
-      - ${TOWER_DB_PORT}
+#    expose:
+#      - ${TOWER_DB_PORT}
+    ports:
+      - ${TOWER_DB_PORT}:${TOWER_DB_PORT}
     volumes:
       - db-data:/var/lib/mysql
     restart: unless-stopped

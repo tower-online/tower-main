@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     token_key: str = _read_file(os.environ["TOWER_AUTH_JWT_KEY_FILE"])
 
     db_host: str = os.environ["TOWER_DB_HOST"]
-    db_port: str = os.environ["TOWER_DB_PORT"]
+    db_port: int = int(os.environ["TOWER_DB_PORT"])
     db_user: str = os.environ["TOWER_DB_USER"]
     db_password: str = _read_file(os.environ["TOWER_DB_PASSWORD_FILE"])
     db_name: str = os.environ["TOWER_DB_NAME"]

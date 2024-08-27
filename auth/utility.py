@@ -18,14 +18,11 @@ def encode_token(
     return jwt.encode(data, key=key, algorithm=algorithm)
 
 
-def decode_token(
-    token: str, key: str, algorithm: str = "HS256"
-) -> dict | None:
+def decode_token(token: str, key: str, algorithm: str = "HS256") -> dict | None:
     payload = {}
     try:
-        payload = jwt.decode(token, key=key, algorithm=algorithm)
+        payload = jwt.decode(token, key=key, algorithms=[algorithm])
     except jwt.InvalidTokenError:
         print("Invalid token")
-        return None
-        
+
     return payload
