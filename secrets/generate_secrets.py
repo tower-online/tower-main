@@ -8,7 +8,7 @@ if __name__ == "__main__":
     parser.add_argument("--db", required=True)
     parser.add_argument("--redis", required=True)
     parser.add_argument("--jwt", type=str)
-    parser.add_argument("--ssl", type=bool)
+    parser.add_argument("--ssl", action="store_true", help="Generate self-signed SSL certifications")
     args = parser.parse_args()
 
     try:
@@ -37,7 +37,7 @@ if __name__ == "__main__":
             f.write(p.stdout)
             print(f"auth-jwt-key: {p.stdout.rstrip()}")
 
-    if args.ssl is True:
+    if args.ssl:
         subprocess.call(["openssl", "req", "-x509", "-newkey", "rsa:4096", "-keyout", f"{args.o}/key.pem",
                          "-out", f"{args.o}/cert.pem", "-sha256", "-days", "3650", "-nodes", "-subj", "/CN=localhost"])
         print(f"{args.o}/key.pem")
