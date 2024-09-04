@@ -135,11 +135,10 @@ async def request_characters(request: RequestBase) -> Any:
 
     async with db_pool.acquire() as connection, connection.cursor() as cursor:
         await cursor.execute(
-            """
-            SELECT characters.name
-            FROM characters 
-            JOIN users ON characters.user_id = users.id
-            WHERE username = '%s'
+            """SELECT c.name
+            FROM characters c
+            JOIN users u ON c.user_id = u.id
+            WHERE username = %s
             """,
             (request.username,),
         )
