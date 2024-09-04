@@ -4,10 +4,10 @@ from pathlib import Path
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-o", required=True)
-    parser.add_argument("--db", required=True)
-    parser.add_argument("--redis", required=True)
-    parser.add_argument("--jwt", type=str)
+    parser.add_argument("-o", type=str, default=".", help="Output path")
+    parser.add_argument("--db", required=True, help="DB password")
+    parser.add_argument("--redis", required=True, help="Redis password")
+    parser.add_argument("--jwt", type=str, help="JWT key; Default is random 32-length hex")
     parser.add_argument("--ssl", action="store_true", help="Generate self-signed SSL certifications")
     args = parser.parse_args()
 
