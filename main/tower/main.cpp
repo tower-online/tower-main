@@ -15,10 +15,8 @@ int main(int argc, char* argv[]) {
     const unsigned num_threads = std::thread::hardware_concurrency();
     Settings::init();
 
-    // DB::init(num_threads / 2, std::format("postgresql://{}:{}@{}:{}/{}",
-    //     Settings::db_user(), Settings::db_password(), Settings::db_host(), Settings::db_port(), Settings::db_name()));
-
     network::Server server {num_threads / 2, num_threads / 2};
+    server.init();
     server.start();
     server.join();
 

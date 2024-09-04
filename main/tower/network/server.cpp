@@ -166,6 +166,13 @@ boost::asio::awaitable<void> Server::handle_packet(std::unique_ptr<Packet> packe
 
 boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<Client>&& client,
     const ClientJoinRequest* request) {
+    if (!request->username() || !request->character_name() || !request->token()) {
+        spdlog::info("[Server] [ClientJoinRequest] {}: Invalid packet", client->id);
+        client->stop();
+        co_return;
+    }
+
+    const auto username = request->username()->string_view();
     const auto character_name = request->character_name()->string_view();
     const auto token = request->token()->string_view();
 
@@ -173,12 +180,9 @@ boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<
     try {
         const auto decoded_token = jwt::decode(token.data());
         const auto verifier = jwt::verify()
-            .allow_algorithm(jwt::algorithm::hs256 {Settings::auth_jwt_key().data()});
-
+            .allow_algorithm(jwt::algorithm::hs256 {Settings::auth_jwt_key().data()})
+            .with_claim("username", jwt::claim(std::string {username}));
         verifier.verify(decoded_token);
-
-        //TODO: Check username and store
-        // client->username = request->username()
 
         client->is_authenticated = true;
         spdlog::info("[Server] [ClientJoinRequest] {}/{}: Token OK", client->id, character_name);
@@ -206,12 +210,13 @@ boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<
         if (const auto [ec, _] = co_await conn->async_prepare_statement(
             "SELECT name, race FROM users u JOIN characters c ON c.user_id = u.id AND c.name = ? WHERE u.username = ?",
             as_tuple(boost::asio::use_awaitable)); ec) {
-            // Do something
+            spdlog::error("FFF!!!!");
+            co_return;
         }
 
         boost::mysql::results result;
         if (const auto [ec] = co_await conn->async_execute(
-            statement.bind(character_name), result, as_tuple(boost::asio::use_awaitable)); ec || result.empty()) {
+            statement.bind(character_name, username), result, as_tuple(boost::asio::use_awaitable)); ec || result.empty()) {
             // Do something
         }
 
