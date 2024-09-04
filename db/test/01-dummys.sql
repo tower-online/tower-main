@@ -1,3 +1,4 @@
+DELIMITER //
 CREATE PROCEDURE insert_dummies(n INT)
 BEGIN
     DECLARE i INT DEFAULT 1;
@@ -11,12 +12,14 @@ BEGIN
 
         SET i = i + 1;
     END WHILE;
-END;
+END //
+DELIMITER ;
 
 CALL insert_dummies(1000);
 DROP PROCEDURE IF EXISTS insert_dummies;
 
 
+DELIMITER //
 CREATE PROCEDURE insert_dummy_characters(n INT)
 BEGIN
     DECLARE i INT DEFAULT 1;
@@ -28,7 +31,7 @@ BEGIN
         FROM users
         WHERE username = dummy_name;
 
-        INSERT INTO charcters (user_id, name, race)
+        INSERT INTO characters (user_id, name, race)
         VALUES (
             @user_id,
             dummy_name,
@@ -38,6 +41,7 @@ BEGIN
         SET i = i + 1;
     END WHILE;
 END;
+DELIMITER ;
 
 CALL insert_dummy_characters(1000);
 DROP PROCEDURE IF EXISTS insert_dummy_characters;

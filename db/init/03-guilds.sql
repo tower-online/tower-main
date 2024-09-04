@@ -7,6 +7,7 @@ CREATE TABLE guilds
     CONSTRAINT check_name CHECK (name REGEXP '^[a-zA-Z0-9_]{6,30}$')
 );
 
+
 CREATE TABLE guild_members
 (
     guild_id     INTEGER,

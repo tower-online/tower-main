@@ -19,7 +19,7 @@ CREATE TABLE user_stats
     FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
-
+DELIMITER //
 CREATE TRIGGER after_user_insert
     AFTER INSERT
     ON users
@@ -27,9 +27,11 @@ CREATE TRIGGER after_user_insert
 BEGIN
     INSERT INTO user_stats (user_id)
     VALUES (NEW.id);
-END;
+END //
+DELIMITER ;
 
 
+DELIMITER //
 CREATE TRIGGER after_user_delete
     AFTER DELETE
     ON users
@@ -42,4 +44,5 @@ BEGIN
     DELETE
     FROM characters
     WHERE user_id = OLD.id;
-END;
+END //
+DELIMITER ;
