@@ -3,15 +3,13 @@ CREATE TABLE characters
     id      INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT,
 
-    name    VARCHAR(30) NOT NULL,
-    race    ENUM ('HUMAN') NOT NULL,
+    name    VARCHAR(30) UNIQUE NOT NULL CHECK (name REGEXP '^[a-zA-Z0-9_]{6,30}$'),
+    race    VARCHAR(10)        NOT NULL CHECK (race in ('HUMAN')),
 
-    status  VARCHAR(8)  NOT NULL DEFAULT 'ALIVE' CHECK (status IN ('ALIVE', 'DEAD', 'DELETED')),
-    created TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status  VARCHAR(8)         NOT NULL DEFAULT 'ALIVE' CHECK (status IN ('ALIVE', 'DEAD', 'DELETED')),
+    created TIMESTAMP          NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    FOREIGN KEY (user_id) REFERENCES users (id),
-
-    CONSTRAINT check_name CHECK (name REGEXP '^[a-zA-Z0-9_]{6,30}$')
+    FOREIGN KEY (user_id) REFERENCES users (id)
 );
 CREATE INDEX idx_characters_user_id ON characters (user_id);
 
@@ -57,8 +55,9 @@ CREATE TABLE character_inventories
 
 
 CREATE TRIGGER after_character_insert
-AFTER INSERT ON characters
-FOR EACH ROW
+    AFTER INSERT
+    ON characters
+    FOR EACH ROW
 BEGIN
     INSERT INTO character_stats (character_id)
     VALUES (NEW.id);
@@ -72,15 +71,19 @@ END;
 
 
 CREATE TRIGGER after_character_delete
-AFTER DELETE ON characters
-FOR EACH ROW
+    AFTER DELETE
+    ON characters
+    FOR EACH ROW
 BEGIN
-    DELETE FROM character_stats
+    DELETE
+    FROM character_stats
     WHERE character_id = OLD.id;
 
-    DELETE FROM character_skills
+    DELETE
+    FROM character_skills
     WHERE character_id = OLD.id;
 
-    DELETE FROM character_inventories
+    DELETE
+    FROM character_inventories
     WHERE character_id = OLD.id;
 END;
