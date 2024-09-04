@@ -6,15 +6,15 @@ namespace tower::network {
 using namespace tower::network::packet;
 
 Client::Client(boost::asio::io_context& ctx, tcp::socket&& socket, const uint32_t id,
-    std::function<void(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)>&& packet_received)
+    std::function<boost::asio::awaitable<void>(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)>&& packet_received)
     : id(id),
     _connection(ctx, std::move(socket),
-        [this](std::vector<uint8_t>&& buffer) {
+        [this](std::vector<uint8_t>&& buffer)->boost::asio::awaitable<void> {
             if (is_authenticated) {
                 _heart_beater->beat();
             }
 
-            _packet_received(shared_from_this(), std::move(buffer));
+            co_await _packet_received(shared_from_this(), std::move(buffer));
         },
         [this] { disconnected(shared_from_this()); }),
     _packet_received(std::move(packet_received)) {

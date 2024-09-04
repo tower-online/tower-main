@@ -3,7 +3,7 @@
 
 namespace tower::network {
 Connection::Connection(boost::asio::io_context& ctx, tcp::socket&& socket,
-    std::function<void(std::vector<uint8_t>&&)>&& packet_received,
+    std::function<boost::asio::awaitable<void>(std::vector<uint8_t>&&)>&& packet_received,
     std::function<void()>&& disconnected)
     : _ctx {ctx}, _socket {std::move(socket)}, _is_connected {_socket.is_open()},
     _packet_received {std::move(packet_received)}, _disconnected {std::move(disconnected)},
@@ -95,6 +95,6 @@ boost::asio::awaitable<void> Connection::receive_packet() {
         co_return;
     }
 
-    _packet_received(std::move(body_buffer));
+    co_await _packet_received(std::move(body_buffer));
 }
 }

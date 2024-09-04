@@ -103,8 +103,8 @@ void Server::add_client_deferred(tcp::socket&& socket) {
 
     uint32_t id = ++id_generator;
     auto client = std::make_shared<Client>(_ctx, std::move(socket), id,
-        [this](std::shared_ptr<Client>&& client, std::vector<uint8_t>&& buffer) {
-            handle_packet(std::make_unique<Packet>(std::move(client), std::move(buffer)));
+        [this](std::shared_ptr<Client>&& client, std::vector<uint8_t>&& buffer)->boost::asio::awaitable<void> {
+            co_await handle_packet(std::make_unique<Packet>(std::move(client), std::move(buffer)));
         }
     );
 
@@ -129,18 +129,17 @@ void Server::remove_client_deferred(std::shared_ptr<Client>&& client) {
     });
 }
 
-void Server::handle_packet(std::unique_ptr<Packet> packet) {
+boost::asio::awaitable<void> Server::handle_packet(std::unique_ptr<Packet> packet) {
     if (flatbuffers::Verifier verifier {packet->buffer.data(), packet->buffer.size()}; !
         VerifyPacketBaseBuffer(verifier)) {
         spdlog::warn("[Server] Invalid PacketBase from client({})", packet->client->id);
         packet->client->stop();
-        return;
+        co_return;
     }
 
-    const auto packet_base = GetPacketBase(packet->buffer.data());
-    switch (packet_base->packet_base_type()) {
+    switch (const auto packet_base = GetPacketBase(packet->buffer.data()); packet_base->packet_base_type()) {
     case PacketType::ClientJoinRequest:
-        handle_client_join_request(std::move(packet->client),
+        co_await handle_client_join_request(std::move(packet->client),
             packet_base->packet_base_as<ClientJoinRequest>());
         break;
 
@@ -152,7 +151,7 @@ void Server::handle_packet(std::unique_ptr<Packet> packet) {
         if (!packet->client->is_authenticated) {
             spdlog::warn("[Server] Packet from unauthenticated client({})", packet->client->id);
             packet->client->stop();
-            return;
+            co_return;
         }
 
     // Serialize handing over jobs, because accessing to zones is critical section.
@@ -165,14 +164,9 @@ void Server::handle_packet(std::unique_ptr<Packet> packet) {
     }
 }
 
-void Server::handle_client_join_request(std::shared_ptr<Client>&& client, const ClientJoinRequest* request) {
-    if (!request->username() || !request->token()) {
-        client->stop();
-        return;
-    }
-
-    const auto platform = platform_to_string(request->platform());
-    const auto username = request->username()->string_view();
+boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<Client>&& client,
+    const ClientJoinRequest* request) {
+    const auto character_name = request->character_name()->string_view();
     const auto token = request->token()->string_view();
 
     bool verification_ok {true};
@@ -183,11 +177,14 @@ void Server::handle_client_join_request(std::shared_ptr<Client>&& client, const 
 
         verifier.verify(decoded_token);
 
+        //TODO: Check username and store
+        // client->username = request->username()
+
         client->is_authenticated = true;
-        spdlog::info("[Server] [ClientJoinRequest] {}/{}: OK", platform, username);
+        spdlog::info("[Server] [ClientJoinRequest] {}/{}: Token OK", client->id, character_name);
     } catch (const std::exception&) {
         verification_ok = false;
-        spdlog::info("[Server] [ClientJoinRequest] {}/{}: Invalid", platform, username);
+        spdlog::info("[Server] [ClientJoinRequest] {}/{}: Token Invalid", client->id, character_name);
     }
 
     {
@@ -199,10 +196,31 @@ void Server::handle_client_join_request(std::shared_ptr<Client>&& client, const 
     }
     if (!verification_ok) {
         client->stop();
-        return;
+        co_return;
     }
 
     {
+        auto conn = co_await DB::get_connection();
+
+        boost::mysql::statement statement;
+        if (const auto [ec, _] = co_await conn->async_prepare_statement(
+            "SELECT name, race FROM users u JOIN characters c ON c.user_id = u.id AND c.name = ? WHERE u.username = ?",
+            as_tuple(boost::asio::use_awaitable)); ec) {
+            // Do something
+        }
+
+        boost::mysql::results result;
+        if (const auto [ec] = co_await conn->async_execute(
+            statement.bind(character_name), result, as_tuple(boost::asio::use_awaitable)); ec || result.empty()) {
+            // Do something
+        }
+
+        for (const auto& r : result.rows()) {
+            r.at(0); // <- name
+
+            //TODO: Setup client->player
+        }
+
         flatbuffers::FlatBufferBuilder builder {128};
         const auto spawn = CreatePlayerSpawn(builder, EntityType::PLAYER_HUMAN, client->player->entity_id);
         builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerSpawn, spawn.Union()));

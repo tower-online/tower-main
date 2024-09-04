@@ -3,6 +3,7 @@
 #include <boost/signals2.hpp>
 #include <tower/network/connection.hpp>
 #include <tower/player/player.hpp>
+#include <tower/system/timer.hpp>
 
 namespace tower::network {
 using boost::asio::ip::tcp;
@@ -12,7 +13,7 @@ class Client : public std::enable_shared_from_this<Client> {
 
 public:
     Client(boost::asio::io_context& ctx, tcp::socket&& socket, uint32_t id,
-        std::function<void(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)>&& packet_received);
+        std::function<boost::asio::awaitable<void>(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)>&& packet_received);
     ~Client();
 
     Client(const Client&) = delete;
@@ -30,7 +31,7 @@ public:
 
 private:
     Connection _connection;
-    const std::function<void(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)> _packet_received;
+    const std::function<boost::asio::awaitable<void>(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)> _packet_received;
     std::atomic<bool> _is_running {false};
     std::unique_ptr<HeartBeater> _heart_beater;
 };

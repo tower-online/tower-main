@@ -9,7 +9,7 @@ option(TOWER_BUILD_TESTS "Enable the build of tests" ON)
 ### DEPENDENCIES ###
 # Boost.asio -> Boost.system
 # Boost.mysql -> Boost.charconv
-find_package(Boost 1.84.0 REQUIRED COMPONENTS charconv system thread)
+find_package(Boost 1.85.0 REQUIRED COMPONENTS charconv system thread)
 
 #find_package(OpenSSL REQUIRED)
 

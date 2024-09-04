@@ -3,7 +3,6 @@
 #include <boost/asio.hpp>
 #include <boost/core/noncopyable.hpp>
 #include <flatbuffers/flatbuffers.h>
-#include <tower/system/timer.hpp>
 
 #include <chrono>
 
@@ -14,7 +13,7 @@ using boost::asio::ip::tcp;
 class Connection final : boost::noncopyable {
 public:
     Connection(boost::asio::io_context& ctx, tcp::socket&& socket,
-               std::function<void(std::vector<uint8_t>&&)>&& packet_received, std::function<void()>&& disconnected);
+               std::function<boost::asio::awaitable<void>(std::vector<uint8_t>&&)>&& packet_received, std::function<void()>&& disconnected);
     ~Connection();
 
     void open();
@@ -35,7 +34,7 @@ private:
     boost::asio::io_context& _ctx;
     tcp::socket _socket;
     std::atomic<bool> _is_connected;
-    std::function<void(std::vector<uint8_t>&&)> _packet_received;
+    std::function<boost::asio::awaitable<void>(std::vector<uint8_t>&&)> _packet_received;
     std::function<void()> _disconnected;
 
     boost::asio::strand<boost::asio::io_context::executor_type> _send_strand;

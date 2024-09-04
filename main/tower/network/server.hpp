@@ -11,9 +11,9 @@
 #include <tower/system/settings.hpp>
 
 namespace tower::network {
+namespace redis = boost::redis;
 using namespace tower::network::packet;
 using namespace tower::world;
-namespace redis = boost::redis;
 
 class Server {
 public:
@@ -29,8 +29,9 @@ private:
     void add_client_deferred(tcp::socket&& socket);
     void remove_client_deferred(std::shared_ptr<Client>&& client);
 
-    void handle_packet(std::unique_ptr<Packet> packet);
-    void handle_client_join_request(std::shared_ptr<Client>&& client, const ClientJoinRequest* request);
+    boost::asio::awaitable<void> handle_packet(std::unique_ptr<Packet> packet);
+    boost::asio::awaitable<void> handle_client_join_request(std::shared_ptr<Client>&& client,
+        const ClientJoinRequest* request);
 
     // Network
     std::atomic<bool> _is_running {false};
