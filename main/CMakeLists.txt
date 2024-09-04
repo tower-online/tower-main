@@ -5,7 +5,6 @@ project(TowerServer
 )
 
 option(TOWER_BUILD_TESTS "Enable the build of tests" ON)
-option(TOWER_BUILD_DUMMY "Enable the build of dummy client" ON)
 
 ### DEPENDENCIES ###
 # Boost.asio -> Boost.system
@@ -129,20 +128,6 @@ tower_add_packet_schemas("${CMAKE_CURRENT_SOURCE_DIR}/schema/packet" "${CMAKE_CU
 tower_add_world_schemas("${CMAKE_CURRENT_SOURCE_DIR}/schema/world" "${CMAKE_CURRENT_SOURCE_DIR}/tower/world/data")
 #add_dependencies(libtower tower-schema-packet tower-schema-world)
 
-if (TOWER_BUILD_DUMMY)
-    file(GLOB schemas
-        "schema/packet/*.fbs"
-        "schema/packet/client/*.fbs"
-    )
-
-    add_custom_target(
-        dummy-schema-packet
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        COMMAND flatc -I schemas/packet -o dummy --python --filename-suffix "\"\"" --python-typing ${schemas}
-        DEPENDS flatc
-    )
-    message("dummy-packet: ${schemas}")
-endif ()
 
 ### TESTS ###
 if (TOWER_BUILD_TESTS)
