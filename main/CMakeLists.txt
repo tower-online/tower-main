@@ -11,7 +11,7 @@ option(TOWER_BUILD_TESTS "Enable the build of tests" ON)
 # Boost.mysql -> Boost.charconv
 find_package(Boost 1.85.0 REQUIRED COMPONENTS charconv system thread)
 
-#find_package(OpenSSL REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 include(FetchContent)
 
@@ -47,6 +47,8 @@ FetchContent_MakeAvailable(jwt-cpp)
 
 ### TARGETS ###
 add_library(libtower STATIC
+    tower/entity/entity.hpp
+
     tower/item/item.hpp
     tower/item/equipment/equipment.hpp
     tower/item/equipment/fist.hpp
@@ -90,9 +92,6 @@ add_library(libtower STATIC
     tower/world/collision/collision_shape.hpp
     tower/world/collision/rectangle_collision_shape.hpp
     tower/world/collision/rectangle_collision_shape.cpp
-    tower/world/entity/entity.hpp
-    tower/world/entity/entity_manager.hpp
-    tower/world/entity/mob/piggy.hpp
 )
 add_library(tower::libtower ALIAS libtower)
 
@@ -107,7 +106,7 @@ target_link_libraries(libtower
     PRIVATE
     Boost::charconv
     Boost::thread
-#    OpenSSL::SSL
+    OpenSSL::SSL
     jwt-cpp::jwt-cpp
 )
 target_include_directories(libtower PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

@@ -7,12 +7,15 @@
 #include <atomic>
 
 namespace tower::world {
+class Subworld;
+}
+
+namespace tower::entity {
 namespace signal = boost::signals2;
 using network::packet::EntityType;
 using network::packet::EntityResourceType;
 using network::packet::EntityResourceChangeMode;
 
-class Subworld;
 
 struct EntityResource {
     int32_t max_health {0};
@@ -24,14 +27,14 @@ struct EntityResource {
 };
 
 
-class Entity : public Node {
+class Entity : public world::Node {
 public:
     explicit Entity(EntityType entity_type);
 
     static uint32_t generate_entity_id();
     void modify_resource(EntityResourceType type, EntityResourceChangeMode mode, uint32_t amount);
 
-    virtual void tick(Subworld& subworld) = 0;
+    virtual void tick(world::Subworld& subworld) = 0;
 
     const uint32_t entity_id;
     const EntityType entity_type;
@@ -67,4 +70,8 @@ inline uint32_t Entity::generate_entity_id() {
 
     return ++id_generator;
 }
+
+inline static std::unordered_map<std::string, EntityType> entity_types_map {
+    {"HUMAN", EntityType::HUMAN},
+};
 }

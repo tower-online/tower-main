@@ -13,11 +13,6 @@ Server::Server(const size_t num_io_threads, const size_t num_worker_threads)
     // default zone
     _zones.insert_or_assign(0, std::make_unique<Zone>(0, _worker_threads));
     _zones[0]->init("test_zone");
-
-    redis::config redis_config {};
-    redis_config.addr.host = Settings::redis_host();
-    redis_config.password = Settings::redis_password();
-    _redis_connection.async_run(redis_config, {}, boost::asio::detached);
 }
 
 Server::~Server() {
@@ -35,6 +30,11 @@ void Server::init() {
     params.database = Settings::db_name();
 
     DB::init(_ctx, std::move(params));
+
+    redis::config redis_config {};
+    redis_config.addr.host = Settings::redis_host();
+    redis_config.password = Settings::redis_password();
+    _redis_connection.async_run(redis_config, {}, boost::asio::detached);
 }
 
 void Server::start() {
@@ -166,6 +166,13 @@ boost::asio::awaitable<void> Server::handle_packet(std::unique_ptr<Packet> packe
 
 boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<Client>&& client,
     const ClientJoinRequest* request) {
+    if (!request->username() || !request->character_name() || !request->token()) {
+        spdlog::warn("[Server] [ClientJoinRequest] {}: Invalid request", client->id);
+        client->stop();
+        co_return;
+    }
+
+    const auto username = request->username()->string_view();
     const auto character_name = request->character_name()->string_view();
     const auto token = request->token()->string_view();
 
@@ -184,7 +191,7 @@ boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<
         spdlog::info("[Server] [ClientJoinRequest] {}/{}: Token OK", client->id, character_name);
     } catch (const std::exception&) {
         verification_ok = false;
-        spdlog::info("[Server] [ClientJoinRequest] {}/{}: Token Invalid", client->id, character_name);
+        spdlog::warn("[Server] [ClientJoinRequest] {}/{}: Token Invalid", client->id, character_name);
     }
 
     {
@@ -202,27 +209,36 @@ boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<
     {
         auto conn = co_await DB::get_connection();
 
-        boost::mysql::statement statement;
-        if (const auto [ec, _] = co_await conn->async_prepare_statement(
+        auto [ec, statement] = co_await conn->async_prepare_statement(
             "SELECT name, race FROM users u JOIN characters c ON c.user_id = u.id AND c.name = ? WHERE u.username = ?",
-            as_tuple(boost::asio::use_awaitable)); ec) {
-            // Do something
+            as_tuple(boost::asio::use_awaitable));
+        if (ec) {
+            spdlog::error("[Server] [ClientJoinRequest] Error preparing query");
+            co_return;
         }
 
         boost::mysql::results result;
         if (const auto [ec] = co_await conn->async_execute(
             statement.bind(character_name), result, as_tuple(boost::asio::use_awaitable)); ec || result.empty()) {
-            // Do something
+            spdlog::error("[Server] [ClientJoinRequest] Error executing query or empty result");
+            client->stop();
+            co_return;
         }
 
+        std::string race;
         for (const auto& r : result.rows()) {
-            r.at(0); // <- name
+            race = r.at(1).as_string();
+            if (!entity_types_map.contains(race)) {
+                spdlog::error("[Server] [ClientJoinRequest] Invalid character race: {}", race);
+                co_return;
+            }
 
             //TODO: Setup client->player
+            break;
         }
 
         flatbuffers::FlatBufferBuilder builder {128};
-        const auto spawn = CreatePlayerSpawn(builder, EntityType::PLAYER_HUMAN, client->player->entity_id);
+        const auto spawn = CreatePlayerSpawn(builder, entity_types_map[race], client->player->entity_id);
         builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerSpawn, spawn.Union()));
         client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
     }

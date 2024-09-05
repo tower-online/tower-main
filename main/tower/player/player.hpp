@@ -1,9 +1,10 @@
 #pragma once
 
 #include <tower/player/inventory.hpp>
-#include <tower/world/entity/entity.hpp>
+#include <tower/entity/entity.hpp>
 
 namespace tower::player {
+using namespace tower::entity;
 using namespace tower::world;
 
 class Player : public Entity {

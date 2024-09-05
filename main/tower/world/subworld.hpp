@@ -1,12 +1,14 @@
 #pragma once
 
+#include <tower/entity/entity.hpp>
 #include <tower/world/tile_map.hpp>
 #include <tower/world/collision/collision_object.hpp>
-#include <tower/world/entity/entity.hpp>
 
 #include <unordered_set>
 
 namespace tower::world {
+using namespace tower::entity;
+
 class Subworld {
 public:
     explicit Subworld(std::string_view tile_map_name);

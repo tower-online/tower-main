@@ -3,8 +3,7 @@
 #include <tower/item/equipment/fist.hpp>
 #include <tower/network/zone.hpp>
 #include <tower/system/math.hpp>
-#include <tower/world/entity/entity.hpp>
-#include <tower/world/entity/mob/piggy.hpp>
+#include <tower/entity/entity.hpp>
 
 #include <cmath>
 

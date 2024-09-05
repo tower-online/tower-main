@@ -5,7 +5,7 @@
 
 namespace tower::player {
 Player::Player()
-    : Entity {EntityType::PLAYER_HUMAN} {}
+    : Entity {EntityType::HUMAN} {}
 
 std::shared_ptr<Player> Player::create() {
     auto player = std::make_shared<Player>();
