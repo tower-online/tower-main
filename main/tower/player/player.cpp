@@ -3,6 +3,7 @@
 #include <tower/player/player.hpp>
 #include <tower/world/collision/collision_object.hpp>
 #include <tower/world/collision/rectangle_collision_shape.hpp>
+#include <spdlog/spdlog.h>
 
 namespace tower::player {
 Player::Player(const EntityType type)
@@ -11,11 +12,9 @@ Player::Player(const EntityType type)
 boost::asio::awaitable<std::shared_ptr<Player>> Player::load(std::string_view character_name) {
     auto conn = co_await DB::get_connection();
     auto [ec, statement] = co_await conn->async_prepare_statement(
-        "SELECT c.id, c.name, c.race, c.level, c.exp"
-        "FROM characters c "
-        "JOIN character_stats st ON c.id = st.character_id "
-        "JOIN character_skills sk ON c.id = st.character_id "
-        "WHERE c.name = ?",
+        "SELECT id, name, race "
+        "FROM characters "
+        "WHERE name = ?",
         as_tuple(boost::asio::use_awaitable));
     if (ec) co_return nullptr;
 
@@ -25,17 +24,56 @@ boost::asio::awaitable<std::shared_ptr<Player>> Player::load(std::string_view ch
         co_return nullptr;
     }
 
-    const auto r = result.rows()[0];
-    const auto character_id = r.at(1).as_uint64();
-    const auto name = r.at(1).as_string();
-    const auto race = r.at(2).as_string();
+    const auto r1 = result.rows()[0];
+    uint32_t character_id;
+    std::string_view name, race;
 
-    if (!entity_types_map.contains(race)) co_return nullptr;
+    try {
+        character_id = r1.at(0).as_int64();
+        name = r1.at(1).as_string();
+        race = r1.at(2).as_string();
+    } catch (const boost::mysql::bad_field_access& e) {
+        spdlog::error("[Player] error loading: {}", e.what());
+        co_return nullptr;
+    }
 
-    auto player = create(entity_types_map[race]);
+    auto player = create(entity_types_map[race.data()]);
     player->_character_id = character_id;
     player->_name = name;
-    player->stat.
+
+    std::string query {
+        format_sql(
+            conn->format_opts().value(),
+            "SELECT * "
+            "FROM character_stats "
+            "WHERE character_id = {}",
+            character_id
+        )
+    };
+    if (const auto [ec] = co_await conn->async_execute(std::move(query), result, as_tuple(boost::asio::use_awaitable));
+        ec || result.rows().empty()) {
+        co_return nullptr;
+    }
+
+    const auto r2 = result.rows()[0];
+    auto& stats = player->stats;
+    try {
+        stats.level.set(static_cast<int16_t>(r2.at(1).as_int64()));
+        stats.exp.set(static_cast<int32_t>(r2.at(2).as_int64()));
+
+        stats.str.set(static_cast<int16_t>(r2.at(3).as_int64()));
+        stats.mag.set(static_cast<int16_t>(r2.at(4).as_int64()));
+        stats.agi.set(static_cast<int16_t>(r2.at(5).as_int64()));
+        stats.con.set(static_cast<int16_t>(r2.at(6).as_int64()));
+
+        if (!r2.at(7).is_null()) {
+            stats.optionals.insert_or_assign(StatType::FAITH, Stat<int16_t> {StatType::FAITH});
+            stats.optionals.at(StatType::FAITH).set(static_cast<int16_t>(r2.at(7).as_int64()));
+        }
+    } catch (const boost::mysql::bad_field_access& e) {
+        spdlog::error("[Player] error loading: {}", e.what());
+        co_return nullptr;
+    }
 
     co_return player;
 }

@@ -17,20 +17,20 @@ CREATE INDEX idx_characters_user_id ON characters (user_id);
 CREATE TABLE character_stats
 (
     character_id INT PRIMARY KEY,
-    level        INT NOT NULL DEFAULT 1,
+    level        SMALLINT NOT NULL DEFAULT 1,
     exp          INT NOT NULL DEFAULT 0,
 
     -- strength
-    str          INT NOT NULL DEFAULT 0,
+    str          SMALLINT NOT NULL DEFAULT 0,
     -- magic
-    mag          INT NOT NULL DEFAULT 0,
+    mag          SMALLINT NOT NULL DEFAULT 0,
     -- agility
-    agi          INT NOT NULL DEFAULT 0,
+    agi          SMALLINT NOT NULL DEFAULT 0,
     -- constitution
-    con          INT NOT NULL DEFAULT 0,
+    con          SMALLINT NOT NULL DEFAULT 0,
 
     -- Optional stats
-    faith        INT NULL,
+    faith        SMALLINT NULL,
 
     FOREIGN KEY (character_id) REFERENCES characters (id)
 );

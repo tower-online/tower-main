@@ -25,7 +25,7 @@ public:
 
 public:
     const uint32_t id;
-    std::shared_ptr<player::Player> _player;
+    std::shared_ptr<player::Player> player;
     signals::signal<void(std::shared_ptr<Client>)> disconnected {};
     bool is_authenticated {false};
 

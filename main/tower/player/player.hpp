@@ -18,12 +18,15 @@ public:
 
     void tick(Subworld& subworld) override {}
 
+    uint32_t character_id() const { return _character_id; }
+    std::string_view name() const { return _name; }
+
     std::shared_ptr<Node> pivot {std::make_shared<Node>()};
     Inventory inventory {};
-    Stat stat {};
+    Stats stats {};
 
 private:
-    uint64_t _character_id {0};
+    uint32_t _character_id {};
     std::string _name {};
 };
 }

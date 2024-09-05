@@ -41,13 +41,15 @@ boost::asio::awaitable<bool> Connection::connect(const tcp::endpoint& remote_end
 void Connection::disconnect() {
     if (!_is_connected.exchange(false)) return;
 
-    try {
-        _socket.shutdown(tcp::socket::shutdown_both);
+    boost::system::error_code ec;
+    _socket.shutdown(tcp::socket::shutdown_both, ec);
+    if (ec) {
+        spdlog::error("[Connection] Error shutting down socket: {}", ec.message());
+    }
 
-        //TODO: Process remaining send queue?
-        _socket.close();
-    } catch (const boost::system::system_error& e) {
-        spdlog::error("[Connection] Error shutting down socket: {}", e.what());
+    _socket.close(ec);
+    if (ec) {
+        spdlog::error("[Connection] Error closing socket: {}", ec.message());
     }
 
     _disconnected();

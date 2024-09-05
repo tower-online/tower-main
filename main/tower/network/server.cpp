@@ -177,7 +177,6 @@ boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<
     const auto character_name = request->character_name()->string_view();
     const auto token = request->token()->string_view();
 
-    bool verification_ok {true};
     try {
         const auto decoded_token = jwt::decode(token.data());
         const auto verifier = jwt::verify()
@@ -188,18 +187,8 @@ boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<
         client->is_authenticated = true;
         spdlog::info("[Server] [ClientJoinRequest] {}/{}: Token OK", client->id, character_name);
     } catch (const std::exception&) {
-        verification_ok = false;
         spdlog::warn("[Server] [ClientJoinRequest] {}/{}: Token Invalid", client->id, character_name);
-    }
 
-    {
-        flatbuffers::FlatBufferBuilder builder {64};
-        const auto client_join = CreateClientJoinResponse(builder,
-            verification_ok ? ClientJoinResult::OK : ClientJoinResult::INVALID_TOKEN);
-        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::ClientJoinResponse, client_join.Union()));
-        client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
-    }
-    if (!verification_ok) {
         client->stop();
         co_return;
     }
@@ -207,14 +196,11 @@ boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<
     {
         auto conn = co_await DB::get_connection();
 
-        //TODO: Check if users.id = characters.user_id
-        auto player = player::Player::load(character_name);
-
         auto [ec, statement] = co_await conn->async_prepare_statement(
-            "SELECT name, race FROM users u JOIN characters c ON c.user_id = u.id AND c.name = ? WHERE u.username = ?",
+            "SELECT c.id FROM users u JOIN characters c ON c.user_id = u.id AND c.name = ? WHERE u.username = ?",
             as_tuple(boost::asio::use_awaitable));
         if (ec) {
-            spdlog::error("[Server] [ClientJoinRequest] Error preparing query");
+            spdlog::error("[Server] [ClientJoinRequest] Error preparing query: {}", ec.message());
             co_return;
         }
 
@@ -232,21 +218,28 @@ boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<
             co_return;
         }
 
-        std::string race;
-        for (const auto& r : result.rows()) {
-            race = r.at(1).as_string();
-            if (!entity_types_map.contains(race)) {
-                spdlog::error("[Server] [ClientJoinRequest] Invalid character race: {}", race);
-                co_return;
-            }
-
-            //TODO: Setup client->player
-            break;
+        client->player = co_await player::Player::load(character_name);
+        if (!client->player) {
+            spdlog::error("[Server] [ClientJoinRequest] Error loading player: {}", character_name);
+            client->stop();
+            co_return;
         }
 
-        flatbuffers::FlatBufferBuilder builder {128};
-        const auto spawn = CreatePlayerSpawn(builder, entity_types_map[race], client->player->entity_id);
-        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerSpawn, spawn.Union()));
+        const auto& stats = client->player->stats;
+
+        flatbuffers::FlatBufferBuilder builder {1024};
+
+        std::vector<PlayerStat> optional_stats {};
+        for (const auto& [_, stat] : stats.optionals) {
+            optional_stats.emplace_back(stat.type(), stat.get());
+        }
+        const auto stats_offset = CreatePlayerStatsDirect(builder,
+            stats.level.get(), stats.exp.get(), stats.str.get(), stats.mag.get(), stats.agi.get(), stats.con.get(), &optional_stats);
+
+        const auto info_offset = CreatePlayerInfoDirect(builder, client->player->entity_type, client->player->name().data(), stats_offset);
+
+        const auto spawn_offset = CreatePlayerSpawn(builder, true, client->player->entity_id, info_offset);
+        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerSpawn, spawn_offset.Union()));
         client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
     }
 
