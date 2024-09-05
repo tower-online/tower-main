@@ -180,12 +180,9 @@ boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<
     try {
         const auto decoded_token = jwt::decode(token.data());
         const auto verifier = jwt::verify()
-            .allow_algorithm(jwt::algorithm::hs256 {Settings::auth_jwt_key().data()});
-
+            .allow_algorithm(jwt::algorithm::hs256 {Settings::auth_jwt_key().data()})
+            .with_claim("username", jwt::claim(std::string {username}));
         verifier.verify(decoded_token);
-
-        //TODO: Check username and store
-        // client->username = request->username()
 
         client->is_authenticated = true;
         spdlog::info("[Server] [ClientJoinRequest] {}/{}: Token OK", client->id, character_name);

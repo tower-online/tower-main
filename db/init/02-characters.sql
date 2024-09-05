@@ -54,6 +54,7 @@ CREATE TABLE character_inventories
 );
 
 
+DELIMITER //
 CREATE TRIGGER after_character_insert
     AFTER INSERT
     ON characters
@@ -67,9 +68,11 @@ BEGIN
 
     INSERT INTO character_inventories (character_id)
     VALUES (NEW.id);
-END;
+END //
+DELIMITER ;
 
 
+DELIMITER //
 CREATE TRIGGER after_character_delete
     AFTER DELETE
     ON characters
@@ -86,4 +89,5 @@ BEGIN
     DELETE
     FROM character_inventories
     WHERE character_id = OLD.id;
-END;
+END //
+DELIMITER ;
