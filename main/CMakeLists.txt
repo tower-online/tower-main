@@ -69,6 +69,8 @@ add_library(libtower STATIC
     tower/player/player.cpp
     tower/player/inventory.hpp
     tower/player/inventory.cpp
+    tower/player/stat.hpp
+    tower/player/stat.cpp
 
     tower/system/math.hpp
     tower/system/probe.hpp

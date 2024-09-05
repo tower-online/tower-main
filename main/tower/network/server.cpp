@@ -1,6 +1,7 @@
 #include <jwt-cpp/jwt.h>
 #include <tower/network/db.hpp>
 #include <tower/network/server.hpp>
+#include <tower/player/player.hpp>
 
 #include <cassert>
 
@@ -206,6 +207,9 @@ boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<
     {
         auto conn = co_await DB::get_connection();
 
+        //TODO: Check if users.id = characters.user_id
+        auto player = player::Player::load(character_name);
+
         auto [ec, statement] = co_await conn->async_prepare_statement(
             "SELECT name, race FROM users u JOIN characters c ON c.user_id = u.id AND c.name = ? WHERE u.username = ?",
             as_tuple(boost::asio::use_awaitable));
@@ -216,8 +220,14 @@ boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<
 
         boost::mysql::results result;
         if (const auto [ec] = co_await conn->async_execute(
-            statement.bind(character_name), result, as_tuple(boost::asio::use_awaitable)); ec || result.empty()) {
-            spdlog::error("[Server] [ClientJoinRequest] Error executing query or empty result");
+            statement.bind(character_name, username), result, as_tuple(boost::asio::use_awaitable)); ec) {
+            spdlog::error("[Server] [ClientJoinRequest] Error executing query: {}", ec.message());
+            client->stop();
+            co_return;
+        }
+
+        if (result.rows().empty()) {
+            spdlog::warn("[Server] [ClientJoinRequest] Invalid username or character name: {}/{}", username, character_name);
             client->stop();
             co_return;
         }

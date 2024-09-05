@@ -1,16 +1,50 @@
 #include <tower/item/equipment/fist.hpp>
+#include <tower/network/db.hpp>
 #include <tower/player/player.hpp>
 #include <tower/world/collision/collision_object.hpp>
 #include <tower/world/collision/rectangle_collision_shape.hpp>
 
 namespace tower::player {
-Player::Player()
-    : Entity {EntityType::HUMAN} {}
+Player::Player(const EntityType type)
+    : Entity {type} {}
 
-std::shared_ptr<Player> Player::create() {
-    auto player = std::make_shared<Player>();
+boost::asio::awaitable<std::shared_ptr<Player>> Player::load(std::string_view character_name) {
+    auto conn = co_await DB::get_connection();
+    auto [ec, statement] = co_await conn->async_prepare_statement(
+        "SELECT c.id, c.name, c.race, c.level, c.exp"
+        "FROM characters c "
+        "JOIN character_stats st ON c.id = st.character_id "
+        "JOIN character_skills sk ON c.id = st.character_id "
+        "WHERE c.name = ?",
+        as_tuple(boost::asio::use_awaitable));
+    if (ec) co_return nullptr;
+
+    boost::mysql::results result;
+    if (const auto [ec] = co_await conn->async_execute(
+        statement.bind(character_name), result, as_tuple(boost::asio::use_awaitable)); ec || result.rows().empty()) {
+        co_return nullptr;
+    }
+
+    const auto r = result.rows()[0];
+    const auto character_id = r.at(1).as_uint64();
+    const auto name = r.at(1).as_string();
+    const auto race = r.at(2).as_string();
+
+    if (!entity_types_map.contains(race)) co_return nullptr;
+
+    auto player = create(entity_types_map[race]);
+    player->_character_id = character_id;
+    player->_name = name;
+    player->stat.
+
+    co_return player;
+}
+
+std::shared_ptr<Player> Player::create(EntityType type) {
+    auto player = std::make_shared<Player>(type);
     player->add_child(player->pivot);
 
+    //TODO: Read values from file
     player->movement_speed_base = 0.1f;
     player->resource.max_health = 100.0f;
     player->resource.health = player->resource.max_health;
