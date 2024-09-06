@@ -178,8 +178,6 @@ boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<
         co_return;
     }
 
-    // client->stop();
-    // co_return;
     {
         {
             auto conn = co_await DB::get_connection();
@@ -208,7 +206,7 @@ boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<
             }
         }
 
-        // client->player = co_await player::Player::load(character_name);
+        client->player = co_await player::Player::load(character_name);
         if (!client->player) {
             spdlog::error("[Server] [ClientJoinRequest] Error loading player: {}", character_name);
             client->stop();
@@ -218,18 +216,7 @@ boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<
         const auto& stats = client->player->stats;
 
         flatbuffers::FlatBufferBuilder builder {1024};
-
-        std::vector<PlayerStat> optional_stats {};
-        for (const auto& [_, stat] : stats.optionals) {
-            optional_stats.emplace_back(stat.type(), stat.get());
-        }
-        const auto stats_offset = CreatePlayerStatsDirect(builder,
-            stats.level.get(), stats.exp.get(), stats.str.get(), stats.mag.get(), stats.agi.get(), stats.con.get(),
-            &optional_stats);
-
-        const auto info_offset = CreatePlayerInfoDirect(builder, client->player->entity_type,
-            client->player->name().data(), stats_offset);
-
+        const auto info_offset = client->player->write_player_info(builder);
         const auto spawn_offset = CreatePlayerSpawn(builder, true, client->player->entity_id, info_offset);
         builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerSpawn, spawn_offset.Union()));
         client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
