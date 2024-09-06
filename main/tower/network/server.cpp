@@ -178,11 +178,11 @@ boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<
         co_return;
     }
 
+    // client->stop();
+    // co_return;
     {
         {
-            static std::atomic<int> conn_count {0};
             auto conn = co_await DB::get_connection();
-            spdlog::debug("conns: {}", ++conn_count);
 
             auto [ec, statement] = co_await conn->async_prepare_statement(
                 "SELECT c.id FROM users u JOIN characters c ON c.user_id = u.id AND c.name = ? WHERE u.username = ?",
@@ -206,8 +206,6 @@ boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<
                 client->stop();
                 co_return;
             }
-
-            conn_count -= 1;
         }
 
         // client->player = co_await player::Player::load(character_name);

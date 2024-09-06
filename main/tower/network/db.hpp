@@ -14,7 +14,8 @@ private:
 };
 
 inline void DB::init(boost::asio::io_context& ctx, boost::mysql::pool_params&& params) {
-    _pool = std::make_unique<boost::mysql::connection_pool>(ctx, std::move(params));
+    _pool = std::make_unique<boost::mysql::connection_pool>(
+        boost::mysql::pool_executor_params::thread_safe(ctx.get_executor()), std::move(params));
     _pool->async_run(boost::asio::detached);
 }
 
