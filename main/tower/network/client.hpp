@@ -13,7 +13,7 @@ class Client : public std::enable_shared_from_this<Client> {
 
 public:
     Client(boost::asio::io_context& ctx, tcp::socket&& socket, uint32_t id,
-        std::function<boost::asio::awaitable<void>(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)>&& packet_received);
+        std::function<void(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)>&& packet_received);
     ~Client();
 
     Client(const Client&) = delete;
@@ -31,7 +31,7 @@ public:
 
 private:
     Connection _connection;
-    const std::function<boost::asio::awaitable<void>(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)> _packet_received;
+    const std::function<void(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)> _packet_received;
     std::atomic<bool> _is_running {false};
     std::unique_ptr<HeartBeater> _heart_beater;
 };
@@ -52,7 +52,7 @@ private:
     std::atomic<steady_clock::time_point> _last_beat;
     std::atomic<uint32_t> _dead_beats{0};
 
-    Timer _timer;
+    std::shared_ptr<Timer> _timer;
     signals::connection _on_beat;
 };
 }

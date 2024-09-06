@@ -1,27 +1,27 @@
 #include <glm/geometric.hpp>
 #include <glm/trigonometric.hpp>
+#include <tower/entity/entity.hpp>
 #include <tower/item/equipment/fist.hpp>
 #include <tower/network/zone.hpp>
 #include <tower/system/math.hpp>
-#include <tower/entity/entity.hpp>
 
 #include <cmath>
 
 namespace tower::network {
 using namespace tower::player;
 
-Zone::Zone(const uint32_t zone_id, boost::asio::thread_pool& work_ctx)
-    : zone_id {zone_id}, _work_ctx {work_ctx} {}
+Zone::Zone(const uint32_t zone_id, boost::asio::io_context& ctx)
+    : zone_id {zone_id}, _ctx {ctx} {}
 
 Zone::~Zone() {
     stop();
 }
 
 void Zone::handle_packet_deferred(std::shared_ptr<Packet>&& packet) {
-    // std::function cannot capture move-only type; e.g) std::unique_ptr
-    _jobs.push([this, packet {std::move(packet)}]() mutable {
+    co_spawn(_jobs_strand, [this, packet {std::move(packet)}]() mutable ->boost::asio::awaitable<void> {
         handle_packet(std::move(packet));
-    });
+        co_return;
+    }, boost::asio::detached);
 }
 
 void Zone::init(std::string_view tile_map) {
@@ -31,9 +31,10 @@ void Zone::init(std::string_view tile_map) {
 void Zone::start() {
     if (_is_running.exchange(true)) return;
 
-    post(_work_ctx, [this] {
-        handle_jobs(true);
-    });
+    co_spawn(_jobs_strand, [this]()->boost::asio::awaitable<void> {
+        tick();
+        co_return;
+    }, boost::asio::detached);
 }
 
 void Zone::stop() {
@@ -41,10 +42,9 @@ void Zone::stop() {
 }
 
 void Zone::add_client_deferred(std::shared_ptr<Client>&& client) {
-    // Start in case of clients are empty so that zone has been stopped.
-    start();
+    co_spawn(_jobs_strand, [this, client = std::move(client)]()->boost::asio::awaitable<void> {
+        if (_clients.empty()) start();
 
-    _jobs.push([this, client = std::move(client)] {
         _clients[client->id] = client;
         _clients_on_disconnected[client->id] = client->disconnected.connect(
             [this](std::shared_ptr<Client> disconnecting_client) {
@@ -52,16 +52,16 @@ void Zone::add_client_deferred(std::shared_ptr<Client>&& client) {
             });
 
         const auto& player = client->player;
-        // player->position = {_subworld.get_size().x * Tile::TILE_SIZE / 2, _subworld.get_size().y * Tile::TILE_SIZE / 2};
         player->position = {0, 0};
 
         _subworld->add_entity(player);
 
         {
             flatbuffers::FlatBufferBuilder builder {128};
-           const auto enter = CreatePlayerEnterZoneDirect(builder, zone_id, _subworld->get_tilemap().get_name().data());
-           builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerEnterZone, enter.Union()));
-           client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+            const auto enter =
+                CreatePlayerEnterZoneDirect(builder, zone_id, _subworld->get_tilemap().get_name().data());
+            builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerEnterZone, enter.Union()));
+            client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
         }
 
         // Spawn every entity in the zone
@@ -93,11 +93,13 @@ void Zone::add_client_deferred(std::shared_ptr<Client>&& client) {
             builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntitySpawns, spawn.Union()));
             broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()), client->id);
         }
-    });
+
+        co_return;
+    }, boost::asio::detached);
 }
 
 void Zone::remove_client_deferred(std::shared_ptr<Client>&& client) {
-    _jobs.push([this, client] {
+    co_spawn(_jobs_strand, [this, client = std::move(client)]()->boost::asio::awaitable<void> {
         _clients.erase(client->id);
         _clients_on_disconnected.erase(client->id);
         _subworld->remove_entity(client->player);
@@ -112,28 +114,9 @@ void Zone::remove_client_deferred(std::shared_ptr<Client>&& client) {
         if (_clients.empty()) {
             stop();
         }
-    });
-}
 
-void Zone::handle_jobs(const bool loop) {
-    std::queue<std::function<void()>> jobs;
-    _jobs.swap(jobs);
-
-    while (!jobs.empty()) {
-        const auto& job = jobs.front();
-        job();
-        jobs.pop();
-    }
-
-    if (const auto now = steady_clock::now(); now >= _last_tick + TICK_INTERVAL) {
-        tick();
-        _last_tick = now;
-    }
-
-    if (!loop || !_is_running) return;
-    post(_work_ctx, [this] {
-        handle_jobs(true);
-    });
+        co_return;
+    }, boost::asio::detached);
 }
 
 void Zone::tick() {
@@ -155,6 +138,19 @@ void Zone::tick() {
         builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityMovements, entity_movements.Union()));
         broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
     }
+
+    _last_tick = steady_clock::now();
+    co_spawn(_jobs_strand, [this]()->boost::asio::awaitable<void> {
+        const auto tick_gap {duration_cast<milliseconds>(_last_tick + TICK_INTERVAL - steady_clock::now())};
+        if (tick_gap > 0ms) {
+            boost::asio::steady_timer timer {_ctx};
+            timer.expires_after(tick_gap);
+            const auto [ec] = co_await timer.async_wait(as_tuple(boost::asio::use_awaitable));
+            if (ec) co_return;
+        }
+
+        tick();
+    }, boost::asio::detached);
 }
 
 void Zone::broadcast(std::shared_ptr<flatbuffers::DetachedBuffer>&& buffer, const uint32_t except) {

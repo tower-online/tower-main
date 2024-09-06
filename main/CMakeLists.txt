@@ -9,7 +9,7 @@ option(TOWER_BUILD_TESTS "Enable the build of tests" ON)
 ### DEPENDENCIES ###
 # Boost.asio -> Boost.system
 # Boost.mysql -> Boost.charconv
-find_package(Boost 1.85.0 REQUIRED COMPONENTS charconv system thread)
+find_package(Boost 1.85.0 REQUIRED COMPONENTS charconv system)
 
 find_package(OpenSSL REQUIRED)
 
@@ -106,7 +106,6 @@ target_link_libraries(libtower
 
     PRIVATE
     Boost::charconv
-    Boost::thread
     OpenSSL::SSL
     jwt-cpp::jwt-cpp
 )

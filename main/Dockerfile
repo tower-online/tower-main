@@ -14,7 +14,7 @@ WORKDIR /root
 RUN wget https://archives.boost.io/release/1.85.0/source/boost_1_85_0.tar.gz && \
     tar -xf boost_1_85_0.tar.gz
 WORKDIR /root/boost_1_85_0
-RUN ./bootstrap.sh --with-libraries=charconv,system,thread && \
+RUN ./bootstrap.sh --with-libraries=charconv,system && \
     ./b2 install
 
 

@@ -1,9 +1,9 @@
+#include <spdlog/spdlog.h>
 #include <tower/item/equipment/fist.hpp>
 #include <tower/network/db.hpp>
 #include <tower/player/player.hpp>
 #include <tower/world/collision/collision_object.hpp>
 #include <tower/world/collision/rectangle_collision_shape.hpp>
-#include <spdlog/spdlog.h>
 
 namespace tower::player {
 Player::Player(const EntityType type)
@@ -11,16 +11,25 @@ Player::Player(const EntityType type)
 
 boost::asio::awaitable<std::shared_ptr<Player>> Player::load(std::string_view character_name) {
     auto conn = co_await DB::get_connection();
+
     auto [ec, statement] = co_await conn->async_prepare_statement(
         "SELECT id, name, race "
         "FROM characters "
         "WHERE name = ?",
         as_tuple(boost::asio::use_awaitable));
-    if (ec) co_return nullptr;
+    if (ec) {
+        spdlog::error("[Player] Error preparing statement1: {}", ec.message());
+        co_return nullptr;
+    }
 
     boost::mysql::results result;
     if (const auto [ec] = co_await conn->async_execute(
-        statement.bind(character_name), result, as_tuple(boost::asio::use_awaitable)); ec || result.rows().empty()) {
+        statement.bind(character_name), result, as_tuple(boost::asio::use_awaitable)); ec) {
+        spdlog::error("[Player] Error executing1: {}", ec.message());
+        co_return nullptr;
+    }
+
+    if (result.rows().empty()) {
         co_return nullptr;
     }
 
@@ -51,7 +60,12 @@ boost::asio::awaitable<std::shared_ptr<Player>> Player::load(std::string_view ch
         )
     };
     if (const auto [ec] = co_await conn->async_execute(std::move(query), result, as_tuple(boost::asio::use_awaitable));
-        ec || result.rows().empty()) {
+        ec) {
+        spdlog::error("[Player] Error executing2: {}", ec.message());
+        co_return nullptr;
+    }
+
+    if (result.rows().empty()) {
         co_return nullptr;
     }
 
