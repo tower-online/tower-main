@@ -10,8 +10,8 @@
 namespace tower::network {
 using namespace tower::player;
 
-Zone::Zone(const uint32_t zone_id, boost::asio::io_context& ctx)
-    : zone_id {zone_id}, _ctx {ctx} {}
+Zone::Zone(const uint32_t zone_id, boost::asio::strand<boost::asio::any_io_executor>&& strand)
+    : zone_id {zone_id}, _strand {std::move(strand)} {}
 
 Zone::~Zone() {
     stop();
@@ -39,6 +39,8 @@ void Zone::start() {
 
 void Zone::stop() {
     if (!_is_running.exchange(false)) return;
+
+    //TODO: clear
 }
 
 void Zone::add_client_deferred(std::shared_ptr<Client>&& client) {

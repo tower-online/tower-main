@@ -1,7 +1,6 @@
 #pragma once
 
-#include <boost/asio.hpp>
-#include <tower/network/db.hpp>
+#include <boost/mysql.hpp>
 #include <tower/network/packet/player_types.hpp>
 
 namespace tower::player {
@@ -17,8 +16,8 @@ public:
 
     T get() const { return _value; }
     void set(const T value) { _value = value; }
-    boost::asio::awaitable<void> set_and_update(T value, uint32_t character_id);
-    boost::asio::awaitable<void> update(uint32_t character_id);
+    boost::asio::awaitable<void> set_and_update(boost::mysql::pooled_connection& conn, T value, uint32_t character_id);
+    boost::asio::awaitable<void> update(boost::mysql::pooled_connection& conn, uint32_t character_id);
 
     StatType type() const { return _type; }
 
@@ -40,14 +39,13 @@ struct Stats {
 };
 
 template <std::integral T>
-boost::asio::awaitable<void> Stat<T>::set_and_update(const T value, const uint32_t character_id) {
+boost::asio::awaitable<void> Stat<T>::set_and_update(boost::mysql::pooled_connection& conn, const T value, const uint32_t character_id) {
     _value = value;
-    co_await update(character_id);
+    co_await update(conn, character_id);
 }
 
 template <std::integral T>
-boost::asio::awaitable<void> Stat<T>::update(uint32_t character_id) {
-    auto conn = co_await DB::get_connection();
+boost::asio::awaitable<void> Stat<T>::update(boost::mysql::pooled_connection& conn, uint32_t character_id) {
     std::string query {
         format_sql(
             conn->format_opts().value(),

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <boost/signals2.hpp>
 #include <tower/network/connection.hpp>
 #include <tower/player/player.hpp>
 #include <tower/system/timer.hpp>
@@ -12,7 +11,7 @@ class Client : public std::enable_shared_from_this<Client> {
     class HeartBeater;
 
 public:
-    Client(boost::asio::io_context& ctx, tcp::socket&& socket, uint32_t id,
+    Client(boost::asio::any_io_executor& executor, tcp::socket&& socket,
         std::function<void(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)>&& packet_received);
     ~Client();
 
@@ -23,16 +22,18 @@ public:
     void stop();
     void send_packet(std::shared_ptr<flatbuffers::DetachedBuffer> buffer);
 
+    bool is_running() const { return _is_running; }
+
 public:
-    const uint32_t id;
+    uint32_t entry_id {0};
     std::shared_ptr<player::Player> player;
-    signals::signal<void(std::shared_ptr<Client>)> disconnected {};
     bool is_authenticated {false};
+    boost::signals2::signal<void(const std::shared_ptr<Client>&)> disconnected;
 
 private:
+    std::atomic<bool> _is_running {false};
     Connection _connection;
     const std::function<void(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)> _packet_received;
-    std::atomic<bool> _is_running {false};
     std::unique_ptr<HeartBeater> _heart_beater;
 };
 
@@ -50,9 +51,9 @@ public:
 private:
     Client& _client;
     std::atomic<steady_clock::time_point> _last_beat;
-    std::atomic<uint32_t> _dead_beats{0};
+    std::atomic<uint32_t> _dead_beats {0};
 
     std::shared_ptr<Timer> _timer;
-    signals::connection _on_beat;
+    boost::signals2::connection _on_beat;
 };
 }

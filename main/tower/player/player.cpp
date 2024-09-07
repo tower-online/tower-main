@@ -1,6 +1,5 @@
 #include <spdlog/spdlog.h>
 #include <tower/item/equipment/fist.hpp>
-#include <tower/network/db.hpp>
 #include <tower/network/packet/player_info.hpp>
 #include <tower/player/player.hpp>
 #include <tower/world/collision/collision_object.hpp>
@@ -10,9 +9,7 @@ namespace tower::player {
 Player::Player(const EntityType type)
     : Entity {type} {}
 
-boost::asio::awaitable<std::shared_ptr<Player>> Player::load(std::string_view character_name) {
-    auto conn = co_await DB::get_connection();
-
+boost::asio::awaitable<std::shared_ptr<Player>> Player::load(boost::mysql::pooled_connection& conn, std::string_view character_name) {
     auto [ec, statement] = co_await conn->async_prepare_statement(
         "SELECT id, name, race "
         "FROM characters "

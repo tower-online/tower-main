@@ -2,20 +2,20 @@
 #include <tower/network/connection.hpp>
 
 namespace tower::network {
-Connection::Connection(boost::asio::io_context& ctx, tcp::socket&& socket,
+Connection::Connection(boost::asio::strand<boost::asio::any_io_executor>&& strand, tcp::socket&& socket,
     std::function<void(std::vector<uint8_t>&&)>&& packet_received,
     std::function<void()>&& disconnected)
-    : _ctx {ctx}, _socket {std::move(socket)}, _is_connected {_socket.is_open()},
+    : _socket {std::move(socket)}, _is_connected {_socket.is_open()},
     _packet_received {std::move(packet_received)}, _disconnected {std::move(disconnected)},
-    _send_strand {make_strand(_ctx)} {}
+    _strand {std::move(strand)} {}
 
 Connection::~Connection() {
     disconnect();
 }
 
-void Connection::open() {
+void Connection::open(boost::asio::any_io_executor& executor) {
     // Start receiving messages
-    co_spawn(_ctx, [this]()->boost::asio::awaitable<void> {
+    co_spawn(executor, [this]()->boost::asio::awaitable<void> {
         while (_is_connected) {
             co_await receive_packet();
         }
@@ -58,7 +58,7 @@ void Connection::disconnect() {
 void Connection::send_packet(std::shared_ptr<flatbuffers::DetachedBuffer> buffer) {
     if (!buffer || !_is_connected) return;
 
-    co_spawn(_send_strand, [this, buffer = std::move(buffer)]()->boost::asio::awaitable<void> {
+    co_spawn(_strand, [this, buffer = std::move(buffer)]()->boost::asio::awaitable<void> {
         if (!_is_connected) co_return;
 
         const auto [ec, _] = co_await _socket.async_send(
@@ -84,7 +84,7 @@ boost::asio::awaitable<void> Connection::receive_packet() {
 
     const auto length = flatbuffers::GetSizePrefixedBufferLength(header_buffer.data());
     //TODO: Optional limit rather than hard limit?
-    if (length > 65536) {
+    if (length > 65536 || length == 0) {
         disconnect();
         co_return;
     }

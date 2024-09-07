@@ -57,11 +57,10 @@ add_library(libtower STATIC
     tower/network/client.cpp
     tower/network/connection.hpp
     tower/network/connection.cpp
-    tower/network/db.hpp
-    tower/network/listener.hpp
     tower/network/packet.hpp
     tower/network/server.hpp
     tower/network/server.cpp
+    tower/network/server_shared_state.hpp
     tower/network/zone.hpp
     tower/network/zone.cpp
 

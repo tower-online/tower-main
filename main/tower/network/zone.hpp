@@ -3,7 +3,6 @@
 #include <tower/network/packet.hpp>
 #include <tower/network/packet/packet_base.hpp>
 #include <tower/world/subworld.hpp>
-#include <tower/system/container/concurrent_queue.hpp>
 
 #include <chrono>
 #include <unordered_map>
@@ -13,10 +12,12 @@ using namespace std::chrono;
 using namespace tower::network::packet;
 
 class Zone {
+    struct ClientEntry;
+
     constexpr static auto TICK_INTERVAL = 100ms;
 
 public:
-    Zone(uint32_t zone_id, boost::asio::io_context& ctx);
+    Zone(uint32_t zone_id, boost::asio::strand<boost::asio::any_io_executor>&& strand);
     ~Zone();
 
     void handle_packet_deferred(std::shared_ptr<Packet>&& packet);
@@ -42,13 +43,22 @@ public:
 private:
     std::atomic<bool> _is_running {false};
 
-    boost::asio::io_context& _ctx;
-    boost::asio::strand<boost::asio::io_context::executor_type> _jobs_strand {make_strand(_ctx)};
+    boost::asio::strand<boost::asio::io_context::executor_type> _strand;
     steady_clock::time_point _last_tick;
 
-    std::unordered_map<uint32_t, std::shared_ptr<Client>> _clients {};
-    std::unordered_map<uint32_t, signals::connection> _clients_on_disconnected {};
+    std::unordered_map<uint32_t, std::shared_ptr<ClientEntry>> _clients_entries {};
 
     std::unique_ptr<world::Subworld> _subworld;
+};
+
+struct Zone::ClientEntry {
+    ClientEntry(const std::shared_ptr<Client>& client, boost::signals2::connection&& on_disconnected)
+        : entry_id {client->entry_id}, client {client}, _on_disconnected {std::move(on_disconnected)} {}
+
+    const uint32_t entry_id;
+    std::shared_ptr<Client> client;
+
+private:
+    boost::signals2::connection _on_disconnected;
 };
 }

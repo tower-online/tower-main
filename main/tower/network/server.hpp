@@ -1,21 +1,20 @@
 #pragma once
 
-#include <boost/redis.hpp>
 #include <tower/network/client.hpp>
-#include <tower/network/listener.hpp>
 #include <tower/network/packet.hpp>
+#include <tower/network/server_shared_state.hpp>
 #include <tower/network/zone.hpp>
 #include <tower/network/packet/packet_base.hpp>
-#include <tower/system/settings.hpp>
 
 namespace tower::network {
-namespace redis = boost::redis;
 using namespace tower::network::packet;
 using namespace tower::world;
 
 class Server {
+    struct ClientEntry;
+
 public:
-    explicit Server(size_t num_workers);
+    Server(boost::asio::any_io_executor&& executor, const std::shared_ptr<ServerSharedState>& st);
     ~Server();
 
     void init();
@@ -23,34 +22,38 @@ public:
     void stop();
 
 private:
-    void add_client_deferred(tcp::socket&& socket);
-    void remove_client_deferred(std::shared_ptr<Client>&& client);
-
-    void handle_packet(std::unique_ptr<Packet> packet);
+    void handle_packet(std::shared_ptr<Packet> packet);
     boost::asio::awaitable<void> handle_packet_internal(std::shared_ptr<Packet>&& packet);
     boost::asio::awaitable<void> handle_client_join_request(std::shared_ptr<Client>&& client,
         const ClientJoinRequest* request);
 
     // Network
     std::atomic<bool> _is_running {false};
-    boost::asio::io_context _ctx {};
-    boost::asio::thread_pool _workers;
-    const size_t _num_workers;
-    boost::asio::strand<boost::asio::io_context::executor_type> _jobs_strand {make_strand(_ctx)};
+    std::unique_ptr<tcp::acceptor> _acceptor;
+    boost::asio::any_io_executor _executor;
+    boost::asio::strand<boost::asio::any_io_executor> _strand;
+    std::shared_ptr<ServerSharedState> _st;
 
-    Listener _listener {
-        _ctx, Settings::main_listen_port(),
-        [this](tcp::socket&& socket) { add_client_deferred(std::move(socket)); },
-        Settings::main_listen_backlog()
-    };
-    std::unordered_map<uint32_t, std::shared_ptr<Client>> _clients {};
-    std::unordered_map<uint32_t, signals::connection> _clients_on_disconnected {};
+    std::unordered_map<uint32_t, std::shared_ptr<ClientEntry>> _client_entries {};
+    std::unordered_map<uint32_t, std::shared_ptr<Zone>> _zones {};
+};
 
-    redis::connection _redis_connection {_ctx};
+struct Server::ClientEntry {
+    Server::ClientEntry(
+        const std::shared_ptr<Client>& c, boost::signals2::connection&& on_disconnected)
+        : entry_id {++_entry_id_generator}, client {c}, _on_disconnected {std::move(on_disconnected)} {
+        if (!client) return;
+        client->entry_id = entry_id;
+    }
 
-    std::unordered_map<uint32_t, std::unique_ptr<Zone>> _zones {};
-    std::unordered_map<uint32_t, std::atomic<uint32_t>> _clients_current_zone {};
+    const uint32_t entry_id;
+    std::shared_ptr<Client> client;
+    std::shared_ptr<Zone> current_zone {};
 
+private:
+    inline static std::atomic<uint32_t> _entry_id_generator {0};
+
+    boost::signals2::connection _on_disconnected;
 };
 
 static std::string_view platform_to_string(ClientPlatform platform, bool lower = false);

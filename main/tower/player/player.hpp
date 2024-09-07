@@ -1,10 +1,11 @@
 #pragma once
 
 #include <boost/asio.hpp>
+#include <boost/mysql.hpp>
 #include <tower/entity/entity.hpp>
+#include <tower/network/packet/player_info.hpp>
 #include <tower/player/inventory.hpp>
 #include <tower/player/stat.hpp>
-#include <tower/network/packet/player_info.hpp>
 
 namespace tower::player {
 using namespace tower::entity;
@@ -14,7 +15,7 @@ class Player : public Entity {
 public:
     explicit Player(EntityType type);
 
-    static boost::asio::awaitable<std::shared_ptr<Player>> load(std::string_view character_name);
+    static boost::asio::awaitable<std::shared_ptr<Player>> load(boost::mysql::pooled_connection& conn, std::string_view character_name);
     static std::shared_ptr<Player> create(EntityType type);
 
     void tick(Subworld& subworld) override {}

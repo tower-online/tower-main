@@ -7,7 +7,6 @@
 
 namespace tower {
 using namespace std::chrono;
-namespace signals = boost::signals2;
 
 class Timer : public std::enable_shared_from_this<Timer> {
 public:
@@ -17,7 +16,7 @@ public:
     void start();
     void stop();
 
-    signals::signal<void()> timeout {};
+    boost::signals2::signal<void()> timeout {};
 
 private:
     const milliseconds _duration;
