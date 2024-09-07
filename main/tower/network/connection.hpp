@@ -34,6 +34,6 @@ private:
     std::function<void(std::vector<uint8_t>&&)> _packet_received;
     std::function<void()> _disconnected;
 
-    boost::asio::strand<boost::asio::io_context::executor_type> _strand;
+    boost::asio::strand<boost::asio::any_io_executor> _strand;
 };
 }

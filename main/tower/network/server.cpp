@@ -18,7 +18,7 @@ Server::~Server() {
 
 void Server::init() {
     // default zone
-    _zones.insert_or_assign(0, std::make_unique<Zone>(0, make_strand(_executor)));
+    _zones.insert_or_assign(0, std::make_unique<Zone>(0, _executor));
     _zones[0]->init("test_zone");
 }
 
@@ -35,6 +35,9 @@ void Server::start() {
         while (_is_running) {
             auto [ec, socket] = co_await _acceptor->async_accept(as_tuple(boost::asio::use_awaitable));
             if (ec) {
+                // Ignore
+                if (ec == boost::asio::error::operation_aborted) break;
+
                 spdlog::error("Error accepting: {}", ec.message());
                 continue;
             }
@@ -52,7 +55,8 @@ void Server::start() {
                 continue;
             }
 
-            auto client = std::make_shared<Client>(_executor, std::move(socket),
+            static uint32_t entry_id_generator {0};
+            auto client = std::make_shared<Client>(_executor, std::move(socket), ++entry_id_generator,
                 [this](std::shared_ptr<Client>&& c, std::vector<uint8_t>&& buffer) {
                     handle_packet(std::make_shared<Packet>(std::move(c), std::move(buffer)));
                 });
@@ -62,11 +66,12 @@ void Server::start() {
                     post(_strand, [this, c] {
                         c->stop();
                         _client_entries.erase(c->entry_id);
+                        spdlog::info("[Server] Removed Client({})", c->entry_id);
                     });
                 }));
 
-            post(_strand, [this, entry = std::move(entry)] mutable {
-                const auto entry_id = entry->entry_id;
+            post(_strand, [this, entry = std::move(entry)]() mutable {
+                const auto entry_id = entry->client->entry_id;
                 _client_entries.emplace(entry_id, std::move(entry));
                 _client_entries[entry_id]->client->start();
             });

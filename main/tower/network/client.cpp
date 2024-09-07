@@ -5,9 +5,10 @@
 namespace tower::network {
 using namespace tower::network::packet;
 
-Client::Client(boost::asio::any_io_executor& executor, tcp::socket&& socket,
+Client::Client(boost::asio::any_io_executor& executor, tcp::socket&& socket, const uint32_t entry_id,
     std::function<void(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)>&& packet_received)
-    : _connection {
+    : entry_id {entry_id}, _executor {executor},
+    _connection {
         make_strand(executor), std::move(socket),
         [this](std::vector<uint8_t>&& buffer) {
             if (is_authenticated) {
@@ -19,7 +20,7 @@ Client::Client(boost::asio::any_io_executor& executor, tcp::socket&& socket,
         [this] { disconnected(shared_from_this()); }
     },
     _packet_received {std::move(packet_received)} {
-    _heart_beater = std::make_unique<HeartBeater>(ctx, *this);
+    _heart_beater = std::make_unique<HeartBeater>(executor, *this);
 }
 
 Client::~Client() {
@@ -29,7 +30,7 @@ Client::~Client() {
 void Client::start() {
     if (_is_running.exchange(true)) return;
 
-    _connection.open();
+    _connection.open(_executor);
     _heart_beater->start();
 }
 
@@ -44,8 +45,8 @@ void Client::send_packet(std::shared_ptr<flatbuffers::DetachedBuffer> buffer) {
     _connection.send_packet(std::move(buffer));
 }
 
-Client::HeartBeater::HeartBeater(boost::asio::io_context& ctx, Client& client)
-    : _client {client}, _timer {std::make_shared<Timer>(ctx, BEAT_INTERVAL)} {
+Client::HeartBeater::HeartBeater(boost::asio::any_io_executor& executor, Client& client)
+    : _client {client}, _timer {std::make_shared<Timer>(executor, BEAT_INTERVAL)} {
     _on_beat = _timer->timeout.connect([this] {
         if (_dead_beats >= MAX_DEAD_BEATS) {
             spdlog::info("[Client] ({}) is not heart-beating. Disconnecting...", _client.entry_id);

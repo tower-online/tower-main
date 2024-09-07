@@ -26,9 +26,9 @@ int main(int argc, char* argv[]) {
     db_params.password = Settings::db_password();
     db_params.database = Settings::db_name();
 
-    boost::redis::config redis_config {};
-    redis_config.addr.host = Settings::redis_host();
-    redis_config.password = Settings::redis_password();
+    // boost::redis::config redis_config {};
+    // redis_config.addr.host = Settings::redis_host();
+    // redis_config.password = Settings::redis_password();
 
     auto shared_st = std::make_shared<network::ServerSharedState>(
         boost::mysql::connection_pool {
@@ -37,7 +37,7 @@ int main(int argc, char* argv[]) {
         boost::redis::connection {workers.get_executor()}
     );
     shared_st->db_pool.async_run(boost::asio::detached);
-    shared_st->redis_connection.async_run(redis_config, {}, boost::asio::detached);
+    // shared_st->redis_connection.async_run(redis_config, {}, boost::asio::detached);
 
     // Server
     std::unique_ptr<network::Server> server;

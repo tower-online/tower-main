@@ -17,7 +17,7 @@ class Zone {
     constexpr static auto TICK_INTERVAL = 100ms;
 
 public:
-    Zone(uint32_t zone_id, boost::asio::strand<boost::asio::any_io_executor>&& strand);
+    Zone(uint32_t zone_id, boost::asio::any_io_executor& executor);
     ~Zone();
 
     void handle_packet_deferred(std::shared_ptr<Packet>&& packet);
@@ -27,7 +27,7 @@ public:
     void stop();
 
     void add_client_deferred(std::shared_ptr<Client>&& client);
-    void remove_client_deferred(std::shared_ptr<Client>&& client);
+    void remove_client_deferred(const std::shared_ptr<Client>& client);
 
 private:
     void tick();
@@ -43,19 +43,17 @@ public:
 private:
     std::atomic<bool> _is_running {false};
 
-    boost::asio::strand<boost::asio::io_context::executor_type> _strand;
+    boost::asio::strand<boost::asio::any_io_executor> _strand;
     steady_clock::time_point _last_tick;
 
-    std::unordered_map<uint32_t, std::shared_ptr<ClientEntry>> _clients_entries {};
+    std::unordered_map<uint32_t, std::unique_ptr<ClientEntry>> _client_entries {};
 
     std::unique_ptr<world::Subworld> _subworld;
 };
 
 struct Zone::ClientEntry {
     ClientEntry(const std::shared_ptr<Client>& client, boost::signals2::connection&& on_disconnected)
-        : entry_id {client->entry_id}, client {client}, _on_disconnected {std::move(on_disconnected)} {}
-
-    const uint32_t entry_id;
+        : client {client}, _on_disconnected {std::move(on_disconnected)} {}
     std::shared_ptr<Client> client;
 
 private:

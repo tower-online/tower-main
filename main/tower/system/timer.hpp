@@ -10,7 +10,7 @@ using namespace std::chrono;
 
 class Timer : public std::enable_shared_from_this<Timer> {
 public:
-    explicit Timer(boost::asio::io_context& ctx, milliseconds duration, bool autostart = false, bool one_shot = false);
+    explicit Timer(boost::asio::any_io_executor& executor, milliseconds duration, bool autostart = false, bool one_shot = false);
     ~Timer();
 
     void start();
@@ -23,12 +23,12 @@ private:
     const bool _one_shot;
 
     std::atomic<bool> _is_running {false};
-    boost::asio::io_context& _ctx;
-    boost::asio::steady_timer _timer {_ctx};
+    boost::asio::any_io_executor& _executor;
+    boost::asio::steady_timer _timer;
 };
 
-inline Timer::Timer(boost::asio::io_context& ctx, const milliseconds duration, const bool autostart, const bool one_shot)
-    : _duration {duration}, _one_shot {one_shot}, _ctx {ctx} {
+inline Timer::Timer(boost::asio::any_io_executor& executor, const milliseconds duration, const bool autostart, const bool one_shot)
+    : _duration {duration}, _one_shot {one_shot}, _executor {executor}, _timer {_executor} {
     if (autostart) start();
 }
 
@@ -41,7 +41,7 @@ inline void Timer::start() {
     if (_is_running.exchange(true)) return;
 
     // Capture "self" to ensure lifetime of Timer in detached coroutine
-    co_spawn(_ctx, [self = shared_from_this()]()->boost::asio::awaitable<void> {
+    co_spawn(_executor, [self = shared_from_this()]()->boost::asio::awaitable<void> {
         do {
             self->_timer.expires_after(self->_duration);
 

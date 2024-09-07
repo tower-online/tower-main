@@ -39,20 +39,13 @@ private:
 };
 
 struct Server::ClientEntry {
-    Server::ClientEntry(
-        const std::shared_ptr<Client>& c, boost::signals2::connection&& on_disconnected)
-        : entry_id {++_entry_id_generator}, client {c}, _on_disconnected {std::move(on_disconnected)} {
-        if (!client) return;
-        client->entry_id = entry_id;
-    }
+    ClientEntry(const std::shared_ptr<Client>& c, boost::signals2::connection&& on_disconnected)
+        : client {c}, _on_disconnected {std::move(on_disconnected)} {}
 
-    const uint32_t entry_id;
     std::shared_ptr<Client> client;
     std::shared_ptr<Zone> current_zone {};
 
 private:
-    inline static std::atomic<uint32_t> _entry_id_generator {0};
-
     boost::signals2::connection _on_disconnected;
 };
 

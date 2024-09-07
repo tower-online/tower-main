@@ -10,15 +10,15 @@
 namespace tower::network {
 using namespace tower::player;
 
-Zone::Zone(const uint32_t zone_id, boost::asio::strand<boost::asio::any_io_executor>&& strand)
-    : zone_id {zone_id}, _strand {std::move(strand)} {}
+Zone::Zone(const uint32_t zone_id, boost::asio::any_io_executor& executor)
+    : zone_id {zone_id}, _strand {make_strand(executor)} {}
 
 Zone::~Zone() {
     stop();
 }
 
 void Zone::handle_packet_deferred(std::shared_ptr<Packet>&& packet) {
-    co_spawn(_jobs_strand, [this, packet {std::move(packet)}]() mutable ->boost::asio::awaitable<void> {
+    co_spawn(_strand, [this, packet {std::move(packet)}]() mutable ->boost::asio::awaitable<void> {
         handle_packet(std::move(packet));
         co_return;
     }, boost::asio::detached);
@@ -31,10 +31,7 @@ void Zone::init(std::string_view tile_map) {
 void Zone::start() {
     if (_is_running.exchange(true)) return;
 
-    co_spawn(_jobs_strand, [this]()->boost::asio::awaitable<void> {
-        tick();
-        co_return;
-    }, boost::asio::detached);
+    post(_strand, [this] { tick(); });
 }
 
 void Zone::stop() {
@@ -44,14 +41,15 @@ void Zone::stop() {
 }
 
 void Zone::add_client_deferred(std::shared_ptr<Client>&& client) {
-    co_spawn(_jobs_strand, [this, client = std::move(client)]()->boost::asio::awaitable<void> {
-        if (_clients.empty()) start();
+    co_spawn(_strand, [this, client = std::move(client)]()->boost::asio::awaitable<void> {
+        if (_client_entries.empty()) start();
 
-        _clients[client->id] = client;
-        _clients_on_disconnected[client->id] = client->disconnected.connect(
-            [this](std::shared_ptr<Client> disconnecting_client) {
-                remove_client_deferred(std::move(disconnecting_client));
-            });
+        auto entry = std::make_unique<ClientEntry>(
+            client,
+            client->disconnected.connect([this](const std::shared_ptr<Client>& c) {
+                remove_client_deferred(c);
+            }));
+        _client_entries.insert_or_assign(entry->client->entry_id, std::move(entry));
 
         const auto& player = client->player;
         player->position = {0, 0};
@@ -84,8 +82,6 @@ void Zone::add_client_deferred(std::shared_ptr<Client>&& client) {
 
         // Notify other clients for new player spawn
         {
-            const auto& player = client->player;
-
             std::vector<EntitySpawn> spawns {};
             spawns.emplace_back(player->entity_type, player->entity_id,
                 Vector2 {player->position.x, player->position.y}, player->rotation);
@@ -93,19 +89,18 @@ void Zone::add_client_deferred(std::shared_ptr<Client>&& client) {
             flatbuffers::FlatBufferBuilder builder {256};
             const auto spawn = CreateEntitySpawnsDirect(builder, &spawns);
             builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntitySpawns, spawn.Union()));
-            broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()), client->id);
+            broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()), client->entry_id);
         }
 
         co_return;
     }, boost::asio::detached);
 }
 
-void Zone::remove_client_deferred(std::shared_ptr<Client>&& client) {
-    co_spawn(_jobs_strand, [this, client = std::move(client)]()->boost::asio::awaitable<void> {
-        _clients.erase(client->id);
-        _clients_on_disconnected.erase(client->id);
+void Zone::remove_client_deferred(const std::shared_ptr<Client>& client) {
+    co_spawn(_strand, [this, client]()->boost::asio::awaitable<void> {
         _subworld->remove_entity(client->player);
-        spdlog::info("[Zone] Removed client ({})", client->id);
+        _client_entries.erase(client->entry_id);
+        spdlog::info("[Zone] Removed client ({})", client->entry_id);
 
         // Broadcast EntityDespawn
         flatbuffers::FlatBufferBuilder builder {64};
@@ -113,7 +108,7 @@ void Zone::remove_client_deferred(std::shared_ptr<Client>&& client) {
         builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityDespawn, entity_despawn.Union()));
         broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
 
-        if (_clients.empty()) {
+        if (_client_entries.empty()) {
             stop();
         }
 
@@ -122,6 +117,11 @@ void Zone::remove_client_deferred(std::shared_ptr<Client>&& client) {
 }
 
 void Zone::tick() {
+    if (steady_clock::now() < _last_tick + TICK_INTERVAL) {
+        post(_strand, [this] { tick(); });
+        return;
+    }
+
     _subworld->tick();
 
     // Broadcast entities' transform
@@ -142,28 +142,18 @@ void Zone::tick() {
     }
 
     _last_tick = steady_clock::now();
-    co_spawn(_jobs_strand, [this]()->boost::asio::awaitable<void> {
-        const auto tick_gap {duration_cast<milliseconds>(_last_tick + TICK_INTERVAL - steady_clock::now())};
-        if (tick_gap > 0ms) {
-            boost::asio::steady_timer timer {_ctx};
-            timer.expires_after(tick_gap);
-            const auto [ec] = co_await timer.async_wait(as_tuple(boost::asio::use_awaitable));
-            if (ec) co_return;
-        }
-
-        tick();
-    }, boost::asio::detached);
+    post(_strand, [this] { tick(); });
 }
 
 void Zone::broadcast(std::shared_ptr<flatbuffers::DetachedBuffer>&& buffer, const uint32_t except) {
-    for (auto& [id, client] : _clients) {
+    for (const auto& [id, entry] : _client_entries) {
         if (id == except) continue;
-        client->send_packet(buffer);
+        entry->client->send_packet(buffer);
     }
 }
 
 void Zone::handle_packet(std::shared_ptr<Packet>&& packet) {
-    if (!_clients.contains(packet->client->id)) return;
+    if (!_client_entries.contains(packet->client->entry_id)) return;
 
     const auto packet_base = GetPacketBase(packet->buffer.data());
     if (!packet_base) {
