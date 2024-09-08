@@ -58,7 +58,17 @@ void Server::start() {
             static uint32_t entry_id_generator {0};
             auto client = std::make_shared<Client>(_executor, std::move(socket), ++entry_id_generator,
                 [this](std::shared_ptr<Client>&& c, std::vector<uint8_t>&& buffer) {
-                    handle_packet(std::make_shared<Packet>(std::move(c), std::move(buffer)));
+                    if (flatbuffers::Verifier verifier {buffer.data(), buffer.size()}; !
+                        VerifyPacketBaseBuffer(verifier)) {
+                        spdlog::warn("[Server] Invalid PacketBase from Client({})", c->entry_id);
+                        c->stop();
+                        return;
+                    }
+
+                    co_spawn(_strand, [this, packet = std::make_shared<Packet>(std::move(c), std::move(buffer))]
+                    () mutable ->boost::asio::awaitable<void> {
+                            co_await handle_packet(std::move(packet));
+                        }, boost::asio::detached);
                 });
             auto entry = std::make_shared<ClientEntry>(
                 client,
@@ -100,20 +110,7 @@ void Server::stop() {
     // _zones.clear();
 }
 
-void Server::handle_packet(std::shared_ptr<Packet> packet) {
-    if (flatbuffers::Verifier verifier {packet->buffer.data(), packet->buffer.size()}; !
-        VerifyPacketBaseBuffer(verifier)) {
-        spdlog::warn("[Server] Invalid PacketBase from Client({})", packet->client->entry_id);
-        packet->client->stop();
-        return;
-    }
-
-    co_spawn(_strand, [this, packet = std::move(packet)]() mutable ->boost::asio::awaitable<void> {
-        co_await handle_packet_internal(std::move(packet));
-    }, boost::asio::detached);
-}
-
-boost::asio::awaitable<void> Server::handle_packet_internal(std::shared_ptr<Packet>&& packet) {
+boost::asio::awaitable<void> Server::handle_packet(std::shared_ptr<Packet>&& packet) {
     switch (const auto packet_base = GetPacketBase(packet->buffer.data()); packet_base->packet_base_type()) {
     case PacketType::ClientJoinRequest:
         co_await handle_client_join_request(
@@ -132,8 +129,8 @@ boost::asio::awaitable<void> Server::handle_packet_internal(std::shared_ptr<Pack
         }
 
         const auto entry_id = packet->client->entry_id;
-        if (!_client_entries.contains(entry_id) || !_client_entries.at(entry_id)->current_zone) co_return;
-        _client_entries.at(entry_id)->current_zone->handle_packet_deferred(std::move(packet));
+        if (!_client_entries.contains(entry_id)) co_return;
+        _zones.at( _client_entries.at(entry_id)->current_zone_id)->handle_packet_deferred(std::move(packet));
 
         break;
     }
@@ -210,11 +207,9 @@ boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<
         client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
     }
 
-    // _jobs.push([this, client = std::move(client)]() mutable {
-    //     //TODO: Find player's last stayed zone. (Current: Default Zone 0)
-    //     _clients_current_zone[client->id] = 0;
-    //     _zones[0]->add_client_deferred(std::move(client));
-    // });
+    //TODO: Find player's last stayed zone. (Current: Default Zone 0)
+    _client_entries.at(client->entry_id)->current_zone_id = 0;
+    _zones[0]->add_client_deferred(std::move(client));
 }
 
 std::string_view platform_to_string(const ClientPlatform platform, const bool lower) {

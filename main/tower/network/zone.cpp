@@ -100,7 +100,7 @@ void Zone::remove_client_deferred(const std::shared_ptr<Client>& client) {
     co_spawn(_strand, [this, client]()->boost::asio::awaitable<void> {
         _subworld->remove_entity(client->player);
         _client_entries.erase(client->entry_id);
-        spdlog::info("[Zone] Removed client ({})", client->entry_id);
+        spdlog::info("[Zone] Removed Client({})", client->entry_id);
 
         // Broadcast EntityDespawn
         flatbuffers::FlatBufferBuilder builder {64};

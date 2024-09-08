@@ -64,7 +64,6 @@ void Connection::send_packet(std::shared_ptr<flatbuffers::DetachedBuffer> buffer
         const auto [ec, _] = co_await _socket.async_send(
             boost::asio::buffer(buffer->data(), buffer->size()), as_tuple(boost::asio::use_awaitable));
         if (ec) {
-            spdlog::error("[Connection] Error sending packet: {}", ec.what());
             disconnect();
             co_return;
         }

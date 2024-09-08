@@ -22,8 +22,7 @@ public:
     void stop();
 
 private:
-    void handle_packet(std::shared_ptr<Packet> packet);
-    boost::asio::awaitable<void> handle_packet_internal(std::shared_ptr<Packet>&& packet);
+    boost::asio::awaitable<void> handle_packet(std::shared_ptr<Packet>&& packet);
     boost::asio::awaitable<void> handle_client_join_request(std::shared_ptr<Client>&& client,
         const ClientJoinRequest* request);
 
@@ -43,7 +42,7 @@ struct Server::ClientEntry {
         : client {c}, _on_disconnected {std::move(on_disconnected)} {}
 
     std::shared_ptr<Client> client;
-    std::shared_ptr<Zone> current_zone {};
+    uint32_t current_zone_id {};
 
 private:
     boost::signals2::connection _on_disconnected;
