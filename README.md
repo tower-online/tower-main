@@ -20,7 +20,7 @@ flowchart TD
     end
 
     C1 -->|Receives packets| S
-    C2 -->|Recevies packets| S
+    C2 -->|Receives packets| S
 
     S -->|Yes| SH
     S -->|No| SR
