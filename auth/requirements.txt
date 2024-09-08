@@ -1,5 +1,0 @@
-fastapi[standard]
-pyjwt
-pydantic-settings
-aiomysql
-redis

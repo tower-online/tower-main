@@ -1,9 +1,0 @@
-{
-  "dockerComposeFile": [
-    "../compose.yaml",
-    "compose.extend.yaml"
-  ],
-  "service": "main",
-  "workspaceFolder": "/workspace",
-  // "shutdownAction": "stopCompose"
-}

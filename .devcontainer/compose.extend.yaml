@@ -1,6 +1,0 @@
-services:
-  main:
-    build:
-      target: base
-    # Keep the process running
-    command: /bin/sh -c "while sleep 1000; do :; done"

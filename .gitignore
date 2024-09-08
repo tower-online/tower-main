@@ -1,5 +1,7 @@
-# IDE
-.idea/*
-!.idea/Default.xml
+.idea
 .vscode
 .vs
+
+# Build
+build
+cmake-build-*
