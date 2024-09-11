@@ -143,3 +143,7 @@ if (TOWER_BUILD_TESTS)
     target_compile_features(tower-unit-tests PRIVATE cxx_std_20)
     target_link_libraries(tower-unit-tests PRIVATE Catch2::Catch2WithMain tower::libtower)
 endif ()
+
+
+### PLUGINS ###
+add_subdirectory(plugins/tracer)

@@ -1,3 +1,6 @@
 [submodule "schema"]
 	path = schema
 	url = git@github.com:SanitoGonzalez/tower-schema.git
+[submodule "plugins/tracer/bpftool"]
+	path = plugins/tracer/bpftool
+	url = https://github.com/libbpf/bpftool.git
