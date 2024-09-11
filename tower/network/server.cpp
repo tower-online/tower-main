@@ -4,17 +4,15 @@
 #include <tower/system/settings.hpp>
 
 namespace tower::network {
-Server::Server(boost::asio::any_io_executor&& executor, const std::shared_ptr<ServerSharedState>& st)
-    : _executor {std::move(executor)}, _strand {make_strand(_executor)}, _st {st} {
+Server::Server(boost::asio::any_io_executor&& executor, const std::shared_ptr<ServerSharedState>& st) :
+    _executor {std::move(executor)}, _strand {make_strand(_executor)}, _st {st} {
     _acceptor = std::make_unique<tcp::acceptor>(
         make_strand(_executor), tcp::endpoint {tcp::v4(), Settings::main_listen_port()});
     _acceptor->set_option(boost::asio::socket_base::reuse_address(true));
     _acceptor->listen(Settings::main_listen_backlog());
 }
 
-Server::~Server() {
-    stop();
-}
+Server::~Server() { stop(); }
 
 void Server::init() {
     // default zone
@@ -23,11 +21,12 @@ void Server::init() {
 }
 
 void Server::start() {
-    if (_is_running.exchange(true)) return;
+    if (_is_running.exchange(true))
+        return;
     spdlog::info("[Server] Starting...");
 
     // Spawn accepting loop
-    co_spawn(_executor, [this]()->boost::asio::awaitable<void> {
+    co_spawn(_executor, [this] -> boost::asio::awaitable<void> {
         {
             const tcp::endpoint local_endpoint {_acceptor->local_endpoint()};
             spdlog::info("[Server] Accepting on {}:{}", local_endpoint.address().to_string(), local_endpoint.port());
@@ -36,7 +35,8 @@ void Server::start() {
             auto [ec, socket] = co_await _acceptor->async_accept(as_tuple(boost::asio::use_awaitable));
             if (ec) {
                 // Ignore
-                if (ec == boost::asio::error::operation_aborted) break;
+                if (ec == boost::asio::error::operation_aborted)
+                    break;
 
                 spdlog::error("Error accepting: {}", ec.message());
                 continue;
@@ -56,31 +56,31 @@ void Server::start() {
             }
 
             static uint32_t entry_id_generator {0};
-            auto client = std::make_shared<Client>(_executor, std::move(socket), ++entry_id_generator,
+            auto client = std::make_shared<Client>(_executor,
+                std::move(socket),
+                ++entry_id_generator,
                 [this](std::shared_ptr<Client>&& c, std::vector<uint8_t>&& buffer) {
-                    if (flatbuffers::Verifier verifier {buffer.data(), buffer.size()}; !
-                        VerifyPacketBaseBuffer(verifier)) {
-                        spdlog::warn("[Server] Invalid PacketBase from Client({})", c->entry_id);
-                        c->stop();
-                        return;
-                    }
+                if (flatbuffers::Verifier verifier {buffer.data(), buffer.size()}; !VerifyPacketBaseBuffer(verifier)) {
+                    spdlog::warn("[Server] Invalid PacketBase from Client({})", c->entry_id);
+                    c->stop();
+                    return;
+                }
 
-                    co_spawn(_strand, [this, packet = std::make_shared<Packet>(std::move(c), std::move(buffer))]
-                    () mutable ->boost::asio::awaitable<void> {
-                            co_await handle_packet(std::move(packet));
-                        }, boost::asio::detached);
+                auto packet = std::make_unique<Packet>(std::move(c), std::move(buffer));
+                co_spawn(_strand, [this, packet = std::move(packet)] mutable -> boost::asio::awaitable<void> {
+                    co_await handle_packet(std::move(packet));
+                }, boost::asio::detached);
+            });
+            auto entry = std::make_unique<ClientEntry>(
+                client, client->disconnected.connect([this](const std::shared_ptr<Client>& c) {
+                post(_strand, [this, c] {
+                    c->stop();
+                    _client_entries.erase(c->entry_id);
+                    spdlog::info("[Server] Removed Client({})", c->entry_id);
                 });
-            auto entry = std::make_shared<ClientEntry>(
-                client,
-                client->disconnected.connect([this](const std::shared_ptr<Client>& c) {
-                    post(_strand, [this, c] {
-                        c->stop();
-                        _client_entries.erase(c->entry_id);
-                        spdlog::info("[Server] Removed Client({})", c->entry_id);
-                    });
-                }));
+            }));
 
-            post(_strand, [this, entry = std::move(entry)]() mutable {
+            post(_strand, [this, entry = std::move(entry)] mutable {
                 const auto entry_id = entry->client->entry_id;
                 _client_entries.emplace(entry_id, std::move(entry));
                 _client_entries[entry_id]->client->start();
@@ -90,7 +90,8 @@ void Server::start() {
 }
 
 void Server::stop() {
-    if (!_is_running.exchange(false)) return;
+    if (!_is_running.exchange(false))
+        return;
     spdlog::info("[Server] Stopping...");
 
     try {
@@ -102,7 +103,7 @@ void Server::stop() {
     for (auto& [_, entry] : _client_entries) {
         entry->client->stop();
     }
-    //TODO: clear _clients -> is safe? -> cancellation token?
+    // TODO: clear _clients -> is safe? -> cancellation token?
 
     for (auto& [_, zone] : _zones) {
         zone->stop();
@@ -129,15 +130,16 @@ boost::asio::awaitable<void> Server::handle_packet(std::shared_ptr<Packet>&& pac
         }
 
         const auto entry_id = packet->client->entry_id;
-        if (!_client_entries.contains(entry_id)) co_return;
-        _zones.at( _client_entries.at(entry_id)->current_zone_id)->handle_packet_deferred(std::move(packet));
+        if (!_client_entries.contains(entry_id))
+            co_return;
+        _zones.at(_client_entries.at(entry_id)->current_zone_id)->handle_packet_deferred(std::move(packet));
 
         break;
     }
 }
 
-boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<Client>&& client,
-    const ClientJoinRequest* request) {
+boost::asio::awaitable<void> Server::handle_client_join_request(
+    std::shared_ptr<Client>&& client, const ClientJoinRequest* request) {
     if (!request->username() || !request->character_name() || !request->token()) {
         spdlog::warn("[Server] [ClientJoinRequest] {}: Invalid request", client->entry_id);
         client->stop();
@@ -151,8 +153,8 @@ boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<
     try {
         const auto decoded_token = jwt::decode(token.data());
         const auto verifier = jwt::verify()
-                              .allow_algorithm(jwt::algorithm::hs256 {Settings::auth_jwt_key().data()})
-                              .with_claim("username", jwt::claim(std::string {username}));
+                                  .allow_algorithm(jwt::algorithm::hs256 {Settings::auth_jwt_key().data()})
+                                  .with_claim("username", jwt::claim(std::string {username}));
         verifier.verify(decoded_token);
 
         client->is_authenticated = true;
@@ -177,15 +179,16 @@ boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<
 
             boost::mysql::results result;
             if (const auto [ec] = co_await conn->async_execute(
-                statement.bind(character_name, username), result, as_tuple(boost::asio::use_awaitable)); ec) {
+                    statement.bind(character_name, username), result, as_tuple(boost::asio::use_awaitable));
+                ec) {
                 spdlog::error("[Server] [ClientJoinRequest] Error executing query: {}", ec.message());
                 client->stop();
                 co_return;
             }
 
             if (result.rows().empty()) {
-                spdlog::warn("[Server] [ClientJoinRequest] Invalid username or character name: {}/{}", username,
-                    character_name);
+                spdlog::warn(
+                    "[Server] [ClientJoinRequest] Invalid username or character name: {}/{}", username, character_name);
                 client->stop();
                 co_return;
             }
@@ -207,7 +210,7 @@ boost::asio::awaitable<void> Server::handle_client_join_request(std::shared_ptr<
         client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
     }
 
-    //TODO: Find player's last stayed zone. (Current: Default Zone 0)
+    // TODO: Find player's last stayed zone. (Current: Default Zone 0)
     _client_entries.at(client->entry_id)->current_zone_id = 0;
     _zones[0]->add_client_deferred(std::move(client));
 }
@@ -223,4 +226,4 @@ std::string_view platform_to_string(const ClientPlatform platform, const bool lo
     }
     return ""sv;
 }
-}
+} // namespace tower::network
