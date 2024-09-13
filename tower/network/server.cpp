@@ -141,7 +141,7 @@ boost::asio::awaitable<void> Server::handle_packet(std::shared_ptr<Packet>&& pac
 boost::asio::awaitable<void> Server::handle_client_join_request(
     std::shared_ptr<Client>&& client, const ClientJoinRequest* request) {
     if (!request->username() || !request->character_name() || !request->token()) {
-        spdlog::warn("[Server] [ClientJoinRequest] {}: Invalid request", client->entry_id);
+        spdlog::warn("[Server] [ClientJoinRequest] ({}): Invalid request", client->entry_id);
         client->stop();
         co_return;
     }
@@ -184,7 +184,7 @@ boost::asio::awaitable<void> Server::handle_client_join_request(
                 spdlog::error("[Server] [ClientJoinRequest] Error executing query: {}", ec.message());
                 client->stop();
                 co_return;
-            }
+                }
 
             if (result.rows().empty()) {
                 spdlog::warn(
@@ -200,19 +200,18 @@ boost::asio::awaitable<void> Server::handle_client_join_request(
             client->stop();
             co_return;
         }
-
-        const auto& stats = client->player->stats;
-
-        flatbuffers::FlatBufferBuilder builder {1024};
-        const auto info_offset = client->player->write_player_info(builder);
-        const auto spawn_offset = CreatePlayerSpawn(builder, true, client->player->entity_id, info_offset);
-        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerSpawn, spawn_offset.Union()));
-        client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
     }
 
-    // TODO: Find player's last stayed zone. (Current: Default Zone 0)
-    _client_entries.at(client->entry_id)->current_zone_id = 0;
-    _zones[0]->add_client_deferred(std::move(client));
+    const auto& stats = client->player->stats;
+
+    flatbuffers::FlatBufferBuilder builder {1024};
+    const auto spawn = CreatePlayerSpawn(builder,
+        true, client->player->entity_id, client->player->write_player_info(builder));
+    //TODO: Find player's last stayed zone. (Current: Default Zone 0)
+    const WorldLocation current_location {1, 0};
+    const auto response = CreateClientJoinResponse(builder, &current_location, spawn);
+    builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::ClientJoinResponse, response.Union()));
+    client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
 }
 
 std::string_view platform_to_string(const ClientPlatform platform, const bool lower) {
