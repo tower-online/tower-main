@@ -108,7 +108,7 @@ target_link_libraries(libtower
     OpenSSL::SSL
     jwt-cpp::jwt-cpp
 )
-target_include_directories(libtower PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(libtower PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/tower)
 target_compile_definitions(libtower PUBLIC
     TOWER_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
     TILE_MAP_DATA_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/bin/tile_map"
@@ -121,10 +121,37 @@ target_link_libraries(tower-server PRIVATE tower::libtower)
 
 
 ### SCHEMAS ###
-add_subdirectory(schema)
-tower_add_packet_schemas("${CMAKE_CURRENT_SOURCE_DIR}/schema/packet" "${CMAKE_CURRENT_SOURCE_DIR}/tower/network/packet")
-tower_add_world_schemas("${CMAKE_CURRENT_SOURCE_DIR}/schema/world" "${CMAKE_CURRENT_SOURCE_DIR}/tower/world/data")
-#add_dependencies(libtower tower-schema-packet tower-schema-world)
+file(GLOB packet_schemas
+    schema/packet/*.fbs
+    schema/packet/client/*.fbs
+    schema/packet/entity/*.fbs
+    schema/packet/entity/skill/*.fbs
+    schema/packet/player/*.fbs
+)
+
+set(compiled_schemas)
+macro(schema_compiler in_file include_dir out_dir)
+    get_filename_component(name ${in_file} NAME_WE)
+    set(out_file ${out_dir}/${name}.hpp)
+
+    add_custom_command(
+        OUTPUT ${out_file}
+        COMMAND
+            flatc -I ${include_dir} -o ${out_dir}
+            --cpp --cpp-std c++17 --filename-suffix "\"\"" --filename-ext hpp ${in_file}
+        DEPENDS ${schema_file} flatc
+        COMMENT "[flatc] Compiling schema: ${out_file}"
+    )
+
+    list(APPEND compiled_schemas ${out_file})
+endmacro()
+
+foreach(schema_file ${packet_schemas})
+    schema_compiler(${schema_file} ${CMAKE_CURRENT_SOURCE_DIR}/schema/packet ${CMAKE_CURRENT_BINARY_DIR}/tower/tower/network/packet)
+endforeach()
+
+add_custom_target(compiled_schemas_target ALL DEPENDS ${compiled_schemas})
+add_dependencies(tower-server compiled_schemas_target)
 
 
 ### TESTS ###
