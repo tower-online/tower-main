@@ -6,8 +6,6 @@
 namespace tower::player {
 using StatType = network::packet::PlayerStatType;
 
-static std::string_view type_to_string(StatType type);
-
 template <std::integral T>
 class Stat {
 public:
@@ -18,6 +16,8 @@ public:
     void set(const T value) { _value = value; }
     boost::asio::awaitable<void> set_and_update(boost::mysql::pooled_connection& conn, T value, uint32_t character_id);
     boost::asio::awaitable<void> update(boost::mysql::pooled_connection& conn, uint32_t character_id);
+
+    static std::string_view type_to_string(StatType type);
 
     StatType type() const { return _type; }
 
@@ -61,7 +61,8 @@ boost::asio::awaitable<void> Stat<T>::update(boost::mysql::pooled_connection& co
     co_await conn->async_execute(std::move(query), result, boost::asio::use_awaitable);
 }
 
-std::string_view type_to_string(const StatType type) {
+template <std::integral T>
+std::string_view Stat<T>::type_to_string(StatType type) {
     static const std::unordered_map<StatType, const char*> _map {
         {StatType::STR, "str"},
         {StatType::MAG, "mag"},

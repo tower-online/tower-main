@@ -202,8 +202,6 @@ boost::asio::awaitable<void> Server::handle_client_join_request(
         }
     }
 
-    const auto& stats = client->player->stats;
-
     flatbuffers::FlatBufferBuilder builder {1024};
     const auto spawn = CreatePlayerSpawn(builder,
         true, client->player->entity_id, client->player->write_player_info(builder));
@@ -213,16 +211,4 @@ boost::asio::awaitable<void> Server::handle_client_join_request(
     builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::ClientJoinResponse, response.Union()));
     client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
 }
-
-std::string_view platform_to_string(const ClientPlatform platform, const bool lower) {
-    using namespace std::string_view_literals;
-
-    if (platform == ClientPlatform::TEST) {
-        return lower ? "test"sv : "TEST"sv;
-    }
-    if (platform == ClientPlatform::STEAM) {
-        return lower ? "steam"sv : "STEAM"sv;
-    }
-    return ""sv;
 }
-} // namespace tower::network

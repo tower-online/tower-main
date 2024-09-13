@@ -47,6 +47,4 @@ struct Server::ClientEntry {
 private:
     boost::signals2::connection _on_disconnected;
 };
-
-static std::string_view platform_to_string(ClientPlatform platform, bool lower = false);
-} // namespace tower::network
+}

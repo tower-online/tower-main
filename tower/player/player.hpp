@@ -18,7 +18,7 @@ public:
     static boost::asio::awaitable<std::shared_ptr<Player>> load(boost::mysql::pooled_connection& conn, std::string_view character_name);
     static std::shared_ptr<Player> create(EntityType type);
 
-    void tick(Subworld& subworld) override {}
+    void tick(Subworld&) override {}
 
     flatbuffers::Offset<network::packet::PlayerInfo> write_player_info(flatbuffers::FlatBufferBuilder& builder) const;
 

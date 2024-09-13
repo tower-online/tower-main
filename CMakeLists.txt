@@ -96,6 +96,8 @@ add_library(libtower STATIC
 add_library(tower::libtower ALIAS libtower)
 
 target_compile_features(libtower PUBLIC cxx_std_23)
+target_compile_options(libtower PRIVATE -Wall -Wextra -Wpedantic)
+
 target_link_libraries(libtower
     PUBLIC
     spdlog
