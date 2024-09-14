@@ -123,13 +123,7 @@ target_link_libraries(tower-server PRIVATE tower::libtower)
 
 
 ### SCHEMAS ###
-file(GLOB packet_schemas
-    schema/packet/*.fbs
-    schema/packet/client/*.fbs
-    schema/packet/entity/*.fbs
-    schema/packet/entity/skill/*.fbs
-    schema/packet/player/*.fbs
-)
+file(GLOB_RECURSE packet_schemas schema/packet/*.fbs)
 
 set(compiled_schemas)
 macro(schema_compiler in_file include_dir out_dir)
@@ -175,4 +169,4 @@ endif ()
 
 
 ### PLUGINS ###
-add_subdirectory(plugins/tracer)
+#add_subdirectory(plugins/tracer)

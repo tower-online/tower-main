@@ -25,6 +25,7 @@ private:
     boost::asio::awaitable<void> handle_packet(std::shared_ptr<Packet>&& packet);
     boost::asio::awaitable<void> handle_client_join_request(
         std::shared_ptr<Client>&& client, const ClientJoinRequest* request);
+    void handle_player_enter_zone_request(std::shared_ptr<Client>&& client, const PlayerEnterZoneRequest* request);
 
     // Network
     std::atomic<bool> _is_running {false};

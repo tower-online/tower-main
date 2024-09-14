@@ -118,6 +118,11 @@ boost::asio::awaitable<void> Server::handle_packet(std::shared_ptr<Packet>&& pac
             std::move(packet->client), packet_base->packet_base_as<ClientJoinRequest>());
         break;
 
+    case PacketType::PlayerEnterZoneRequest:
+        handle_player_enter_zone_request(
+            std::move(packet->client), packet_base->packet_base_as<PlayerEnterZoneRequest>());
+        break;
+
     case PacketType::HeartBeat:
         // Ignore, because the client already heart-beated by itself
         break;
@@ -209,6 +214,15 @@ boost::asio::awaitable<void> Server::handle_client_join_request(
     const WorldLocation current_location {1, 0};
     const auto response = CreateClientJoinResponse(builder, &current_location, spawn);
     builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::ClientJoinResponse, response.Union()));
+    client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+}
+
+void Server::handle_player_enter_zone_request(std::shared_ptr<Client>&& client, const PlayerEnterZoneRequest* request) {
+    //TODO: Check if zone is reachable from current player's location
+
+    flatbuffers::FlatBufferBuilder builder {128};
+    const auto response = CreatePlayerEnterZoneResponse(builder, true, request->location());
+    builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerEnterZoneResponse, response.Union()));
     client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
 }
 }

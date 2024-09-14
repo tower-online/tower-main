@@ -1,6 +1,5 @@
 #include <spdlog/spdlog.h>
 #include <tower/item/equipment/fist.hpp>
-#include <tower/network/packet/player_info.hpp>
 #include <tower/player/player.hpp>
 #include <tower/world/collision/collision_object.hpp>
 #include <tower/world/collision/rectangle_collision_shape.hpp>
@@ -116,7 +115,7 @@ std::shared_ptr<Player> Player::create(EntityType type) {
     return player;
 }
 
-flatbuffers::Offset<network::packet::PlayerInfo> Player::write_player_info(flatbuffers::FlatBufferBuilder& builder) const {
+flatbuffers::Offset<network::packet::PlayerData> Player::write_player_info(flatbuffers::FlatBufferBuilder& builder) const {
     std::vector<network::packet::PlayerStat> optional_stats {};
     for (const auto& [_, stat] : stats.optionals) {
         optional_stats.emplace_back(stat.type(), stat.get());
@@ -125,6 +124,6 @@ flatbuffers::Offset<network::packet::PlayerInfo> Player::write_player_info(flatb
         stats.level.get(), stats.exp.get(), stats.str.get(), stats.mag.get(), stats.agi.get(), stats.con.get(),
         &optional_stats);
 
-    return CreatePlayerInfoDirect(builder, entity_type, name().data(), stats_offset);
+    return CreatePlayerDataDirect(builder, entity_type, name().data(), stats_offset);
 }
 }

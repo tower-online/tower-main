@@ -41,7 +41,7 @@ void Zone::stop() {
 }
 
 void Zone::add_client_deferred(std::shared_ptr<Client>&& client) {
-    co_spawn(_strand, [this, client = std::move(client)]()->boost::asio::awaitable<void> {
+    post(_strand, [this, client = std::move(client)] {
         if (_client_entries.empty()) start();
 
         auto entry = std::make_unique<ClientEntry>(
@@ -55,14 +55,6 @@ void Zone::add_client_deferred(std::shared_ptr<Client>&& client) {
         player->position = {0, 0};
 
         _subworld->add_entity(player);
-
-        {
-            flatbuffers::FlatBufferBuilder builder {128};
-            const auto enter =
-                CreatePlayerEnterZoneDirect(builder, zone_id, _subworld->get_tilemap().get_name().data());
-            builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerEnterZone, enter.Union()));
-            client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
-        }
 
         // Spawn every entity in the zone
         {
@@ -91,9 +83,7 @@ void Zone::add_client_deferred(std::shared_ptr<Client>&& client) {
             builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntitySpawns, spawn.Union()));
             broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()), client->entry_id);
         }
-
-        co_return;
-    }, boost::asio::detached);
+    });
 }
 
 void Zone::remove_client_deferred(const std::shared_ptr<Client>& client) {

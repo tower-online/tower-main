@@ -3,7 +3,7 @@
 #include <boost/asio.hpp>
 #include <boost/mysql.hpp>
 #include <tower/entity/entity.hpp>
-#include <tower/network/packet/player_info.hpp>
+#include <tower/network/packet/player_types.hpp>
 #include <tower/player/inventory.hpp>
 #include <tower/player/stat.hpp>
 
@@ -20,7 +20,7 @@ public:
 
     void tick(Subworld&) override {}
 
-    flatbuffers::Offset<network::packet::PlayerInfo> write_player_info(flatbuffers::FlatBufferBuilder& builder) const;
+    flatbuffers::Offset<network::packet::PlayerData> write_player_info(flatbuffers::FlatBufferBuilder& builder) const;
 
     uint32_t character_id() const { return _character_id; }
     std::string_view name() const { return _name; }
