@@ -11,6 +11,7 @@ int main(int argc, char* argv[]) {
 
 #ifndef NDEBUG
     spdlog::set_level(spdlog::level::debug);
+    spdlog::debug("spdlog set level: {}", to_string_view(spdlog::get_level()));
 #endif
 
     Settings::init();

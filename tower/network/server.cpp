@@ -219,6 +219,8 @@ boost::asio::awaitable<void> Server::handle_client_join_request(
 
 void Server::handle_player_enter_zone_request(std::shared_ptr<Client>&& client, const PlayerEnterZoneRequest* request) {
     //TODO: Check if zone is reachable from current player's location
+    const auto location = request->location();
+    _zones.at(location->zone_id())->add_client_deferred(client);
 
     flatbuffers::FlatBufferBuilder builder {128};
     const auto response = CreatePlayerEnterZoneResponse(builder, true, request->location());

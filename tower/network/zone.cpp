@@ -18,10 +18,9 @@ Zone::~Zone() {
 }
 
 void Zone::handle_packet_deferred(std::shared_ptr<Packet>&& packet) {
-    co_spawn(_strand, [this, packet {std::move(packet)}]() mutable ->boost::asio::awaitable<void> {
+    post(_strand, [this, packet {std::move(packet)}] mutable {
         handle_packet(std::move(packet));
-        co_return;
-    }, boost::asio::detached);
+    });
 }
 
 void Zone::init(std::string_view tile_map) {
@@ -40,8 +39,8 @@ void Zone::stop() {
     //TODO: clear
 }
 
-void Zone::add_client_deferred(std::shared_ptr<Client>&& client) {
-    post(_strand, [this, client = std::move(client)] {
+void Zone::add_client_deferred(const std::shared_ptr<Client>& client) {
+    post(_strand, [this, client] {
         if (_client_entries.empty()) start();
 
         auto entry = std::make_unique<ClientEntry>(
@@ -107,6 +106,7 @@ void Zone::remove_client_deferred(const std::shared_ptr<Client>& client) {
 }
 
 void Zone::tick() {
+    if (!_is_running) return;
     if (steady_clock::now() < _last_tick + TICK_INTERVAL) {
         post(_strand, [this] { tick(); });
         return;

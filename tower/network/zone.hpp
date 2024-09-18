@@ -26,7 +26,7 @@ public:
     void start();
     void stop();
 
-    void add_client_deferred(std::shared_ptr<Client>&& client);
+    void add_client_deferred(const std::shared_ptr<Client>& client);
     void remove_client_deferred(const std::shared_ptr<Client>& client);
 
 private:
