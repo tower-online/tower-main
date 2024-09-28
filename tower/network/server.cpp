@@ -127,6 +127,14 @@ boost::asio::awaitable<void> Server::handle_packet(std::shared_ptr<Packet>&& pac
         // Ignore, because the client already heart-beated by itself
         break;
 
+    case PacketType::Ping: {
+        flatbuffers::FlatBufferBuilder builder {64};
+        const auto ping = CreatePing(builder, packet_base->packet_base_as<Ping>()->timestamp());
+        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::Ping, ping.Union()));
+        packet->client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+        break;
+    }
+
     default:
         if (!packet->client->is_authenticated) {
             spdlog::warn("[Server] Packet from unauthenticated client");
