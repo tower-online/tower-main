@@ -5,7 +5,7 @@
 
 namespace tower {
 void Settings::init() {
-    _listen_port = std::stoi(std::getenv("LISTEN_PORT"));
+    _listen_port = std::stoi(std::getenv("TOWER_MAIN_LISTEN_PORT"));
     _listen_backlog = std::stoi(std::getenv("LISTEN_BACKLOG"));
     _tick_interval = milliseconds {std::stoi(std::getenv("TICK_INTERVAL"))};
 
