@@ -23,6 +23,6 @@ COPY . .
 FROM base AS build
 
 RUN cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTOWER_BUILD_TESTS=OFF && \
-    cmake --build build --config Release --target tower-schema-packet tower-schema-world tower-server
+    cmake --build build --config Release --target tower-server
 
 CMD ["/app/build/tower-server"]

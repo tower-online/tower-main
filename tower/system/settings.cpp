@@ -5,9 +5,9 @@
 
 namespace tower {
 void Settings::init() {
-    _main_listen_port = std::stoi(std::getenv("TOWER_MAIN_LISTEN_PORT"));
-    _main_listen_backlog = std::stoi(std::getenv("TOWER_MAIN_LISTEN_BACKLOG"));
-    _main_tick_interval = milliseconds {std::stoi(std::getenv("TOWER_MAIN_TICK_INTERVAL_MILLISECONDS"))};
+    _listen_port = std::stoi(std::getenv("LISTEN_PORT"));
+    _listen_backlog = std::stoi(std::getenv("LISTEN_BACKLOG"));
+    _tick_interval = milliseconds {std::stoi(std::getenv("TICK_INTERVAL"))};
 
     _auth_jwt_key = read_file(std::getenv("TOWER_AUTH_JWT_KEY_FILE"));
 

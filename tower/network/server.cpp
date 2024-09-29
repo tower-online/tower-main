@@ -7,9 +7,9 @@ namespace tower::network {
 Server::Server(boost::asio::any_io_executor&& executor, const std::shared_ptr<ServerSharedState>& st) :
     _executor {std::move(executor)}, _strand {make_strand(_executor)}, _st {st} {
     _acceptor = std::make_unique<tcp::acceptor>(
-        make_strand(_executor), tcp::endpoint {tcp::v4(), Settings::main_listen_port()});
+        make_strand(_executor), tcp::endpoint {tcp::v4(), Settings::listen_port()});
     _acceptor->set_option(boost::asio::socket_base::reuse_address(true));
-    _acceptor->listen(Settings::main_listen_backlog());
+    _acceptor->listen(Settings::listen_backlog());
 }
 
 Server::~Server() { stop(); }
