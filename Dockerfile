@@ -7,12 +7,7 @@ RUN apt-get update && \
     g++ \
     cmake \
     ninja-build \
-    libssl-dev \
-    # bpftool dependencies
-    libelf-dev \
-    clang \
-    llvm \
-    pkg-config
+    libssl-dev
 
 # Install boost
 WORKDIR /root
@@ -24,11 +19,6 @@ RUN ./bootstrap.sh --with-libraries=charconv,system && \
 
 WORKDIR /app
 COPY . .
-
-# Install bpftool
-WORKDIR /app/plugins/tracer/bpftool/src
-RUN make install
-
 
 FROM base AS build
 
