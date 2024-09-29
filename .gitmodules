@@ -1,7 +1,4 @@
-[submodule "schema"]
-	path = schema
+[submodule "schemas"]
+	path = schemas
 	url = git@github.com:SanitoGonzalez/tower-schema.git
 	update = merge
-[submodule "plugins/tracer/bpftool"]
-	path = plugins/tracer/bpftool
-	url = https://github.com/libbpf/bpftool.git

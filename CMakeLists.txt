@@ -143,7 +143,7 @@ macro(schema_compiler in_file include_dir out_dir)
 endmacro()
 
 foreach(schema_file ${packet_schemas})
-    schema_compiler(${schema_file} ${CMAKE_CURRENT_SOURCE_DIR}/schema/packet ${CMAKE_CURRENT_BINARY_DIR}/tower/tower/network/packet)
+    schema_compiler(${schema_file} ${CMAKE_CURRENT_SOURCE_DIR}/schemas/packet ${CMAKE_CURRENT_BINARY_DIR}/tower/tower/network/packet)
 endforeach()
 
 add_custom_target(compiled_schemas_target ALL DEPENDS ${compiled_schemas})
@@ -163,10 +163,6 @@ if (TOWER_BUILD_TESTS)
     add_executable(tower-unit-tests
         tower/world/path_finder.test.cpp
     )
-    target_compile_features(tower-unit-tests PRIVATE cxx_std_20)
+    target_compile_features(tower-unit-tests PRIVATE cxx_std_23)
     target_link_libraries(tower-unit-tests PRIVATE Catch2::Catch2WithMain tower::libtower)
 endif ()
-
-
-### PLUGINS ###
-#add_subdirectory(plugins/tracer)
