@@ -123,9 +123,8 @@ target_link_libraries(tower-server PRIVATE tower::libtower)
 
 
 ### SCHEMAS ###
-file(GLOB_RECURSE packet_schemas schema/packet/*.fbs)
+file(GLOB_RECURSE packet_schemas schemas/packet/*.fbs)
 
-set(compiled_schemas)
 macro(schema_compiler in_file include_dir out_dir)
     get_filename_component(name ${in_file} NAME_WE)
     set(out_file ${out_dir}/${name}.hpp)
@@ -139,15 +138,15 @@ macro(schema_compiler in_file include_dir out_dir)
         COMMENT "[flatc] Compiling schema: ${out_file}"
     )
 
+    add_custom_target(${name}_packet ALL DEPENDS ${out_file})
+    add_dependencies(libtower ${name}_packet)
+
     list(APPEND compiled_schemas ${out_file})
 endmacro()
 
 foreach(schema_file ${packet_schemas})
     schema_compiler(${schema_file} ${CMAKE_CURRENT_SOURCE_DIR}/schemas/packet ${CMAKE_CURRENT_BINARY_DIR}/tower/tower/network/packet)
 endforeach()
-
-add_custom_target(compiled_schemas_target ALL DEPENDS ${compiled_schemas})
-add_dependencies(tower-server compiled_schemas_target)
 
 
 ### TESTS ###
