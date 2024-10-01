@@ -1,13 +1,14 @@
 #pragma once
 
 #include <tower/entity/entity.hpp>
+#include <tower/physics/collision_object.hpp>
 #include <tower/world/tile_map.hpp>
-#include <tower/world/collision/collision_object.hpp>
 
 #include <unordered_set>
 
 namespace tower::world {
 using namespace tower::entity;
+using namespace tower::physics;
 
 class Subworld {
 public:

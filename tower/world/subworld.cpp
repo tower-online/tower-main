@@ -52,7 +52,7 @@ void Subworld::remove_entity(const std::shared_ptr<Entity>& entity) {
 }
 
 void Subworld::add_collision_objects_from_tree(const std::shared_ptr<Node>& node) {
-    for (auto& child : node->get_childs()) {
+    for (auto& child : node->get_children()) {
         if (const auto object = std::dynamic_pointer_cast<CollisionObject>(child)) {
             _collision_objects[object->node_id] = object;
         }
@@ -61,7 +61,7 @@ void Subworld::add_collision_objects_from_tree(const std::shared_ptr<Node>& node
 }
 
 void Subworld::remove_collision_objects_from_tree(const std::shared_ptr<Node>& node) {
-    for (auto& child : node->get_childs()) {
+    for (auto& child : node->get_children()) {
         if (const auto object = std::dynamic_pointer_cast<CollisionObject>(child)) {
             _collision_objects.erase(object->node_id);
         }

@@ -9,7 +9,7 @@ option(TOWER_BUILD_TESTS "Enable the build of tests" ON)
 ### DEPENDENCIES ###
 # Boost.asio -> Boost.system
 # Boost.mysql -> Boost.charconv
-find_package(Boost 1.85.0 REQUIRED COMPONENTS charconv system)
+find_package(Boost 1.85.0 REQUIRED COMPONENTS charconv system json)
 
 find_package(OpenSSL REQUIRED)
 
@@ -47,11 +47,17 @@ FetchContent_MakeAvailable(jwt-cpp)
 
 ### TARGETS ###
 add_library(libtower STATIC
+    tower/units.hpp
+
     tower/entity/entity.hpp
+
+    tower/game/modifier.hpp
 
     tower/item/item.hpp
     tower/item/equipment/equipment.hpp
-    tower/item/equipment/fist.hpp
+    tower/item/equipment/weapon/fist.hpp
+    tower/item/equipment/weapon/fist.cpp
+    tower/item/equipment/weapon/weapon.hpp
 
     tower/network/client.hpp
     tower/network/client.cpp
@@ -63,6 +69,13 @@ add_library(libtower STATIC
     tower/network/server_shared_state.hpp
     tower/network/zone.hpp
     tower/network/zone.cpp
+
+    tower/physics/collision_object.hpp
+    tower/physics/collision_shape.hpp
+    tower/physics/cube_collision_shape.hpp
+    tower/physics/cube_collision_shape.cpp
+    tower/physics/sphere_collision_shape.hpp
+    tower/physics/sphere_collision_shape.cpp
 
     tower/player/player.hpp
     tower/player/player.cpp
@@ -86,12 +99,6 @@ add_library(libtower STATIC
     tower/world/tile_map.hpp
     tower/world/world_generator.hpp
     tower/world/world_generator.cpp
-    tower/world/collision/circle_collision_shape.hpp
-    tower/world/collision/circle_collision_shape.cpp
-    tower/world/collision/collision_object.hpp
-    tower/world/collision/collision_shape.hpp
-    tower/world/collision/rectangle_collision_shape.hpp
-    tower/world/collision/rectangle_collision_shape.cpp
 )
 add_library(tower::libtower ALIAS libtower)
 
@@ -106,14 +113,15 @@ target_link_libraries(libtower
     Boost::system
 
     PRIVATE
+    Boost::json
     Boost::charconv
     OpenSSL::SSL
     jwt-cpp::jwt-cpp
 )
 target_include_directories(libtower PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/tower)
-target_compile_definitions(libtower PUBLIC
+target_compile_definitions(libtower PRIVATE
     TOWER_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
-    TILE_MAP_DATA_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/bin/tile_map"
+    TOWER_DATA_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/data"
 )
 
 add_executable(tower-server

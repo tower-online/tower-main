@@ -1,11 +1,10 @@
 #pragma once
 
 #include <boost/signals2.hpp>
+#include <tower/physics/collision_shape.hpp>
 #include <tower/world/node.hpp>
-#include <tower/world/collision/collision_shape.hpp>
 
 namespace tower::world {
-namespace signals = boost::signals2;
 
 enum class ColliderLayer : uint32_t {
     NONE     = 0,
@@ -28,9 +27,9 @@ public:
     uint32_t layer;
     uint32_t mask;
 
-    signals::signal<void(std::shared_ptr<Node>)> body_entered {};
-    signals::signal<void(std::shared_ptr<Node>)> body_staying {};
-    signals::signal<void(std::shared_ptr<Node>)> body_exited {};
+    boost::signals2::signal<void(std::shared_ptr<Node>)> body_entered {};
+    boost::signals2::signal<void(std::shared_ptr<Node>)> body_staying {};
+    boost::signals2::signal<void(std::shared_ptr<Node>)> body_exited {};
 };
 
 
