@@ -83,7 +83,7 @@ void Zone::add_client_deferred(const std::shared_ptr<Client>& client) {
                 if (dynamic_cast<Player*>(entity.get()) != nullptr) continue;
 
                 spawns.emplace_back(entity->entity_type, entity->entity_id,
-                    Vector2 {entity->position.x, entity->position.y}, entity->rotation);
+                    Vector3 {entity->position.x, entity->position.y, entity->position.z}, entity->rotation);
             }
 
             flatbuffers::FlatBufferBuilder builder {1024};
@@ -137,7 +137,7 @@ void Zone::tick() {
         for (const auto& [_, entity] : _subworld->get_entities()) {
             movements.emplace_back(
                 entity->entity_id,
-                Vector2 {entity->position.x, entity->position.y},
+                Vector3 {entity->position.x, entity->position.y, entity->position.z},
                 Vector2 {entity->target_direction.x, entity->target_direction.y}
             );
         }
