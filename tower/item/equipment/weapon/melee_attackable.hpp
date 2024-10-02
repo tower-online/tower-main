@@ -7,9 +7,11 @@ class MeleeAttackable {
 public:
     virtual ~MeleeAttackable() = default;
 
-    physics::CollisionShape* attack_shape() { return _attack_shape.get(); }
+    int melee_attack_damage() const { return _melee_attack_damage; }
+    const physics::CollisionShape* melee_attack_shape() const { return _melee_attack_shape.get(); }
 
 protected:
-    std::shared_ptr<physics::CollisionShape> _attack_shape;
+    int _melee_attack_damage;
+    std::shared_ptr<physics::CollisionShape> _melee_attack_shape;
 };
 }

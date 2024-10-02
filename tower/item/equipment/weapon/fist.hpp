@@ -15,12 +15,7 @@ public:
 
     static std::shared_ptr<Fist> create();
 
-    int damage() const { return _damage; }
-
     std::shared_ptr<world::Node> node;
-
-private:
-    int _damage {};
 };
 
 class Fist::Data {

@@ -4,7 +4,7 @@
 
 namespace tower::player {
 class IdleState final : public State {
-    constexpr std::string_view name {"Idle"};
+    static constexpr std::string_view name {"Idle"};
 
 public:
     void enter() override {}

@@ -26,7 +26,7 @@ inline std::vector<MeleeAttack::Result> MeleeAttack::use(boost::asio::strand<boo
     if (!user->state_machine.try_transition("Attacking")) return {};
 
     const auto colliders =  subworld.get_collisions(
-        melee_attackable->attack_shape(), std::to_underlying(ColliderLayer::ENTITIES));
+        melee_attackable->melee_attack_shape(), std::to_underlying(ColliderLayer::ENTITIES));
 
     for (const auto& collider : colliders) {
         if (user->node_id == collider->node_id) continue; // Don't attack myself
@@ -37,7 +37,7 @@ inline std::vector<MeleeAttack::Result> MeleeAttack::use(boost::asio::strand<boo
 
     co_spawn(strand, [&strand, user]->boost::asio::awaitable<void> {
         //TODO: Get attack period from weapon
-        boost::asio::steady_timer timer {strand, };
+        boost::asio::steady_timer timer {strand, 1000ms};
         auto [_] = co_await timer.async_wait(as_tuple(boost::asio::use_awaitable));
         user->state_machine.try_transition("Idle");
     }, boost::asio::detached);

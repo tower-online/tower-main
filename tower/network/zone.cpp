@@ -2,6 +2,7 @@
 #include <glm/trigonometric.hpp>
 #include <tower/entity/entity.hpp>
 #include <tower/network/zone.hpp>
+#include <tower/player/skill/melee_attack.hpp>
 
 #include <cmath>
 
@@ -206,40 +207,52 @@ void Zone::handle_player_movement(std::shared_ptr<Client>&& client, const Player
 }
 
 void Zone::handle_skill_melee_attack(std::shared_ptr<Client>&& client, const SkillMeleeAttack* attack) {
-    // // Replicate player's melee attack
-    // {
-    //     flatbuffers::FlatBufferBuilder builder {128};
-    //     const auto attack_replication = CreateEntityMeleeAttack(builder, client->player->entity_id);
-    //     builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityMeleeAttack,
-    //         attack_replication.Union()));
-    //     broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
-    // }
+    //TODO: Get weapon upon attack.weapon_slot
+    const auto weapon_slot {attack->weapon_slot()};
 
-    // auto fist = std::dynamic_pointer_cast<Fist>(client->player->inventory.get_main_weapon());
-    // if (!fist) {
-    //     spdlog::info("[Zone] No Fist!!!");
-    //     return;
-    // }
+    auto& player {client->player};
+    const auto& weapon = player->inventory.get_main_weapon();
+    if (!weapon) return;
+    
+    const auto melee_attackable {dynamic_cast<const MeleeAttackable*>(weapon.get())};
+    if (!melee_attackable) return;
+    if (!player->state_machine.try_transition("Attacking")) return;
 
-    // auto collisions = _subworld->get_collisions(fist->attack_shape.get(), static_cast<uint32_t>(ColliderLayer::ENTITIES));
-    //
-    // for (auto& c : collisions) {
-    //     auto collider_root = c->get_root();
-    //     if (!collider_root) continue;
-    //
-    //         auto entity = std::dynamic_pointer_cast<Entity>(collider_root);
-    //     if (!entity || entity->entity_id == client->player->entity_id) continue;
-    //
-    //     //TODO: Calculate armor
-    //     const int amount_damaged = fist->damage;
-    //     entity->resource.change_health(EntityResourceChangeMode::ADD, -amount_damaged);
-    //
-    //     // Broadcast that entity is damaged
-    //     flatbuffers::FlatBufferBuilder builder {128};
-    //     const auto modify = CreateEntityResourceChange(builder,
-    //         EntityResourceChangeMode::ADD, EntityResourceType::HEALTH, entity->entity_id, amount_damaged);
-    //     builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityResourceChange, modify.Union()));
-    //     broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
-    // }
+    const auto colliders =  _subworld->get_collisions(
+        melee_attackable->melee_attack_shape(), std::to_underlying(ColliderLayer::ENTITIES));
+
+    std::vector<EntityResourceChange> damages {};
+    for (const auto& collider : colliders) {
+        Entity* entity;
+        if (entity = dynamic_cast<Entity*>(collider->get_root().get()); !entity) continue;
+        if (player->entity_id == entity->entity_id) continue; // Don't attack myself
+
+        //TODO: Caculate damage
+        const int damage {melee_attackable->melee_attack_damage()};
+        damages.emplace_back(EntityResourceChangeMode::ADD, EntityResourceType::HEALTH, entity->entity_id, damage);
+
+    }
+    // Broadcast that entity is damaged
+    {
+        flatbuffers::FlatBufferBuilder builder {512};
+        const auto changes = CreateEntityResourceChangesDirect(builder, &damages);
+        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityResourceChanges, changes.Union()));
+        broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+    }
+    // Brodacast melee attack
+    {
+        flatbuffers::FlatBufferBuilder builder {128};
+        const auto attack_replication = CreateSkillMeleeAttack(builder, client->player->entity_id, weapon_slot);
+        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::SkillMeleeAttack, attack_replication.Union()));
+        broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+    }
+
+    co_spawn(_strand, [this, player]->boost::asio::awaitable<void> {
+        //TODO: Get attack period from weapon
+        boost::asio::steady_timer timer {_strand, 1000ms};
+        auto [_] = co_await timer.async_wait(as_tuple(boost::asio::use_awaitable));
+        //TODO: Check if player is still in the zone?
+        player->state_machine.try_transition("Idle");
+    }, boost::asio::detached);
 }
 }

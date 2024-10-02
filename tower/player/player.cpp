@@ -1,6 +1,8 @@
 #include <spdlog/spdlog.h>
 #include <tower/item/equipment/weapon/fist.hpp>
 #include <tower/player/player.hpp>
+#include <tower/player/state/idle_state.hpp>
+#include <tower/player/state/attacking_state.hpp>
 #include <tower/physics/collision_object.hpp>
 #include <tower/physics/cube_collision_shape.hpp>
 
@@ -95,6 +97,20 @@ std::shared_ptr<Player> Player::create(EntityType type) {
 
     auto player = std::make_shared<Player>(type);
     player->add_child(player->pivot);
+
+    // Init states
+    {
+        auto& state_machine {player->state_machine};
+        auto idle {std::make_unique<IdleState>()};
+        auto attacking {std::make_unique<AttackingState>()};
+
+        idle->add_transition(attacking->get_name());
+        attacking->add_transition(idle->get_name());
+
+        state_machine.set_initial_state(idle->get_name());
+        state_machine.add_state(std::move(idle));
+        state_machine.add_state(std::move(attacking));
+    }
 
     //TODO: Read values from file
     player->movement_speed_base = 0.1f;
