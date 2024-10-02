@@ -24,7 +24,8 @@ inline void StateMachine::add_state(std::unique_ptr<State> state) {
 }
 
 inline void StateMachine::set_initial_state(std::string_view state_name) {
-    _current_state = _states[state_name].get();
+    if (const auto initial_state_iter {_states.find(state_name)}; initial_state_iter == _states.end()) return;
+    else _current_state = initial_state_iter->second.get();
 }
 
 inline bool StateMachine::try_transition(std::string_view new_state_name) {

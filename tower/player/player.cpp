@@ -107,9 +107,10 @@ std::shared_ptr<Player> Player::create(EntityType type) {
         idle->add_transition(attacking->get_name());
         attacking->add_transition(idle->get_name());
 
-        state_machine.set_initial_state(idle->get_name());
+        const auto idle_state_name {idle->get_name()};
         state_machine.add_state(std::move(idle));
         state_machine.add_state(std::move(attacking));
+        state_machine.set_initial_state(idle_state_name);
     }
 
     //TODO: Read values from file
