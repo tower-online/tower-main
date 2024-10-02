@@ -5,18 +5,17 @@ Subworld::Subworld(std::string_view tile_map_name)
     : _tile_map {TileMap::load_tile_map(tile_map_name)} {}
 
 void Subworld::tick() {
+
     // Move entities
     for (auto& [_, entity] : _entities) {
         // Check if tile is blocked and move
         //TODO: Pull out if entity is already in collider
-        if (entity->target_direction != glm::vec2 {0.0f, 0.0f}) {
-            const auto target_position = entity->position + entity->target_direction * entity->movement_speed_base;
+        static constexpr glm::vec2 zero {0, 0};
+        if (entity->target_direction == zero) continue;
 
-            //TODO: Uncomment and Check block
-            // if (Tile tile; _tile_map.try_at(target_position, tile) && tile.state != TileState::BLOCKED) {
-            entity->position = target_position;
-            // }
-        }
+        glm::vec3 target_direction3 {entity->target_direction.x, 0, entity->target_direction.y};
+        const auto target_position = entity->position + target_direction3 * entity->movement_speed_base;
+        entity->position = target_position;
     }
 
     // Update contacts
@@ -80,7 +79,7 @@ void Subworld::remove_collision_area(const uint32_t area_id) {
 }
 
 std::vector<std::shared_ptr<CollisionObject>>
-Subworld::get_collisions(const std::shared_ptr<CollisionObject>& collider) {
+Subworld::get_collisions(const std::shared_ptr<CollisionObject>& collider) const {
     std::vector<std::shared_ptr<CollisionObject>> collisions {};
     for (auto& [_, other] : _collision_objects) {
         if (collider->is_colliding(other)) continue;
@@ -92,7 +91,7 @@ Subworld::get_collisions(const std::shared_ptr<CollisionObject>& collider) {
 }
 
 std::vector<std::shared_ptr<CollisionObject>> Subworld::get_collisions(const CollisionShape* target_shape,
-    const uint32_t mask) {
+    const uint32_t mask) const {
     std::vector<std::shared_ptr<CollisionObject>> collisions {};
     for (auto& [_, c] : _collision_objects) {
         if (!(mask & c->layer)) continue;

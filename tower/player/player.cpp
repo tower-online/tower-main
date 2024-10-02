@@ -1,8 +1,8 @@
 #include <spdlog/spdlog.h>
-#include <tower/item/equipment/fist.hpp>
+#include <tower/item/equipment/weapon/fist.hpp>
 #include <tower/player/player.hpp>
-#include <tower/world/collision/collision_object.hpp>
-#include <tower/world/collision/rectangle_collision_shape.hpp>
+#include <tower/physics/collision_object.hpp>
+#include <tower/physics/cube_collision_shape.hpp>
 
 namespace tower::player {
 Player::Player(const EntityType type)
@@ -68,6 +68,7 @@ boost::asio::awaitable<std::shared_ptr<Player>> Player::load(boost::mysql::poole
 
     const auto r2 = result.rows()[0];
     auto& stats = player->stats;
+    //TODO: Use static result
     try {
         stats.level.set(static_cast<int16_t>(r2.at(1).as_int64()));
         stats.exp.set(static_cast<int32_t>(r2.at(2).as_int64()));
@@ -90,6 +91,8 @@ boost::asio::awaitable<std::shared_ptr<Player>> Player::load(boost::mysql::poole
 }
 
 std::shared_ptr<Player> Player::create(EntityType type) {
+    using namespace physics;
+
     auto player = std::make_shared<Player>(type);
     player->add_child(player->pivot);
 
@@ -99,17 +102,18 @@ std::shared_ptr<Player> Player::create(EntityType type) {
     player->resource.health = player->resource.max_health;
 
     const auto body_collider = CollisionObject::create(
-        std::make_shared<RectangleCollisionShape>(glm::vec2 {12, 12}),
-        static_cast<uint32_t>(ColliderLayer::ENTITIES | ColliderLayer::PLAYERS),
+        std::make_shared<CubeCollisionShape>(glm::vec3 {1, 2, 1}),
+        ColliderLayer::ENTITIES | ColliderLayer::PLAYERS,
         0
     );
     player->add_child(body_collider);
 
-    const auto weapon_offset = std::make_shared<Node>(glm::vec2 {12, 0}, 0);
+    const auto weapon_offset = std::make_shared<Node>(glm::vec3 {0, 0, 1}, 0);
     player->pivot->add_child(weapon_offset);
 
-    auto fist = std::make_shared<Fist>();
-    weapon_offset->add_child(fist->attack_shape);
+    //TODO: Read inventory items from DB
+    auto fist = Fist::create();
+    weapon_offset->add_child(fist->node);
     player->inventory.set_main_weapon(std::move(fist));
 
     return player;

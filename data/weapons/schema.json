@@ -1,0 +1,53 @@
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for the weapon"
+    },
+    "name": {
+      "type": "string",
+      "description": "Name of the weapon"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of the weapon"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["Fist", "OneArmSword", "TwoArmSword", "Bow"],
+      "description": "Type of weapon"
+    },
+    "targeting": {
+      "type": "bool",
+      "description": "Type of targeting mechanism; Non-target or Target"
+    },
+    "modifiers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string",
+            "description": "Target attribute for modification"
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["add", "multiply"],
+            "description": "Mode of modification"
+          },
+          "multiplier": {
+            "type": "number",
+            "description": "Multiplier for the modification"
+          }
+        },
+        "required": ["target", "mode", "multiplier"]
+      }
+    },
+    "attackInterval": {
+      "type": "number",
+      "description": "Time in milliseconds between attacks"
+    }
+  },
+  "required": ["id", "name", "type", "targeting", "modifiers"]
+}

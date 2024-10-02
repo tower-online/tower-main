@@ -4,7 +4,7 @@
 #include <tower/physics/collision_shape.hpp>
 #include <tower/world/node.hpp>
 
-namespace tower::world {
+namespace tower::physics {
 
 enum class ColliderLayer : uint32_t {
     NONE     = 0,
@@ -14,7 +14,7 @@ enum class ColliderLayer : uint32_t {
     MOBS = 1 << 3,
 };
 
-class CollisionObject : public Node {
+class CollisionObject : public world::Node {
 public:
     CollisionObject(const CollisionShape* shape, uint32_t layer, uint32_t mask);
 

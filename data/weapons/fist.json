@@ -1,0 +1,13 @@
+{
+  "$schema": "schema.json",
+  "id": "weapon_fist",
+  "name": "fist",
+  "description": "A default weapon when unarmed. Non-target attack enemies in front of the player.",
+  "type": "Fist",
+  "targeting": false,
+  "attackShape": [1, 1, 1],
+  "attackInterval": 1000,
+  "modifiers": [
+    {"target": "str", "mode": "add", "multiplier": 1.0}
+  ]
+}

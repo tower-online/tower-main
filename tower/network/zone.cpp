@@ -1,14 +1,15 @@
 #include <glm/geometric.hpp>
 #include <glm/trigonometric.hpp>
 #include <tower/entity/entity.hpp>
-#include <tower/item/equipment/fist.hpp>
 #include <tower/network/zone.hpp>
-#include <tower/system/math.hpp>
 
 #include <cmath>
 
 namespace tower::network {
 using namespace tower::player;
+
+static constexpr glm::vec2 zero2 {0, 0};
+static constexpr glm::vec3 zero3 {0, 0, 0};
 
 Zone::Zone(const uint32_t zone_id, boost::asio::any_io_executor& executor)
     : zone_id {zone_id}, _strand {make_strand(executor)} {}
@@ -51,7 +52,7 @@ void Zone::add_client_deferred(const std::shared_ptr<Client>& client) {
         _client_entries.insert_or_assign(client_entry->client->entry_id, std::move(client_entry));
 
         const auto& player = client->player;
-        player->position = {0, 0};
+        player->position = zero3;
 
         _subworld->add_entity(player);
 
@@ -173,8 +174,8 @@ void Zone::handle_packet(std::shared_ptr<Packet>&& packet) {
         handle_player_movement(std::move(packet->client), packet_base->packet_base_as<PlayerMovement>());
         break;
 
-    case PacketType::EntityMeleeAttack:
-        handle_entity_melee_attack(std::move(packet->client), packet_base->packet_base_as<EntityMeleeAttack>());
+    case PacketType::SkillMeleeAttack:
+        handle_skill_melee_attack(std::move(packet->client), packet_base->packet_base_as<SkillMeleeAttack>());
         break;
 
     default:
@@ -193,33 +194,32 @@ void Zone::handle_player_movement(std::shared_ptr<Client>&& client, const Player
     if (std::isnan(target_direction.x) || std::isnan(target_direction.y)) {
         return;
     }
-    if (target_direction != glm::vec2 {0.0f, 0.0f}) {
+    if (target_direction != zero2) {
         target_direction = normalize(target_direction);
     }
 
     const auto& player = client->player;
     player->target_direction = target_direction;
-    if (player->target_direction != glm::vec2 {0.0f, 0.0f}) {
-        // player->pivot->rotation = glm::atan(player->target_direction.y / player->target_direction.x);
-        player->pivot->rotation = direction_to_4way_angle(player->target_direction);
+    if (player->target_direction != zero2) {
+        player->pivot->rotation = glm::atan(target_direction.y, target_direction.x);
     }
 }
 
-void Zone::handle_entity_melee_attack(std::shared_ptr<Client>&& client, const EntityMeleeAttack* attack) {
-    // Replicate player's melee attack
-    {
-        flatbuffers::FlatBufferBuilder builder {128};
-        const auto attack_replication = CreateEntityMeleeAttack(builder, client->player->entity_id);
-        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityMeleeAttack,
-            attack_replication.Union()));
-        broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
-    }
+void Zone::handle_skill_melee_attack(std::shared_ptr<Client>&& client, const SkillMeleeAttack* attack) {
+    // // Replicate player's melee attack
+    // {
+    //     flatbuffers::FlatBufferBuilder builder {128};
+    //     const auto attack_replication = CreateEntityMeleeAttack(builder, client->player->entity_id);
+    //     builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityMeleeAttack,
+    //         attack_replication.Union()));
+    //     broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+    // }
 
-    auto fist = std::dynamic_pointer_cast<Fist>(client->player->inventory.get_main_weapon());
-    if (!fist) {
-        spdlog::info("[Zone] No Fist!!!");
-        return;
-    }
+    // auto fist = std::dynamic_pointer_cast<Fist>(client->player->inventory.get_main_weapon());
+    // if (!fist) {
+    //     spdlog::info("[Zone] No Fist!!!");
+    //     return;
+    // }
 
     // auto collisions = _subworld->get_collisions(fist->attack_shape.get(), static_cast<uint32_t>(ColliderLayer::ENTITIES));
     //

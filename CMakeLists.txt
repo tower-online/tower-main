@@ -54,9 +54,12 @@ add_library(libtower STATIC
     tower/game/modifier.hpp
 
     tower/item/item.hpp
+    tower/item/loader.hpp
+    tower/item/loader.cpp
     tower/item/equipment/equipment.hpp
     tower/item/equipment/weapon/fist.hpp
     tower/item/equipment/weapon/fist.cpp
+    tower/item/equipment/weapon/melee_attackable.hpp
     tower/item/equipment/weapon/weapon.hpp
 
     tower/network/client.hpp
@@ -82,11 +85,18 @@ add_library(libtower STATIC
     tower/player/inventory.hpp
     tower/player/inventory.cpp
     tower/player/stat.hpp
+    tower/player/skill/melee_attack.hpp
+    tower/player/skill/skill.hpp
+    tower/player/state/attacking_state.hpp
+    tower/player/state/idle_state.hpp
+    tower/player/state/jumping_state.hpp
+    tower/player/state/running_state.hpp
 
-    tower/system/math.hpp
     tower/system/probe.hpp
     tower/system/settings.hpp
     tower/system/settings.cpp
+    tower/system/state.hpp
+    tower/system/state_machine.hpp
     tower/system/timer.hpp
     tower/system/container/concurrent_map.hpp
     tower/system/container/concurrent_queue.hpp
@@ -97,8 +107,6 @@ add_library(libtower STATIC
     tower/world/subworld.cpp
     tower/world/subworld.hpp
     tower/world/tile_map.hpp
-    tower/world/world_generator.hpp
-    tower/world/world_generator.cpp
 )
 add_library(tower::libtower ALIAS libtower)
 

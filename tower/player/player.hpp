@@ -6,6 +6,7 @@
 #include <tower/network/packet/player_types.hpp>
 #include <tower/player/inventory.hpp>
 #include <tower/player/stat.hpp>
+#include <tower/system/state_machine.hpp>
 
 namespace tower::player {
 using namespace tower::entity;
@@ -28,6 +29,7 @@ public:
     std::shared_ptr<Node> pivot {std::make_shared<Node>()};
     Inventory inventory {};
     Stats stats {};
+    StateMachine state_machine {};
 
 private:
     uint32_t _character_id {};

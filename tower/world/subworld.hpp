@@ -23,8 +23,8 @@ public:
     void remove_collision_objects_from_tree(const std::shared_ptr<Node>& node);
     void add_collision_area(const std::shared_ptr<CollisionObject>& area);
     void remove_collision_area(uint32_t area_id);
-    std::vector<std::shared_ptr<CollisionObject>> get_collisions(const std::shared_ptr<CollisionObject>& collider);
-    std::vector<std::shared_ptr<CollisionObject>> get_collisions(const CollisionShape* target_shape, uint32_t mask);
+    std::vector<std::shared_ptr<CollisionObject>> get_collisions(const std::shared_ptr<CollisionObject>& collider) const;
+    std::vector<std::shared_ptr<CollisionObject>> get_collisions(const CollisionShape* target_shape, uint32_t mask) const;
 
     const std::unordered_map<uint32_t, std::shared_ptr<Entity>>& get_entities() const { return _entities; }
     const TileMap& get_tilemap() const { return _tile_map; }

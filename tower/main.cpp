@@ -1,4 +1,6 @@
+#include <boost/json/src.hpp>
 #include <boost/redis/src.hpp>
+#include <tower/item/loader.hpp>
 #include <tower/network/server.hpp>
 #include <tower/system/settings.hpp>
 
@@ -15,6 +17,7 @@ int main(int argc, char* argv[]) {
 #endif
 
     Settings::init();
+    item::Loader::load_all();
 
     constexpr size_t num_threads = 4; //std::thread::hardware_concurrency();
     boost::asio::thread_pool workers {num_threads - 1};

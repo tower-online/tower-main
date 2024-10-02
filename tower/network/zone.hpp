@@ -35,7 +35,7 @@ private:
     void broadcast(std::shared_ptr<flatbuffers::DetachedBuffer>&& buffer, uint32_t except = 0);
     void handle_packet(std::shared_ptr<Packet>&& packet);
     void handle_player_movement(std::shared_ptr<Client>&& client, const PlayerMovement* movement);
-    void handle_entity_melee_attack(std::shared_ptr<Client>&& client, const EntityMeleeAttack* attack);
+    void handle_skill_melee_attack(std::shared_ptr<Client>&& client, const SkillMeleeAttack* attack);
 
 public:
     const uint32_t zone_id;

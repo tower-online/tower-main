@@ -2,7 +2,9 @@
 
 #include <glm/vec2.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <tower/units.hpp>
 
+#include <atomic>
 #include <memory>
 #include <vector>
 
@@ -25,14 +27,17 @@ public:
     glm::vec3 get_global_position() const;
     float get_global_rotation() const;
 
+    const uint32_t node_id {++id_generator};
     glm::vec3 position {};
-    float rotation {};
+    radian rotation {};
 
 protected:
     std::weak_ptr<Node> parent;
     std::vector<std::shared_ptr<Node>> children {};
-};
 
+private:
+    inline static std::atomic<uint32_t> id_generator {0};
+};
 
 inline Node::Node(const glm::vec3& position, const float rotation)
     : position {position}, rotation {rotation} {}

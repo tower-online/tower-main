@@ -77,38 +77,39 @@ inline TileMap::TileMap(const glm::uvec2& size)
 
 inline TileMap TileMap::load_tile_map(std::string_view name) {
     spdlog::info("[TileMap] Loading tile map {}", name);
+    spdlog::warn("[TileMap] This method is not implemented!");
 
-    std::ifstream stream {std::format("{}/{}.bin", TILE_MAP_DATA_ROOT, name), std::ios::in | std::ios::binary};
-    if (!stream.is_open()) {
-        spdlog::error("[TileMap] Cannot open tile map {}", name);
-        return {};
-    }
-    const std::vector<uint8_t> buffer {std::istreambuf_iterator<char> {stream}, std::istreambuf_iterator<char> {}};
+    // std::ifstream stream {std::format("{}/{}.bin", TILE_MAP_DATA_ROOT, name), std::ios::in | std::ios::binary};
+    // if (!stream.is_open()) {
+    //     spdlog::error("[TileMap] Cannot open tile map {}", name);
+    //     return {};
+    // }
+    // const std::vector<uint8_t> buffer {std::istreambuf_iterator<char> {stream}, std::istreambuf_iterator<char> {}};
 
-    using namespace tower::world::data;
-    const auto tile_map_data = GetTileMapData(buffer.data());
-    if (flatbuffers::Verifier verifier {buffer.data(), buffer.size()}; !tile_map_data || !tile_map_data->
-        Verify(verifier)) {
-        spdlog::error("[TileMap] Invalid tile map {}", name);
-        return {};
-    }
+    // using namespace tower::world::data;
+    // const auto tile_map_data = GetTileMapData(buffer.data());
+    // if (flatbuffers::Verifier verifier {buffer.data(), buffer.size()}; !tile_map_data || !tile_map_data->
+    //     Verify(verifier)) {
+    //     spdlog::error("[TileMap] Invalid tile map {}", name);
+    //     return {};
+    // }
 
-    TileMap tile_map {glm::uvec2 {tile_map_data->size()->x(), tile_map_data->size()->y()}};
-    tile_map._name = name;
+    // TileMap tile_map {glm::uvec2 {tile_map_data->size()->x(), tile_map_data->size()->y()}};
+    // tile_map._name = name;
 
-    const auto tiles = tile_map_data->tiles();
-    if (const auto size = tile_map.get_size(); size.x * size.y != tiles->size()) {
-        spdlog::error("[TileMap] Invalid tile map size {}", name);
-        return {};
-    }
+    // const auto tiles = tile_map_data->tiles();
+    // if (const auto size = tile_map.get_size(); size.x * size.y != tiles->size()) {
+    //     spdlog::error("[TileMap] Invalid tile map size {}", name);
+    //     return {};
+    // }
 
-    for (auto i {0}; i < tiles->size(); ++i) {
-        const auto tile_data = tiles->Get(i);
-        tile_map.at(i) = Tile {.type = tile_data->type(), .state = tile_data->state()};
-    }
+    // for (auto i {0}; i < tiles->size(); ++i) {
+    //     const auto tile_data = tiles->Get(i);
+    //     tile_map.at(i) = Tile {.type = tile_data->type(), .state = tile_data->state()};
+    // }
 
-    spdlog::info("[TileMap] Loaded tile map {}", name);
-    return tile_map;
+    // spdlog::info("[TileMap] Loaded tile map {}", name);
+    return {};
 }
 
 inline Point TileMap::position_to_point(const glm::vec2& position) {
