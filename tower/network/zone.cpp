@@ -2,7 +2,8 @@
 #include <glm/trigonometric.hpp>
 #include <tower/entity/entity.hpp>
 #include <tower/network/zone.hpp>
-#include <tower/player/skill/melee_attack.hpp>
+
+#include <tower/item/equipment/weapon/melee_attackable.hpp>
 
 #include <cmath>
 

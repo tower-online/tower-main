@@ -86,8 +86,6 @@ add_library(libtower STATIC
     tower/player/inventory.hpp
     tower/player/inventory.cpp
     tower/player/stat.hpp
-    tower/player/skill/melee_attack.hpp
-    tower/player/skill/skill.hpp
     tower/player/state/attacking_state.hpp
     tower/player/state/idle_state.hpp
     tower/player/state/jumping_state.hpp
