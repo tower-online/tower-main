@@ -67,6 +67,7 @@ add_library(libtower STATIC
     tower/network/connection.hpp
     tower/network/connection.cpp
     tower/network/packet.hpp
+    tower/network/profiler.hpp
     tower/network/server.hpp
     tower/network/server.cpp
     tower/network/server_shared_state.hpp

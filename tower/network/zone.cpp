@@ -51,6 +51,7 @@ void Zone::add_client_deferred(const std::shared_ptr<Client>& client) {
                 remove_client_deferred(c);
             }));
         _client_entries.insert_or_assign(client_entry->client->entry_id, std::move(client_entry));
+        // spdlog::debug("[Zone] ({}) Added Client({})", zone_id, client->entry_id);
 
         const auto& player = client->player;
         player->position = zero3;
@@ -104,10 +105,10 @@ void Zone::add_client_deferred(const std::shared_ptr<Client>& client) {
 }
 
 void Zone::remove_client_deferred(const std::shared_ptr<Client>& client) {
-    co_spawn(_strand, [this, client]()->boost::asio::awaitable<void> {
+    post(_strand, [this, client] {
         _subworld->remove_entity(client->player);
         _client_entries.erase(client->entry_id);
-        spdlog::info("[Zone] Removed Client({})", client->entry_id);
+        // spdlog::debug("[Zone] ({}) Removed Client({})", zone_id, client->entry_id);
 
         // Broadcast EntityDespawn
         flatbuffers::FlatBufferBuilder builder {64};
@@ -118,9 +119,7 @@ void Zone::remove_client_deferred(const std::shared_ptr<Client>& client) {
         if (_client_entries.empty()) {
             stop();
         }
-
-        co_return;
-    }, boost::asio::detached);
+    });
 }
 
 void Zone::tick() {

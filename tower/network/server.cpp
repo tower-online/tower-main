@@ -15,9 +15,12 @@ Server::Server(boost::asio::any_io_executor&& executor, const std::shared_ptr<Se
 Server::~Server() { stop(); }
 
 void Server::init() {
-    // default zone
-    _zones.insert_or_assign(0, std::make_unique<Zone>(0, _executor));
-    _zones[0]->init("test_zone");
+    // TODO: Read zone data from file or DB
+    for (uint32_t zone_id {1}; zone_id <= 10; ++zone_id) {
+        auto zone {std::make_unique<Zone>(zone_id, _executor)};
+        zone->init("TODO!");
+        _zones[zone_id] = std::move(zone);
+    }
 }
 
 void Server::start() {
@@ -56,10 +59,13 @@ void Server::start() {
             }
 
             static uint32_t entry_id_generator {0};
-            auto client = std::make_shared<Client>(_executor,
+            auto client = std::make_shared<Client>(
+                _executor,
                 std::move(socket),
                 ++entry_id_generator,
                 [this](std::shared_ptr<Client>&& c, std::vector<uint8_t>&& buffer) {
+                _profiler.add_packet(buffer.size());
+
                 if (flatbuffers::Verifier verifier {buffer.data(), buffer.size()}; !VerifyPacketBaseBuffer(verifier)) {
                     spdlog::warn("[Server] Invalid PacketBase from Client({})", c->entry_id);
                     c->stop();
@@ -85,6 +91,23 @@ void Server::start() {
                 _client_entries.emplace(entry_id, std::move(entry));
                 _client_entries[entry_id]->client->start();
             });
+        }
+    }, boost::asio::detached);
+
+
+    // Spwan profiler logging loop
+    co_spawn(_executor, [this]->boost::asio::awaitable<void>{
+        boost::asio::steady_timer timer {_executor};
+
+        while (_is_running) {
+            timer.expires_after(3000ms);
+            if (auto [ec] = co_await timer.async_wait(as_tuple(boost::asio::use_awaitable));
+                ec || !_is_running) {
+                co_return;
+            }
+
+            _profiler.renew();
+            spdlog::info("{} clients, {} packets/s, {} bytes/s", _client_entries.size(), _profiler.get_pps(), _profiler.get_bps());
         }
     }, boost::asio::detached);
 }
@@ -218,8 +241,8 @@ boost::asio::awaitable<void> Server::handle_client_join_request(
     flatbuffers::FlatBufferBuilder builder {1024};
     const auto spawn = CreatePlayerSpawn(builder,
         true, client->player->entity_id, client->player->write_player_info(builder));
-    //TODO: Find player's last stayed zone. (Current: Default Zone 0)
-    const WorldLocation current_location {1, 0};
+    //TODO: Find player's last stayed zone. (Current: Default Zone 1)
+    const WorldLocation current_location {1, 1};
     const auto response = CreateClientJoinResponse(builder, &current_location, spawn);
     builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::ClientJoinResponse, response.Union()));
     client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
@@ -228,7 +251,20 @@ boost::asio::awaitable<void> Server::handle_client_join_request(
 void Server::handle_player_enter_zone_request(std::shared_ptr<Client>&& client, const PlayerEnterZoneRequest* request) {
     //TODO: Check if zone is reachable from current player's location
     const auto location = request->location();
-    _zones.at(location->zone_id())->add_client_deferred(client);
+    auto& current_zone_id {_client_entries[client->entry_id]->current_zone_id};
+    const auto next_zone_id {location->zone_id()};
+
+    if (_zones.contains(current_zone_id)) {
+        _zones.at(current_zone_id)->remove_client_deferred(client);
+    }
+    if (_zones.contains(next_zone_id)) {
+        _zones.at(location->zone_id())->add_client_deferred(client);
+    } else {
+        spdlog::warn("[Server] Client({}): Requested invalid zone enter", client->entry_id);
+        client->stop();
+        return;
+    }
+    current_zone_id = next_zone_id;
 
     flatbuffers::FlatBufferBuilder builder {128};
     const auto response = CreatePlayerEnterZoneResponse(builder, true, request->location());
