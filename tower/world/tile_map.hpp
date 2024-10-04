@@ -32,7 +32,7 @@ public:
     static Point position_to_point(const glm::vec2& position);
     static glm::vec2 point_to_position(const Point& point);
 
-    glm::uvec2 get_size() const { return {_grid.size_x, _grid.size_y}; }
+    glm::uvec2 get_size() const { return {_grid.rows, _grid.cols}; }
     const Grid<Tile>& get_grid() const { return _grid; }
     std::string_view get_name() const { return _name; }
 

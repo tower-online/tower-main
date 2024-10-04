@@ -1,8 +1,8 @@
 #include <tower/world/subworld.hpp>
 
 namespace tower::world {
-Subworld::Subworld(std::string_view tile_map_name)
-    : _tile_map {TileMap::load_tile_map(tile_map_name)} {}
+Subworld::Subworld(Grid<bool>&& grid)
+    : _grid {std::move(grid)} {}
 
 void Subworld::tick() {
 

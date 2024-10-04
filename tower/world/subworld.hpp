@@ -12,7 +12,7 @@ using namespace tower::physics;
 
 class Subworld {
 public:
-    explicit Subworld(std::string_view tile_map_name);
+    explicit Subworld(Grid<bool>&& grid);
 
     void tick();
 
@@ -35,6 +35,6 @@ private:
     std::unordered_map<uint32_t, std::shared_ptr<CollisionObject>> _collision_objects {};
     std::unordered_map<uint32_t, std::shared_ptr<CollisionObject>> _collision_areas {};
     std::unordered_map<uint32_t, std::unordered_set<uint32_t>> _contacts {};
-    TileMap _tile_map;
+    Grid<bool> _grid;
 };
 }

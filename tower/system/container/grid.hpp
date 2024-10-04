@@ -1,83 +1,67 @@
 #pragma once
 
-#include <cmath>
-#include <functional>
 #include <vector>
 
 namespace tower {
-struct Point {
-    int x, y;
-
-    struct Hash {
-        int operator()(const Point& p) const {
-            return std::hash<int> {}(p.x) ^ (std::hash<int> {}(p.y) << 1);
-        }
-    };
-
-    bool operator==(const Point& other) const {
-        return x == other.x && y == other.y;
-    }
-
-    Point operator+(const Point& other) const {
-        return Point {x + other.x, y + other.y};
-    }
-
-    static int manhattan_distance(const Point p1, const Point p2) {
-        return std::abs(p1.x - p2.x) + std::abs(p1.y - p2.y);
-    }
-
-    static float euclidean_distance(const Point p1, const Point p2) {
-        return sqrtf(
-            static_cast<float>((p1.x - p2.x) * (p1.x - p2.x)) + static_cast<float>((p1.y - p2.y) * (p1.y - p2.y)));
-    }
-};
-
 template <typename T>
 class Grid {
 public:
-    Grid(const size_t size_x, const size_t size_y,
-        std::function<bool(const Point& p, const T& x)>&& is_blocked_internal = [] { return false; })
-        : _data {}, size_x {size_x}, size_y {size_y}, _is_blocked_internal {std::move(is_blocked_internal)} {
-        _data.resize(size_x * size_y);
+    Grid(const size_t rows, const size_t cols)
+        : rows {rows}, cols {cols}, _data {} {
+        _data.resize(rows * cols);
     }
 
-    Grid(std::vector<T>&& data, const size_t size_x, const size_t size_y,
-        std::function<bool(const Point& p, const T& x)>&& is_blocked_internal = [] { return false; })
-        : _data {std::move(data)}, size_x {size_x}, size_y {size_y},
-        _is_blocked_internal {std::move(is_blocked_internal)} {}
+    Grid(Grid&& other) noexcept
+    : rows {other.rows}, cols {other.cols}, _data {std::move(other._data)} {}
 
-    const T& at(const Point& p) const { return _data[p.y * size_x + p.x]; }
-    T& at(const Point& p) { return _data[p.y * size_x + p.x]; }
-    T& at(const size_t i) { return _data[i]; }
-
-    bool is_inside(const Point& p) const {
-        return p.x >= 0 && p.x < size_x && p.y >= 0 && p.y < size_y;
+    Grid& operator=(Grid&& other) noexcept {
+        if (this != &other) {
+            _data = std::move(other._data);
+            rows = other.rows;
+            cols = other.cols;
+        }
+        return *this;
     }
 
-    bool is_blocked(const Point& p) const {
-        return _is_blocked_internal(p, at(p));
+    T& at(const int r, const int c) { return _data[r * cols + c]; }
+    T& at(const int i) { return _data[i]; }
+
+    bool is_inside(const int r, const int c) const {
+        return r >= 0 && c >= 0 && r < rows && c < cols;
     }
 
-    std::vector<Point> get_neighbors(const Point& p) const {
-        const auto x = p.x, y = p.y;
-        std::vector<Point> neighbors {};
+    std::vector<std::pair<int, int>> get_4way_adjacents(const int r, const int c) const {
+        if (!is_inside(r, c)) return {};
+        std::vector<std::pair<int, int>> adjacents {};
 
-        if (x < size_x - 1) neighbors.emplace_back(x + 1, y);
-        if (x >= 1) neighbors.emplace_back(x - 1, y);
-        if (y < size_y - 1) neighbors.emplace_back(x, y + 1);
-        if (y >= 1) neighbors.emplace_back(x, y - 1);
-        if (x < size_x - 1 && y < size_y - 1) neighbors.emplace_back(x + 1, y + 1);
-        if (x < size_x - 1 && y >= 1) neighbors.emplace_back(x + 1, y - 1);
-        if (x >= 1 && y < size_y - 1) neighbors.emplace_back(x - 1, y + 1);
-        if (x >= 1 && y >= 1) neighbors.emplace_back(x - 1, y - 1);
+        if (r < rows - 1) adjacents.emplace_back(r + 1, c);
+        if (r >= 1) adjacents.emplace_back(r - 1, c);
+        if (c < cols - 1) adjacents.emplace_back(r, c + 1);
+        if (c >= 1) adjacents.emplace_back(r, c - 1);
 
-        return neighbors;
+        return adjacents;
     }
 
-    const size_t size_x, size_y;
+    std::vector<std::pair<int, int>> get_8way_adjacents(const int r, const int c) const {
+        if (!is_inside(r, c)) return {};
+        std::vector<std::pair<int, int>> adjacents {};
+
+        if (r < rows - 1) adjacents.emplace_back(r + 1, c);
+        if (r >= 1) adjacents.emplace_back(r - 1, c);
+        if (c < cols - 1) adjacents.emplace_back(r, c + 1);
+        if (c >= 1) adjacents.emplace_back(r, c - 1);
+
+        if (r < rows - 1 && c < cols - 1) adjacents.emplace_back(r + 1, c + 1);
+        if (r < rows - 1 && c >= 1) adjacents.emplace_back(r + 1, c - 1);
+        if (r >= 1 && c < cols - 1) adjacents.emplace_back(r - 1, c + 1);
+        if (r >= 1 && c >= 1) adjacents.emplace_back(r - 1, c - 1);
+
+        return adjacents;
+    }
+
+    const size_t rows, cols;
 
 private:
     std::vector<T> _data;
-    const std::function<bool(const Point& p, const T& x)> _is_blocked_internal;
 };
 }
