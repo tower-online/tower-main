@@ -20,14 +20,15 @@ public:
     Zone(uint32_t zone_id, boost::asio::any_io_executor& executor);
     ~Zone();
 
-    void handle_packet_deferred(std::shared_ptr<Packet>&& packet);
+    static std::unique_ptr<Zone> create(uint32_t zone_id, boost::asio::any_io_executor& executor,
+        std::string_view zone_data_file);
 
-    void init(std::string_view tile_map);
     void start();
     void stop();
 
     void add_client_deferred(const std::shared_ptr<Client>& client);
     void remove_client_deferred(const std::shared_ptr<Client>& client);
+    void handle_packet_deferred(std::shared_ptr<Packet>&& packet);
 
 private:
     void tick();

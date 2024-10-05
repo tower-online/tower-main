@@ -37,7 +37,7 @@ private:
     Profiler _profiler {};
 
     std::unordered_map<uint32_t, std::unique_ptr<ClientEntry>> _client_entries {};
-    std::unordered_map<uint32_t, std::shared_ptr<Zone>> _zones {};
+    std::unordered_map<uint32_t, std::unique_ptr<Zone>> _zones {};
 };
 
 struct Server::ClientEntry {

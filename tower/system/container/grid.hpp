@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cmath>
 #include <vector>
 
 namespace tower {
@@ -23,11 +24,19 @@ public:
         return *this;
     }
 
-    T& at(const int r, const int c) { return _data[r * cols + c]; }
-    T& at(const int i) { return _data[i]; }
+    typename std::vector<T>::reference at(const size_t r, const size_t c) { return _data[r * cols + c]; }
+    typename std::vector<T>::reference at(const float fr, const float fc) { return at((size_t)std::floor(fr), (size_t)std::floor(fc)); }
+    typename std::vector<T>::reference at(const size_t i) { return _data[i]; }
+
+    typename std::vector<T>::const_reference at(const size_t r, const size_t c) const { return _data.at(r * cols + c); }
+    typename std::vector<T>::const_reference at(const float fr, const float fc) const { return at((size_t)std::floor(fr), (size_t)std::floor(fc)); }
+    typename std::vector<T>::const_reference at(const size_t i) const { return _data.at(i); }
 
     bool is_inside(const int r, const int c) const {
         return r >= 0 && c >= 0 && r < rows && c < cols;
+    }
+    bool is_inside(const float fr, const float fc) const {
+        return fr >= 0 && fc >= 0 && fr <= rows - 1 && fc <= cols - 1;
     }
 
     std::vector<std::pair<int, int>> get_4way_adjacents(const int r, const int c) const {

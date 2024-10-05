@@ -105,7 +105,6 @@ add_library(libtower STATIC
     tower/world/path_finder.hpp
     tower/world/subworld.cpp
     tower/world/subworld.hpp
-    tower/world/tile_map.hpp
 )
 add_library(tower::libtower ALIAS libtower)
 
@@ -139,6 +138,7 @@ target_link_libraries(tower-server PRIVATE tower::libtower)
 
 ### SCHEMAS ###
 file(GLOB_RECURSE packet_schemas schemas/packet/*.fbs)
+file(GLOB_RECURSE world_schemas schemas/world/*.fbs)
 
 macro(schema_compiler in_file include_dir out_dir)
     get_filename_component(name ${in_file} NAME_WE)
@@ -161,6 +161,10 @@ endmacro()
 
 foreach(schema_file ${packet_schemas})
     schema_compiler(${schema_file} ${CMAKE_CURRENT_SOURCE_DIR}/schemas/packet ${CMAKE_CURRENT_BINARY_DIR}/tower/tower/network/packet)
+endforeach()
+
+foreach(schema_file ${world_schemas})
+    schema_compiler(${schema_file} ${CMAKE_CURRENT_SOURCE_DIR}/schemas/world ${CMAKE_CURRENT_BINARY_DIR}/tower/tower/world/data)
 endforeach()
 
 

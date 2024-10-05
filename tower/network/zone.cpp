@@ -1,11 +1,15 @@
 #include <glm/geometric.hpp>
 #include <glm/trigonometric.hpp>
+#include <spdlog/spdlog.h>
 #include <tower/entity/entity.hpp>
 #include <tower/network/zone.hpp>
+#include <tower/world/data/zone_data.hpp>
 
 #include <tower/item/equipment/weapon/melee_attackable.hpp>
 
 #include <cmath>
+#include <fstream>
+#include <filesystem>
 
 namespace tower::network {
 using namespace tower::player;
@@ -20,14 +24,53 @@ Zone::~Zone() {
     stop();
 }
 
+std::unique_ptr<Zone> Zone::create(uint32_t zone_id, boost::asio::any_io_executor& executor,
+    std::string_view zone_data_file) {
+    auto zone {std::make_unique<Zone>(zone_id, executor)};
+
+    // Read Zone data
+    std::vector<uint8_t> buffer;
+    {
+        std::error_code ec;
+        std::ifstream f {zone_data_file.data(), std::ios_base::binary};
+        const auto length {std::filesystem::file_size(zone_data_file, ec)};
+
+        if (ec) {
+            spdlog::error("Invalid zone data file: {}", zone_data_file);
+            return {};
+        }
+        buffer.resize(length);
+        f.read(reinterpret_cast<char*>(buffer.data()), length);
+    }
+
+    const auto zone_data {world::data::GetZoneData(buffer.data())};
+    if (flatbuffers::Verifier verifier {buffer.data(), buffer.size()}; !zone_data || !zone_data->
+        Verify(verifier)) {
+        spdlog::error("Invalid zone data file: {}", zone_data_file);
+        return {};
+    }
+
+    const auto grid_vector {zone_data->grid()};
+    const auto size_x {zone_data->size_x()}, size_z {zone_data->size_z()};
+    if (size_x * size_z != grid_vector->size()) {
+        spdlog::error("Invalid zone data file: {}", zone_data_file);
+        return {};
+    }
+
+    Grid<bool> obstacles_grid {size_x, size_z};
+    for (size_t i {0}; i < grid_vector->size(); ++i) {
+        obstacles_grid.at(i) = grid_vector->Get(i)->is_blocked();
+    }
+
+    zone->_subworld = std::make_unique<Subworld>(std::move(obstacles_grid));
+
+    return zone;
+}
+
 void Zone::handle_packet_deferred(std::shared_ptr<Packet>&& packet) {
     post(_strand, [this, packet {std::move(packet)}] mutable {
         handle_packet(std::move(packet));
     });
-}
-
-void Zone::init(std::string_view tile_map) {
-    _subworld = std::make_unique<Subworld>(tile_map);
 }
 
 void Zone::start() {
@@ -250,7 +293,7 @@ void Zone::handle_skill_melee_attack(std::shared_ptr<Client>&& client, const Ski
     co_spawn(_strand, [this, player]->boost::asio::awaitable<void> {
         //TODO: Get attack period from weapon
         boost::asio::steady_timer timer {_strand, 1000ms};
-        auto [_] = co_await timer.async_wait(as_tuple(boost::asio::use_awaitable));
+        co_await timer.async_wait(boost::asio::use_awaitable);
         //TODO: Check if player is still in the zone?
         player->state_machine.try_transition("Idle");
     }, boost::asio::detached);

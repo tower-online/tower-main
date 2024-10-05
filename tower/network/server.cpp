@@ -17,8 +17,10 @@ Server::~Server() { stop(); }
 void Server::init() {
     // TODO: Read zone data from file or DB
     for (uint32_t zone_id {1}; zone_id <= 10; ++zone_id) {
-        auto zone {std::make_unique<Zone>(zone_id, _executor)};
-        zone->init("TODO!");
+        auto zone {Zone::create(zone_id, _executor,
+            std::format("{}/zones/F1Z{}.bin", TOWER_DATA_ROOT, zone_id))};
+        if (!zone) continue;
+
         _zones[zone_id] = std::move(zone);
     }
 }
@@ -246,6 +248,8 @@ boost::asio::awaitable<void> Server::handle_client_join_request(
     const auto response = CreateClientJoinResponse(builder, &current_location, spawn);
     builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::ClientJoinResponse, response.Union()));
     client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+
+    _client_entries[client->entry_id]->current_zone_id = 1;
 }
 
 void Server::handle_player_enter_zone_request(std::shared_ptr<Client>&& client, const PlayerEnterZoneRequest* request) {
@@ -254,11 +258,10 @@ void Server::handle_player_enter_zone_request(std::shared_ptr<Client>&& client, 
     auto& current_zone_id {_client_entries[client->entry_id]->current_zone_id};
     const auto next_zone_id {location->zone_id()};
 
-    if (_zones.contains(current_zone_id)) {
+    if (_zones.contains(current_zone_id) && _zones.contains(next_zone_id)) {
+        //TODO: Player can be exist on two zones at the same time... fix?
         _zones.at(current_zone_id)->remove_client_deferred(client);
-    }
-    if (_zones.contains(next_zone_id)) {
-        _zones.at(location->zone_id())->add_client_deferred(client);
+        _zones.at(next_zone_id)->add_client_deferred(client);
     } else {
         spdlog::warn("[Server] Client({}): Requested invalid zone enter", client->entry_id);
         client->stop();

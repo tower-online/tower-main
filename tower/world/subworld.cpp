@@ -1,8 +1,8 @@
 #include <tower/world/subworld.hpp>
 
 namespace tower::world {
-Subworld::Subworld(Grid<bool>&& grid)
-    : _grid {std::move(grid)} {}
+Subworld::Subworld(Grid<bool>&& obstacles_grid)
+    : _obstacles_grid {std::move(obstacles_grid)} {}
 
 void Subworld::tick() {
 
@@ -15,7 +15,13 @@ void Subworld::tick() {
 
         glm::vec3 target_direction3 {entity->target_direction.x, 0, entity->target_direction.y};
         const auto target_position = entity->position + target_direction3 * entity->movement_speed_base;
-        entity->position = target_position;
+
+        if (!_obstacles_grid.at(target_position.x, target_position.z)) {
+            entity->position = target_position;
+            continue;
+        }
+
+        // TODO: Target position is blocked. Try to approach as close as possible.
     }
 
     // Update contacts
