@@ -14,9 +14,12 @@ void Subworld::tick() {
 
         const auto target_position = entity->position + entity->target_direction * entity->movement_speed_base;
 
-        if (!_obstacles_grid.is_inside(target_position.z, target_position.x)) continue;
+        const auto x {static_cast<int>(std::floor(target_position.x))};
+        const auto z {static_cast<int>(std::floor(target_position.z))};
 
-        if (!_obstacles_grid.at(target_position.z, target_position.x)) {
+        if (!_obstacles_grid.is_inside(z, x)) continue;
+
+        if (!_obstacles_grid.at(z, x)) {
             entity->position = target_position;
             continue;
         }
