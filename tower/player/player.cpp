@@ -114,7 +114,7 @@ std::shared_ptr<Player> Player::create(EntityType type) {
     }
 
     //TODO: Read values from file
-    player->movement_speed_base = 0.1f;
+    player->movement_speed_base = 0.25f;
     player->resource.max_health = 100.0f;
     player->resource.health = player->resource.max_health;
 

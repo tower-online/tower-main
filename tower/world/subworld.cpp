@@ -10,17 +10,16 @@ void Subworld::tick() {
     for (auto& [_, entity] : _entities) {
         // Check if tile is blocked and move
         //TODO: Pull out if entity is already in collider
-        static constexpr glm::vec2 zero {0, 0};
-        if (entity->target_direction == zero) continue;
+        if (entity->target_direction == zero3) continue;
 
-        glm::vec3 target_direction3 {entity->target_direction.x, 0, entity->target_direction.y};
-        const auto target_position = entity->position + target_direction3 * entity->movement_speed_base;
+        const auto target_position = entity->position + entity->target_direction * entity->movement_speed_base;
 
-        if (!_obstacles_grid.at(target_position.x, target_position.z)) {
+        if (!_obstacles_grid.is_inside(target_position.z, target_position.x)) continue;
+
+        if (!_obstacles_grid.at(target_position.z, target_position.x)) {
             entity->position = target_position;
             continue;
         }
-
         // TODO: Target position is blocked. Try to approach as close as possible.
     }
 

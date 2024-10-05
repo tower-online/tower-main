@@ -39,7 +39,7 @@ public:
     const uint32_t entity_id;
     const EntityType entity_type;
 
-    glm::vec2 target_direction {};
+    glm::vec3 target_direction {};
     float movement_speed_base {0};
 
     EntityResource resource;

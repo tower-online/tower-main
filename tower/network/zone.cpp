@@ -14,9 +14,6 @@
 namespace tower::network {
 using namespace tower::player;
 
-static constexpr glm::vec2 zero2 {0, 0};
-static constexpr glm::vec3 zero3 {0, 0, 0};
-
 Zone::Zone(const uint32_t zone_id, boost::asio::any_io_executor& executor)
     : zone_id {zone_id}, _strand {make_strand(executor)} {}
 
@@ -57,7 +54,7 @@ std::unique_ptr<Zone> Zone::create(uint32_t zone_id, boost::asio::any_io_executo
         return {};
     }
 
-    Grid<bool> obstacles_grid {size_x, size_z};
+    Grid<bool> obstacles_grid {size_z, size_x};
     for (size_t i {0}; i < grid_vector->size(); ++i) {
         obstacles_grid.at(i) = grid_vector->Get(i)->is_blocked();
     }
@@ -98,7 +95,7 @@ void Zone::add_client_deferred(const std::shared_ptr<Client>& client) {
         // spdlog::debug("[Zone] ({}) Added Client({})", zone_id, client->entry_id);
 
         const auto& player = client->player;
-        player->position = zero3;
+        player->position = glm::vec3 {_subworld->size_x() / 2, 0, _subworld->size_z() / 2};
 
         _subworld->add_entity(player);
 
@@ -182,7 +179,7 @@ void Zone::tick() {
             movements.emplace_back(
                 entity->entity_id,
                 Vector3 {entity->position.x, entity->position.y, entity->position.z},
-                Vector2 {entity->target_direction.x, entity->target_direction.y}
+                Vector3 {entity->target_direction.x, entity->target_direction.y, entity->target_direction.z}
             );
         }
 
@@ -228,25 +225,19 @@ void Zone::handle_packet(std::shared_ptr<Packet>&& packet) {
 }
 
 void Zone::handle_player_movement(std::shared_ptr<Client>&& client, const PlayerMovement* movement) {
-    glm::vec2 target_direction;
-    if (const auto target_direction_ptr = movement->target_direction(); !target_direction_ptr) {
+    const auto dir_x {movement->x()}, dir_z {movement->z()};
+    if (std::isnan(dir_x) || std::isnan(dir_z)) {
         return;
-    } else {
-        target_direction = {target_direction_ptr->x(), target_direction_ptr->y()};
-    }
-
-    if (std::isnan(target_direction.x) || std::isnan(target_direction.y)) {
-        return;
-    }
-    if (target_direction != zero2) {
-        target_direction = normalize(target_direction);
     }
 
     const auto& player = client->player;
-    player->target_direction = target_direction;
-    if (player->target_direction != zero2) {
-        player->pivot->rotation = glm::atan(target_direction.y, target_direction.x);
+    glm::vec3 target_direction {dir_x, 0, dir_z};
+
+    if (dir_x != 0 && dir_z != 0) {
+        target_direction = normalize(target_direction);
+        player->pivot->rotation = glm::atan(target_direction.x, target_direction.z);
     }
+    player->target_direction = target_direction;
 }
 
 void Zone::handle_skill_melee_attack(std::shared_ptr<Client>&& client, const SkillMeleeAttack* attack) {

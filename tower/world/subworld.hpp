@@ -10,6 +10,9 @@ namespace tower::world {
 using namespace tower::entity;
 using namespace tower::physics;
 
+static constexpr glm::vec2 zero2 {0, 0};
+static constexpr glm::vec3 zero3 {0, 0, 0};
+
 class Subworld {
 public:
     explicit Subworld(Grid<bool>&& obstacles_grid);
@@ -28,6 +31,9 @@ public:
 
     std::vector<std::shared_ptr<CollisionObject>> get_collisions(const std::shared_ptr<CollisionObject>& collider) const;
     std::vector<std::shared_ptr<CollisionObject>> get_collisions(const CollisionShape* target_shape, uint32_t mask) const;
+
+    imeters size_x() const { return _obstacles_grid.cols; }
+    imeters size_z() const { return _obstacles_grid.rows; }
 
 private:
     std::unordered_map<uint32_t, std::shared_ptr<Entity>> _entities {};
