@@ -9,9 +9,6 @@
 #include <vector>
 
 namespace tower::world {
-/**
- * Y-axis aligned 3D node.
- */
 class Node : public std::enable_shared_from_this<Node> {
 public:
     Node() = default;
@@ -27,6 +24,7 @@ public:
     glm::vec3 get_global_position() const;
     float get_global_rotation() const;
 
+public:
     const uint32_t node_id {++id_generator};
     glm::vec3 position {};
     radian rotation {};
@@ -54,10 +52,13 @@ inline void Node::set_parent(const std::shared_ptr<Node>& parent) {
 }
 
 inline std::shared_ptr<Node> Node::get_root() {
-    if (const auto p {parent.lock()}) {
-        return p->get_root();
+    auto node {shared_from_this()};
+
+    while (true) {
+        auto p {node->parent.lock()};
+        if (!p) return node;
+        node.swap(p);
     }
-    return shared_from_this();
 }
 
 inline const std::vector<std::shared_ptr<Node>>& Node::get_children() const {
@@ -69,20 +70,31 @@ inline std::shared_ptr<Node> Node::get_parent() {
 }
 
 inline glm::vec3 Node::get_global_position() const {
-    if (const auto p {parent.lock()}) {
-        const auto parent_position {p->get_global_position()};
-        const auto parent_rotation {p->get_global_rotation()};
-        const glm::quat quaternion {angleAxis(parent_rotation, glm::vec3(0, 1 ,0))};
+    glm::vec3 current_position {position};
+    auto p {parent.lock()};
 
-        return parent_position + quaternion * position;
+    while (p) {
+        const glm::quat quaternion {angleAxis(p->rotation, glm::vec3(0, 1 ,0))};
+        current_position = p->position + quaternion * current_position;
+
+        // const auto rotation_mat {rotate(glm::mat4(1), p->rotation, glm::vec3(0, 1, 0))};
+        // current_position = p->position + glm::vec3 { glm::vec4 {current_position, 1} * rotation_mat};
+
+        p = p->parent.lock();
     }
-    return position;
+
+    return current_position;
 }
 
 inline float Node::get_global_rotation() const {
-    if (const auto p {parent.lock()}) {
-        return p->get_global_rotation() + rotation;
+    float current_rotation {rotation};
+    auto p {parent.lock()};
+
+    while (p) {
+        current_rotation += p->rotation;
+        p = p->parent.lock();
     }
-    return rotation;
+
+    return current_rotation;
 }
 }

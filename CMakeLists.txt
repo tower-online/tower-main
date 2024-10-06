@@ -50,6 +50,8 @@ add_library(libtower STATIC
     tower/units.hpp
 
     tower/entity/entity.hpp
+    tower/entity/simple_monster.hpp
+    tower/entity/simple_monster.cpp
 
     tower/game/modifier.hpp
 
@@ -170,14 +172,17 @@ endforeach()
 
 ### TESTS ###
 if (TOWER_BUILD_TESTS)
-    # unit tests
     FetchContent_Declare(
-        Catch2
-        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-        GIT_TAG v3.7.0
+            Catch2
+            GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+            GIT_TAG v3.7.0
     )
     FetchContent_MakeAvailable(Catch2)
 
+    # integration tests
+    add_subdirectory(tests)
+
+    # unit tests
     add_executable(tower-unit-tests
         tower/world/path_finder.test.cpp
     )
