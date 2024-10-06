@@ -240,6 +240,7 @@ void Zone::handle_player_movement(std::shared_ptr<Client>&& client, const Player
     player->target_direction = target_direction;
 }
 
+//TODO: Extract?
 void Zone::handle_skill_melee_attack(std::shared_ptr<Client>&& client, const SkillMeleeAttack* attack) {
     //TODO: Get weapon upon attack.weapon_slot
     const auto weapon_slot {attack->weapon_slot()};
@@ -263,11 +264,13 @@ void Zone::handle_skill_melee_attack(std::shared_ptr<Client>&& client, const Ski
 
         //TODO: Caculate damage
         const int damage {melee_attackable->melee_attack_damage()};
-        damages.emplace_back(EntityResourceChangeMode::ADD, EntityResourceType::HEALTH, entity->entity_id, damage);
-
+        entity->resource.change_health(EntityResourceChangeMode::ADD, -damage);
+        damages.emplace_back(EntityResourceChangeMode::ADD, EntityResourceType::HEALTH, entity->entity_id, -damage);
     }
+    spdlog::debug("hit {} / {}", damages.size(), _subworld->get_entities().size());
+
     // Broadcast that entity is damaged
-    {
+    if (!damages.empty()) {
         flatbuffers::FlatBufferBuilder builder {512};
         const auto changes = CreateEntityResourceChangesDirect(builder, &damages);
         builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityResourceChanges, changes.Union()));

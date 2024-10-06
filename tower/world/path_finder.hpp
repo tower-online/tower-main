@@ -45,6 +45,9 @@ std::vector<Point> Pathfinder::astar(const Grid<T>& grid, const Point start, con
         int f;
         Point p;
     };
+
+    if (!grid.is_inside(start) || !grid.is_inside(end)) return {};
+
     const auto node_cmp = [](const Node& n1, const Node& n2) { return n1.f > n2.f; };
     const auto heuristic = [](const Point p1, const Point p2) { return Point::manhattan_distance(p1, p2); };
 
@@ -55,7 +58,7 @@ std::vector<Point> Pathfinder::astar(const Grid<T>& grid, const Point start, con
 
     open.push({0, start});
     while (!open.empty()) {
-        const auto [_f, current] = open.top();
+        const auto [_, current] = open.top();
         open.pop();
         closed.insert(current);
 

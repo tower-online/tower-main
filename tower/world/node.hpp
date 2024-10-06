@@ -77,9 +77,6 @@ inline glm::vec3 Node::get_global_position() const {
         const glm::quat quaternion {angleAxis(p->rotation, glm::vec3(0, 1 ,0))};
         current_position = p->position + quaternion * current_position;
 
-        // const auto rotation_mat {rotate(glm::mat4(1), p->rotation, glm::vec3(0, 1, 0))};
-        // current_position = p->position + glm::vec3 { glm::vec4 {current_position, 1} * rotation_mat};
-
         p = p->parent.lock();
     }
 

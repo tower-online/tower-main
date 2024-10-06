@@ -32,7 +32,6 @@ public:
     explicit Entity(EntityType entity_type);
 
     static uint32_t generate_entity_id();
-    void modify_resource(EntityResourceType type, EntityResourceChangeMode mode, uint32_t amount);
 
     virtual void tick(world::Subworld& subworld) = 0;
 

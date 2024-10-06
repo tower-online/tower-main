@@ -1,9 +1,41 @@
 #pragma once
 
+#include <boost/functional/hash.hpp>
+
 #include <cmath>
 #include <vector>
 
 namespace tower {
+struct Point {
+    int r, c;
+
+    struct Hash {
+        size_t operator() (const Point& p) const {
+            size_t seed {0};
+            boost::hash_combine(seed, p.r);
+            boost::hash_combine(seed, p.c);
+            return seed;
+        }
+    };
+
+    bool operator==(const Point& other) const {
+        return r == other.r && c == other.c;
+    }
+
+    Point operator+(const Point& other) const {
+        return Point {r + other.r, c + other.c};
+    }
+
+    static int manhattan_distance(const Point p1, const Point p2) {
+        return std::abs(p1.r - p2.r) + std::abs(p1.c - p2.c);
+    }
+
+    static float euclidean_distance(const Point p1, const Point p2) {
+        return sqrtf(
+            static_cast<float>((p1.r - p2.r) * (p1.r - p2.r)) + static_cast<float>((p1.c - p2.c) * (p1.c - p2.c)));
+    }
+};
+
 template <typename T>
 class Grid {
 public:
@@ -25,20 +57,22 @@ public:
     }
 
     typename std::vector<T>::reference at(const size_t r, const size_t c) { return _data[r * cols + c]; }
+    typename std::vector<T>::reference at(const Point& p) { return at(p.r, p.c); }
     typename std::vector<T>::reference at(const size_t i) { return _data[i]; }
 
     typename std::vector<T>::const_reference at(const size_t r, const size_t c) const { return _data.at(r * cols + c); }
+    typename std::vector<T>::const_reference at(const Point& p) const { return at(p.r, p.c); }
     typename std::vector<T>::const_reference at(const size_t i) const { return _data.at(i); }
 
     bool is_inside(const int r, const int c) const {
         return r >= 0 && c >= 0 && r < static_cast<int>(rows) && c < static_cast<int>(cols);
     }
-
+    bool is_inside(const Point& p) const { return is_inside(p.r, p.c); }
     bool is_inside(const size_t i) const { return i < rows * cols; }
 
-    std::vector<std::pair<int, int>> get_4way_adjacents(const int r, const int c) const {
+    std::vector<Point> get_4way_adjacents(const size_t r, const size_t c) const {
         if (!is_inside(r, c)) return {};
-        std::vector<std::pair<int, int>> adjacents {};
+        std::vector<Point> adjacents {};
 
         if (r < rows - 1) adjacents.emplace_back(r + 1, c);
         if (r >= 1) adjacents.emplace_back(r - 1, c);
@@ -48,9 +82,13 @@ public:
         return adjacents;
     }
 
-    std::vector<std::pair<int, int>> get_8way_adjacents(const int r, const int c) const {
+    std::vector<Point> get_4way_adjacents(const Point& p) const {
+        return get_4way_adjacents(p.r, p.c);
+    }
+
+    std::vector<Point> get_8way_adjacents(const size_t r, const size_t c) const {
         if (!is_inside(r, c)) return {};
-        std::vector<std::pair<int, int>> adjacents {};
+        std::vector<Point> adjacents {};
 
         if (r < rows - 1) adjacents.emplace_back(r + 1, c);
         if (r >= 1) adjacents.emplace_back(r - 1, c);
@@ -63,6 +101,10 @@ public:
         if (r >= 1 && c >= 1) adjacents.emplace_back(r - 1, c - 1);
 
         return adjacents;
+    }
+
+    std::vector<Point> get_8way_adjacents(const Point& p) const {
+        return get_8way_adjacents(p.r, p.c);
     }
 
     const size_t rows, cols;

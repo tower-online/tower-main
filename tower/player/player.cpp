@@ -119,7 +119,7 @@ std::shared_ptr<Player> Player::create(EntityType type) {
     player->resource.health = player->resource.max_health;
 
     const auto body_collider = CollisionObject::create(
-        std::make_shared<CubeCollisionShape>(glm::vec3 {1, 2, 1}),
+        std::make_shared<CubeCollisionShape>(glm::vec3 {0.5, 1, 0.5}),
         ColliderLayer::ENTITIES | ColliderLayer::PLAYERS,
         0
     );
@@ -137,7 +137,12 @@ std::shared_ptr<Player> Player::create(EntityType type) {
 }
 
 flatbuffers::Offset<network::packet::PlayerData> Player::write_player_info(flatbuffers::FlatBufferBuilder& builder) const {
-    std::vector<network::packet::PlayerStat> optional_stats {};
+    using namespace network::packet;
+
+    std::vector<PlayerResource> resources {};
+    resources.emplace_back(EntityResourceType::HEALTH, resource.health, resource.max_health);
+
+    std::vector<PlayerStat> optional_stats {};
     for (const auto& [_, stat] : stats.optionals) {
         optional_stats.emplace_back(stat.type(), stat.get());
     }
@@ -145,6 +150,6 @@ flatbuffers::Offset<network::packet::PlayerData> Player::write_player_info(flatb
         stats.level.get(), stats.exp.get(), stats.str.get(), stats.mag.get(), stats.agi.get(), stats.con.get(),
         &optional_stats);
 
-    return CreatePlayerDataDirect(builder, entity_type, name().data(), stats_offset);
+    return CreatePlayerDataDirect(builder, entity_type, name().data(), &resources, stats_offset);
 }
 }
