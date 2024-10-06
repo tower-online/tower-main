@@ -27,5 +27,11 @@ void Fist::Data::load() {
     boost::json::object& obj {parsed.as_object()};
 
     _attack_interval = milliseconds {obj["attackInterval"].as_int64()};
+    {
+        auto& size {obj["attackShape"].as_array()};
+        _attack_shape_size.x = static_cast<float>(size.at(0).as_double());
+        _attack_shape_size.y = static_cast<float>(size.at(0).as_double());
+        _attack_shape_size.z = static_cast<float>(size.at(0).as_double());
+    }
 }
 }
