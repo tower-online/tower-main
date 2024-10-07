@@ -32,8 +32,10 @@ public:
     std::vector<std::shared_ptr<CollisionObject>> get_collisions(const std::shared_ptr<CollisionObject>& collider) const;
     std::vector<std::shared_ptr<CollisionObject>> get_collisions(const CollisionShape* target_shape, uint32_t mask) const;
 
-    imeters size_x() const { return _obstacles_grid.cols; }
-    imeters size_z() const { return _obstacles_grid.rows; }
+    std::unordered_map<uint32_t, std::shared_ptr<Entity>>& entities() { return _entities; }
+    imeters size_x() const { return static_cast<int>(_obstacles_grid.cols); }
+    imeters size_z() const { return static_cast<int>(_obstacles_grid.rows); }
+    const Grid<bool>& obstacles_grid() const { return _obstacles_grid; }
 
 private:
     std::unordered_map<uint32_t, std::shared_ptr<Entity>> _entities {};

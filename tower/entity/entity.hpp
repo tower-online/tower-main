@@ -3,11 +3,12 @@
 #include <boost/signals2.hpp>
 #include <tower/network/packet/entity_types.hpp>
 #include <tower/world/node.hpp>
+#include <tower/system/state_machine.hpp>
 
 #include <atomic>
 
-namespace tower::world {
-class Subworld;
+namespace tower::network {
+class Zone;
 }
 
 namespace tower::entity {
@@ -33,15 +34,16 @@ public:
 
     static uint32_t generate_entity_id();
 
-    virtual void tick(world::Subworld& subworld) = 0;
+    virtual void tick(network::Zone* zone) = 0;
 
     const uint32_t entity_id;
     const EntityType entity_type;
 
+    StateMachine state_machine {};
+    EntityResource resource;
+
     glm::vec3 target_direction {};
     float movement_speed_base {0};
-
-    EntityResource resource;
 
 private:
     static void modify_resource_internal(EntityResourceChangeMode mode, uint32_t amount, uint32_t& target,

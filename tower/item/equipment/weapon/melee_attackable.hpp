@@ -11,7 +11,7 @@ public:
     const physics::CollisionShape* melee_attack_shape() const { return _melee_attack_shape.get(); }
 
 protected:
-    int _melee_attack_damage;
+    int _melee_attack_damage {};
     std::shared_ptr<physics::CollisionShape> _melee_attack_shape;
 };
 }

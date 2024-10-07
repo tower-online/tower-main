@@ -6,7 +6,6 @@
 #include <tower/network/packet/player_types.hpp>
 #include <tower/player/inventory.hpp>
 #include <tower/player/stat.hpp>
-#include <tower/system/state_machine.hpp>
 
 namespace tower::player {
 using namespace tower::entity;
@@ -19,7 +18,7 @@ public:
     static boost::asio::awaitable<std::shared_ptr<Player>> load(boost::mysql::pooled_connection& conn, std::string_view character_name);
     static std::shared_ptr<Player> create(EntityType type);
 
-    void tick(Subworld&) override {}
+    void tick(network::Zone*) override {}
 
     flatbuffers::Offset<network::packet::PlayerData> write_player_info(flatbuffers::FlatBufferBuilder& builder) const;
 
@@ -29,7 +28,6 @@ public:
     std::shared_ptr<Node> pivot {std::make_shared<Node>()};
     Inventory inventory {};
     Stats stats {};
-    StateMachine state_machine {};
 
 private:
     uint32_t _character_id {};

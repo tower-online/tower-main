@@ -3,7 +3,6 @@
 #include <boost/functional/hash.hpp>
 
 #include <cmath>
-#include <functional>
 #include <vector>
 
 namespace tower {
@@ -18,6 +17,17 @@ struct Point {
             return seed;
         }
     };
+
+    Point() = default;
+
+    Point(const size_t r, const size_t c)
+        : r {static_cast<int>(r)}, c {static_cast<int>(c)} {}
+
+    Point(const int r, const int c)
+        : r {r}, c {c} {}
+
+    Point(const float fr, const float fc)
+        : r {static_cast<int>(std::floor(fr))}, c {static_cast<int>(std::floor(fc))} {}
 
     bool operator==(const Point& other) const {
         return r == other.r && c == other.c;
@@ -68,17 +78,17 @@ public:
     typename std::vector<T>::const_reference at(const Point& p) const { return at(p.r, p.c); }
     typename std::vector<T>::const_reference at(const size_t i) const { return _data.at(i); }
 
-    bool is_inside(const int r, const int c) const {
+    [[nodiscard]] bool is_inside(const int r, const int c) const {
         return r >= 0 && c >= 0 && r < static_cast<int>(rows) && c < static_cast<int>(cols);
     }
-    bool is_inside(const Point& p) const { return is_inside(p.r, p.c); }
-    bool is_inside(const size_t i) const { return i < rows * cols; }
+    [[nodiscard]] bool is_inside(const Point& p) const { return is_inside(p.r, p.c); }
+    [[nodiscard]] bool is_inside(const size_t i) const { return i < rows * cols; }
 
-    bool is_blocked(const int r, const int c) const { return static_cast<bool>(at(r, c)); }
-    bool is_blocked(const Point& p) const { return static_cast<bool>(at(p)); }
-    bool is_blocked(const size_t i) const { return static_cast<bool>(at(i)); }
+    [[nodiscard]] bool is_blocked(const int r, const int c) const { return static_cast<bool>(at(r, c)); }
+    [[nodiscard]] bool is_blocked(const Point& p) const { return static_cast<bool>(at(p)); }
+    [[nodiscard]] bool is_blocked(const size_t i) const { return static_cast<bool>(at(i)); }
 
-    std::vector<Point> get_4way_adjacents(const size_t r, const size_t c) const {
+    [[nodiscard]] std::vector<Point> get_4way_adjacents(const size_t r, const size_t c) const {
         if (!is_inside(r, c)) return {};
         std::vector<Point> adjacents {};
 
@@ -90,11 +100,11 @@ public:
         return adjacents;
     }
 
-    std::vector<Point> get_4way_adjacents(const Point& p) const {
+    [[nodiscard]] std::vector<Point> get_4way_adjacents(const Point& p) const {
         return get_4way_adjacents(p.r, p.c);
     }
 
-    std::vector<Point> get_8way_adjacents(const size_t r, const size_t c) const {
+    [[nodiscard]] std::vector<Point> get_8way_adjacents(const size_t r, const size_t c) const {
         if (!is_inside(r, c)) return {};
         std::vector<Point> adjacents {};
 
@@ -111,7 +121,7 @@ public:
         return adjacents;
     }
 
-    std::vector<Point> get_8way_adjacents(const Point& p) const {
+    [[nodiscard]] std::vector<Point> get_8way_adjacents(const Point& p) const {
         return get_8way_adjacents(p.r, p.c);
     }
 

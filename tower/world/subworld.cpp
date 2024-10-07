@@ -42,10 +42,6 @@ void Subworld::tick() {
             }
         }
     }
-
-    for (auto& [_, entity] : _entities) {
-        entity->tick(*this);
-    }
 }
 
 void Subworld::add_entity(const std::shared_ptr<Entity>& entity) {

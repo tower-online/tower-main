@@ -93,6 +93,8 @@ add_library(libtower STATIC
     tower/player/state/jumping_state.hpp
     tower/player/state/running_state.hpp
 
+    tower/skill/melee_attack.hpp
+
     tower/system/probe.hpp
     tower/system/settings.hpp
     tower/system/settings.cpp

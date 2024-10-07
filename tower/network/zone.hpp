@@ -3,6 +3,7 @@
 #include <tower/network/packet.hpp>
 #include <tower/network/packet/packet_base.hpp>
 #include <tower/world/subworld.hpp>
+#include <tower/entity/entity.hpp>
 
 #include <chrono>
 #include <unordered_map>
@@ -30,10 +31,14 @@ public:
     void remove_client_deferred(const std::shared_ptr<Client>& client);
     void handle_packet_deferred(std::shared_ptr<Packet>&& packet);
 
+    void broadcast(std::shared_ptr<flatbuffers::DetachedBuffer>&& buffer, uint32_t except = 0);
+
+    boost::asio::strand<boost::asio::any_io_executor>& strand() { return _strand; };
+    world::Subworld* subworld() { return _subworld.get(); }
+
 private:
     void tick();
 
-    void broadcast(std::shared_ptr<flatbuffers::DetachedBuffer>&& buffer, uint32_t except = 0);
     void handle_packet(std::shared_ptr<Packet>&& packet);
     void handle_player_movement(std::shared_ptr<Client>&& client, const PlayerMovement* movement);
     void handle_skill_melee_attack(std::shared_ptr<Client>&& client, const SkillMeleeAttack* attack);

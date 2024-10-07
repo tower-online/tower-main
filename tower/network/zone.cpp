@@ -1,11 +1,10 @@
 #include <glm/geometric.hpp>
 #include <glm/trigonometric.hpp>
 #include <spdlog/spdlog.h>
-#include <tower/entity/entity.hpp>
 #include <tower/network/zone.hpp>
 #include <tower/world/data/zone_data.hpp>
 
-#include <tower/item/equipment/weapon/melee_attackable.hpp>
+#include <tower/skill/melee_attack.hpp>
 
 #include <cmath>
 #include <fstream>
@@ -171,6 +170,9 @@ void Zone::tick() {
     }
 
     _subworld->tick();
+    for (auto& [_, entity] : _subworld->entities()) {
+        entity->tick(this);
+    }
 
     // Broadcast entities' transform
     {
@@ -240,10 +242,9 @@ void Zone::handle_player_movement(std::shared_ptr<Client>&& client, const Player
     player->target_direction = target_direction;
 }
 
-//TODO: Extract?
 void Zone::handle_skill_melee_attack(std::shared_ptr<Client>&& client, const SkillMeleeAttack* attack) {
     //TODO: Get weapon upon attack.weapon_slot
-    const auto weapon_slot {attack->weapon_slot()};
+    // const auto weapon_slot {attack->weapon_slot()};
 
     auto& player {client->player};
     const auto& weapon = player->inventory.get_main_weapon();
@@ -251,45 +252,7 @@ void Zone::handle_skill_melee_attack(std::shared_ptr<Client>&& client, const Ski
     
     const auto melee_attackable {dynamic_cast<const MeleeAttackable*>(weapon.get())};
     if (!melee_attackable) return;
-    if (!player->state_machine.try_transition("Attacking")) return;
 
-    const auto colliders =  _subworld->get_collisions(
-        melee_attackable->melee_attack_shape(), std::to_underlying(ColliderLayer::ENTITIES));
-
-    std::vector<EntityResourceChange> damages {};
-    for (const auto& collider : colliders) {
-        Entity* entity;
-        if (entity = dynamic_cast<Entity*>(collider->get_root().get()); !entity) continue;
-        if (player->entity_id == entity->entity_id) continue; // Don't attack myself
-
-        //TODO: Caculate damage
-        const int damage {melee_attackable->melee_attack_damage()};
-        entity->resource.change_health(EntityResourceChangeMode::ADD, -damage);
-        damages.emplace_back(EntityResourceChangeMode::ADD, EntityResourceType::HEALTH, entity->entity_id, -damage);
-    }
-    spdlog::debug("hit {} / {}", damages.size(), _subworld->get_entities().size());
-
-    // Broadcast that entity is damaged
-    if (!damages.empty()) {
-        flatbuffers::FlatBufferBuilder builder {512};
-        const auto changes = CreateEntityResourceChangesDirect(builder, &damages);
-        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityResourceChanges, changes.Union()));
-        broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
-    }
-    // Brodacast melee attack
-    {
-        flatbuffers::FlatBufferBuilder builder {128};
-        const auto attack_replication = CreateSkillMeleeAttack(builder, client->player->entity_id, weapon_slot);
-        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::SkillMeleeAttack, attack_replication.Union()));
-        broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
-    }
-
-    co_spawn(_strand, [this, player]->boost::asio::awaitable<void> {
-        //TODO: Get attack period from weapon
-        boost::asio::steady_timer timer {_strand, 1000ms};
-        co_await timer.async_wait(boost::asio::use_awaitable);
-        //TODO: Check if player is still in the zone?
-        player->state_machine.try_transition("Idle");
-    }, boost::asio::detached);
+    skill::MeleeAttack::use(this, player.get(), melee_attackable);
 }
 }
