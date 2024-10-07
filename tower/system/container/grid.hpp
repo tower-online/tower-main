@@ -3,6 +3,7 @@
 #include <boost/functional/hash.hpp>
 
 #include <cmath>
+#include <functional>
 #include <vector>
 
 namespace tower {
@@ -44,8 +45,11 @@ public:
         _data.resize(rows * cols);
     }
 
+    Grid(std::vector<T>&& data, const size_t rows, const size_t cols)
+        : rows {rows}, cols {cols}, _data {std::move(data)} {}
+
     Grid(Grid&& other) noexcept
-    : rows {other.rows}, cols {other.cols}, _data {std::move(other._data)} {}
+        : rows {other.rows}, cols {other.cols}, _data {std::move(other._data)} {}
 
     Grid& operator=(Grid&& other) noexcept {
         if (this != &other) {
@@ -69,6 +73,10 @@ public:
     }
     bool is_inside(const Point& p) const { return is_inside(p.r, p.c); }
     bool is_inside(const size_t i) const { return i < rows * cols; }
+
+    bool is_blocked(const int r, const int c) const { return static_cast<bool>(at(r, c)); }
+    bool is_blocked(const Point& p) const { return static_cast<bool>(at(p)); }
+    bool is_blocked(const size_t i) const { return static_cast<bool>(at(i)); }
 
     std::vector<Point> get_4way_adjacents(const size_t r, const size_t c) const {
         if (!is_inside(r, c)) return {};

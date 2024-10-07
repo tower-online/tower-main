@@ -14,8 +14,7 @@ public:
     enum class Algorithm { ASTAR, JPS };
 
     template <typename T>
-    static std::vector<Point> find_path(const Grid<T>& grid, Point start, Point end,
-        Algorithm algorithm = Algorithm::ASTAR);
+    static std::vector<Point> find_path(const Grid<T>& grid, Point start, Point end, Algorithm algorithm = Algorithm::ASTAR);
 
 private:
     template <typename T>
@@ -28,8 +27,7 @@ private:
 };
 
 template <typename T>
-std::vector<Point> Pathfinder::find_path(const Grid<T>& grid, const Point start, const Point end,
-    const Algorithm algorithm) {
+std::vector<Point> Pathfinder::find_path(const Grid<T>& grid, const Point start, const Point end, const Algorithm algorithm) {
     if (algorithm == Algorithm::ASTAR) {
         return astar(grid, start, end);
     }
@@ -64,7 +62,7 @@ std::vector<Point> Pathfinder::astar(const Grid<T>& grid, const Point start, con
 
         if (current == end) return reconstruct_path(parents, end);
 
-        for (const auto next : grid.get_neighbors(current)) {
+        for (const auto& next : grid.get_8way_adjacents(current)) {
             if (closed.contains(next)) continue;
             if (grid.is_blocked(next)) continue;
 
@@ -104,46 +102,44 @@ std::vector<Point> Pathfinder::jps(const Grid<T>& grid, const Point start, const
     };
 
     const auto probe = [&](Point p, const Point direction, auto&& probe_r)->bool {
-        const auto [dx, dy] = direction;
+        const auto [dr, dc] = direction;
 
         while (grid.is_inside(p) && !grid.is_blocked(p)) {
-            parents[p] = {p.x - dx, p.y - dy};
+            parents[p] = {p.r - dr, p.c - dc};
             if (p == end) {
                 // open.push({0, end});
                 return true;
             }
 
-            if (dx * dy != 0) {
+            if (dr * dc != 0) {
                 // Diagonal probe
-                const Point right {p.x, p.y - dy};
-                const Point left {p.x - dx, p.y};
+                const Point right {p.r, p.c - dc};
+                const Point left {p.r - dr, p.c};
 
-                if (has_forced_neighbor(right, {dx, 0}) || has_forced_neighbor(left, {0, dy})) {
+                if (has_forced_neighbor(right, {dr, 0}) || has_forced_neighbor(left, {0, dc})) {
                     open.push({heuristic(p, end), p});
                     return true;
                 }
 
                 bool found_forced_neighbor = false;
-                found_forced_neighbor |= probe_r({p.x + dx, p.y}, {dx, 0}, probe_r);
-                found_forced_neighbor |= probe_r({p.x, p.y + dy}, {0, dy}, probe_r);
+                found_forced_neighbor |= probe_r({p.r + dr, p.c}, {dr, 0}, probe_r);
+                found_forced_neighbor |= probe_r({p.r, p.c + dc}, {0, dc}, probe_r);
 
                 if (found_forced_neighbor) {
                     open.push({heuristic(p, end), p});
                     return true;
                 }
-            } else if (dx != 0) {
+            } else if (dr != 0) {
                 // Horizontal probe
-                const Point up {p.x, p.y + 1};
-                const Point down {p.x, p.y - 1};
+                const Point up {p.r, p.c + 1}, down {p.r, p.c - 1};
 
                 if (has_forced_neighbor(up, direction) || has_forced_neighbor(down, direction)) {
                     open.push({heuristic(p, end), p});
                     return true;
                 }
-            } else if (dy != 0) {
+            } else if (dc != 0) {
                 // Vertical probe
-                const Point right {p.x + 1, p.y};
-                const Point left {p.x - 1, p.y};
+                const Point right {p.r + 1, p.c}, left {p.r - 1, p.c};
 
                 if (has_forced_neighbor(right, direction) || has_forced_neighbor(left, direction)) {
                     open.push({heuristic(p, end), p});
@@ -152,17 +148,17 @@ std::vector<Point> Pathfinder::jps(const Grid<T>& grid, const Point start, const
             }
 
             closed.insert(p);
-            p.x += dx;
-            p.y += dy;
+            p.r += dr;
+            p.c += dc;
         }
         return false;
     };
 
     const auto jump = [&grid, &closed, &probe](const Point p) {
         closed.insert(p);
-        for (const auto neighbor : grid.get_neighbors(p)) {
+        for (const auto& neighbor : grid.get_8way_adjacents(p)) {
             if (closed.contains(neighbor) || grid.is_blocked(neighbor)) continue;
-            probe(neighbor, {neighbor.x - p.x, neighbor.y - p.y}, probe);
+            probe(neighbor, {neighbor.r - p.r, neighbor.c - p.c}, probe);
         }
     };
 
