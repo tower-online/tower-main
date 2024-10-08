@@ -3,6 +3,8 @@
 #include <tower/player/player.hpp>
 #include <tower/system/settings.hpp>
 
+#include <tower/entity/simple_monster.hpp>
+
 namespace tower::network {
 Server::Server(boost::asio::any_io_executor&& executor, const std::shared_ptr<ServerSharedState>& st) :
     _executor {std::move(executor)}, _strand {make_strand(_executor)}, _st {st} {
@@ -23,6 +25,10 @@ void Server::init() {
 
         _zones[zone_id] = std::move(zone);
     }
+
+    // For test
+    auto monster {SimpleMonster::create()};
+    _zones.at(1)->subworld()->add_entity(monster);
 }
 
 void Server::start() {
@@ -99,14 +105,11 @@ void Server::stop() {
         for (auto& [_, client] : _clients) {
             client->stop();
         }
-        spdlog::debug("Clients cleared");
 
         for (auto& [_, zone] : _zones) {
             zone->stop();
         }
         _zones.clear();
-        spdlog::debug("Zones cleared");
-
 
         cleanup_promise.set_value();
     });

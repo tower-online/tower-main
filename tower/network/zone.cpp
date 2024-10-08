@@ -117,7 +117,7 @@ void Zone::add_client_deferred(const std::shared_ptr<Client>& client) {
             flatbuffers::FlatBufferBuilder builder {1024};
 
             std::vector<flatbuffers::Offset<EntitySpawn>> spawns {};
-            for (const auto& [entity_id, entity] : _subworld->get_entities()) {
+            for (const auto& [entity_id, entity] : _subworld->entities()) {
                 // Skip Player type
                 if (dynamic_cast<Player*>(entity.get()) != nullptr) continue;
 
@@ -175,7 +175,7 @@ void Zone::tick() {
     // Broadcast entities' transform
     {
         std::vector<EntityMovement> movements {};
-        for (const auto& [_, entity] : _subworld->get_entities()) {
+        for (const auto& [_, entity] : _subworld->entities()) {
             movements.emplace_back(
                 entity->entity_id,
                 Vector3 {entity->position.x, entity->position.y, entity->position.z},

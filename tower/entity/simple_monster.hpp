@@ -22,7 +22,7 @@ private:
     State _state {State::IDLE};
     std::shared_ptr<item::equipment::Fist> _weapon;
     std::shared_ptr<physics::SphereCollisionShape> _detection_area;
-    std::shared_ptr<Entity> _chasing_target;
+    Entity* _chasing_target {nullptr};
     //TODO: Use queue?
     std::vector<Point> _chasing_path;
     size_t _chasing_path_index;

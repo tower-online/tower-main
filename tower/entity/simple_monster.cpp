@@ -8,6 +8,8 @@
 #include <tower/network/packet/entity_types.hpp>
 #include <tower/skill/melee_attack.hpp>
 
+#include <spdlog/spdlog.h>
+
 #include <algorithm>
 
 namespace tower::entity {
@@ -15,6 +17,8 @@ SimpleMonster::SimpleMonster()
     : Entity {EntityType::SIMPLE_MONSTER} {}
 
 void SimpleMonster::tick(network::Zone* zone) {
+    // spdlog::debug("[SimpleMonster] ({}) {} ({}, {}, {})", entity_id, (int)_state, position.x, position.y, position.z);
+
     //TODO: `_chasing_target` is shared_ptr, holding the target even if the player has already left the zone. Fix.
     if (_state == State::IDLE) {
         // Check if any player is within the detection area
@@ -22,13 +26,14 @@ void SimpleMonster::tick(network::Zone* zone) {
             _detection_area.get(), std::to_underlying(physics::ColliderLayer::PLAYERS))};
         if (targets.empty()) return;
 
+
         // Chase the closest target
         const auto my_position {get_global_position()};
         std::sort(targets.begin(), targets.end(), [this, &my_position](const auto& t1, const auto& t2) {
             return distance(t1->get_global_position(), my_position) < distance(t2->get_global_position(), my_position);
         });
 
-        const auto player {dynamic_cast<const player::Player*>(targets.at(0)->get_root().get())};
+        auto player {dynamic_cast<player::Player*>(targets.at(0)->get_root().get())};
         if (!player) return;
 
         // Find path and start chasing
@@ -36,11 +41,14 @@ void SimpleMonster::tick(network::Zone* zone) {
            {position.z, position.x}, {player->position.z, player->position.x});
         if (_chasing_path.empty()) return;
 
+        // spdlog::debug("[SimpleMonster] ({}) found target({}) with {} paths", entity_id, _chasing_target);
+
+        _chasing_target = static_cast<Entity*>(player);
         _chasing_started = steady_clock::now();
         _chasing_path_index = 0;
         _state = State::CHASING;
     } else if (_state == State::CHASING) {
-        if (!_chasing_target) {
+        if (!_chasing_target || !zone->subworld()->entities().contains(_chasing_target->entity_id)) {
             _state = State::IDLE;
             return;
         }
@@ -78,12 +86,12 @@ void SimpleMonster::tick(network::Zone* zone) {
             _chasing_path.at(_chasing_path_index).c + 0.5, 0, _chasing_path.at(_chasing_path_index).r + 0.5};
         target_direction = next_position - current_position;
 
-        if (distance(current_position, next_position) < 0.2) {
+        if (distance(current_position, next_position) < 0.3) {
             _chasing_path_index += 1;
             return;
         }
     } else if (_state == State::ATTACKING) {
-        if (!_chasing_target) {
+        if (!_chasing_target || !zone->subworld()->entities().contains(_chasing_target->entity_id)) {
             _state = State::IDLE;
             return;
         }

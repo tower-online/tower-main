@@ -21,7 +21,6 @@ public:
 
     void add_entity(const std::shared_ptr<Entity>& entity);
     void remove_entity(const std::shared_ptr<Entity>& entity);
-    const std::unordered_map<uint32_t, std::shared_ptr<Entity>>& get_entities() const { return _entities; }
 
     void add_collision_area(const std::shared_ptr<CollisionObject>& area);
     void remove_collision_area(uint32_t area_id);
@@ -32,7 +31,7 @@ public:
     std::vector<std::shared_ptr<CollisionObject>> get_collisions(const std::shared_ptr<CollisionObject>& collider) const;
     std::vector<std::shared_ptr<CollisionObject>> get_collisions(const CollisionShape* target_shape, uint32_t mask) const;
 
-    std::unordered_map<uint32_t, std::shared_ptr<Entity>>& entities() { return _entities; }
+    const std::unordered_map<uint32_t, std::shared_ptr<Entity>>& entities() const { return _entities; }
     imeters size_x() const { return static_cast<int>(_obstacles_grid.cols); }
     imeters size_z() const { return static_cast<int>(_obstacles_grid.rows); }
     const Grid<bool>& obstacles_grid() const { return _obstacles_grid; }
