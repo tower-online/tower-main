@@ -114,16 +114,19 @@ void Zone::add_client_deferred(const std::shared_ptr<Client>& client) {
 
         // Spawn every entity in the zone
         {
-            std::vector<EntitySpawn> spawns {};
+            flatbuffers::FlatBufferBuilder builder {1024};
+
+            std::vector<flatbuffers::Offset<EntitySpawn>> spawns {};
             for (const auto& [entity_id, entity] : _subworld->get_entities()) {
                 // Skip Player type
                 if (dynamic_cast<Player*>(entity.get()) != nullptr) continue;
 
-                spawns.emplace_back(entity->entity_type, entity->entity_id,
-                    Vector3 {entity->position.x, entity->position.y, entity->position.z}, entity->rotation);
+                const Vector3 position {entity->position.x, entity->position.y, entity->position.z};
+                auto spawn {CreateEntitySpawn(builder, entity->entity_type, entity_id, &position, entity->rotation,
+                    entity->resource.health, entity->resource.max_health)};
+                spawns.emplace_back(std::move(spawn));
             }
 
-            flatbuffers::FlatBufferBuilder builder {1024};
             const auto entity_spawns = CreateEntitySpawnsDirect(builder, &spawns);
             builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntitySpawns, entity_spawns.Union()));
             client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
