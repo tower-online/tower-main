@@ -13,8 +13,6 @@ using namespace std::chrono;
 using namespace tower::network::packet;
 
 class Zone {
-    struct ClientEntry;
-
     constexpr static auto TICK_INTERVAL = 100ms;
 
 public:
@@ -52,17 +50,9 @@ private:
     boost::asio::strand<boost::asio::any_io_executor> _strand;
     steady_clock::time_point _last_tick;
 
-    std::unordered_map<uint32_t, std::unique_ptr<ClientEntry>> _client_entries {};
+    std::unordered_map<uint32_t, std::shared_ptr<Client>> _clients {};
+
 
     std::unique_ptr<world::Subworld> _subworld;
-};
-
-struct Zone::ClientEntry {
-    ClientEntry(const std::shared_ptr<Client>& client, boost::signals2::connection&& on_disconnected)
-        : client {client}, _on_disconnected {std::move(on_disconnected)} {}
-    std::shared_ptr<Client> client;
-
-private:
-    boost::signals2::connection _on_disconnected;
 };
 }

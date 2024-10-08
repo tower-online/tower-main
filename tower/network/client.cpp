@@ -5,9 +5,10 @@
 namespace tower::network {
 using namespace tower::network::packet;
 
-Client::Client(boost::asio::any_io_executor& executor, tcp::socket&& socket, const uint32_t entry_id,
-    std::function<void(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)>&& packet_received)
-    : entry_id {entry_id}, _executor {executor},
+Client::Client(boost::asio::any_io_executor& executor, tcp::socket&& socket, const uint32_t client_id,
+    std::function<void(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)>&& packet_received,
+    std::function<void(std::shared_ptr<Client>&&)>&& disconnected)
+    : client_id {client_id}, _executor {executor},
     _connection {
         make_strand(executor), std::move(socket),
         [this](std::vector<uint8_t>&& buffer) {
@@ -17,9 +18,10 @@ Client::Client(boost::asio::any_io_executor& executor, tcp::socket&& socket, con
 
             _packet_received(shared_from_this(), std::move(buffer));
         },
-        [this] { disconnected(shared_from_this()); }
+        [this] { _disconnected(shared_from_this()); }
     },
-    _packet_received {std::move(packet_received)} {
+    _packet_received {std::move(packet_received)},
+    _disconnected {std::move(disconnected)} {
     _heart_beater = std::make_unique<HeartBeater>(executor, *this);
 }
 
@@ -49,7 +51,7 @@ Client::HeartBeater::HeartBeater(boost::asio::any_io_executor& executor, Client&
     : _client {client}, _timer {std::make_shared<Timer>(executor, BEAT_INTERVAL)} {
     _on_beat = _timer->timeout.connect([this] {
         if (_dead_beats >= MAX_DEAD_BEATS) {
-            spdlog::info("[Client] ({}) is not heart-beating. Disconnecting...", _client.entry_id);
+            spdlog::info("[Client] ({}) is not heart-beating. Disconnecting...", _client.client_id);
             _timer->stop();
             _client.stop();
             return;

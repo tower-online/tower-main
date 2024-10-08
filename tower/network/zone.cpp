@@ -83,15 +83,10 @@ void Zone::stop() {
 
 void Zone::add_client_deferred(const std::shared_ptr<Client>& client) {
     post(_strand, [this, client] {
-        if (_client_entries.empty()) start();
+        if (_clients.empty()) start();
 
-        auto client_entry = std::make_unique<ClientEntry>(
-            client,
-            client->disconnected.connect([this](const std::shared_ptr<Client>& c) {
-                remove_client_deferred(c);
-            }));
-        _client_entries.insert_or_assign(client_entry->client->entry_id, std::move(client_entry));
-        // spdlog::debug("[Zone] ({}) Added Client({})", zone_id, client->entry_id);
+        _clients[client->client_id] = client;
+        spdlog::debug("[Zone] ({}) Added Client({})", zone_id, client->client_id);
 
         const auto& player = client->player;
         player->position = glm::vec3 {_subworld->size_x() / 2, 0, _subworld->size_z() / 2};
@@ -103,8 +98,8 @@ void Zone::add_client_deferred(const std::shared_ptr<Client>& client) {
             flatbuffers::FlatBufferBuilder builder {8192};
             std::vector<flatbuffers::Offset<PlayerSpawn>> spawns {};
 
-            for (const auto& [_, entry] : _client_entries) {
-                const auto& other_player = entry->client->player;
+            for (const auto& [_, client] : _clients) {
+                const auto& other_player = client->player;
                 if (other_player->entity_id == player->entity_id) continue;
 
                 spawns.emplace_back(CreatePlayerSpawn(builder,
@@ -139,7 +134,7 @@ void Zone::add_client_deferred(const std::shared_ptr<Client>& client) {
             flatbuffers::FlatBufferBuilder builder {1024};
             const auto spawn = CreatePlayerSpawn(builder, false, player->entity_id, player->write_player_info(builder));
             builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerSpawn, spawn.Union()));
-            broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()), client->entry_id);
+            broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()), client->client_id);
         }
     });
 }
@@ -147,8 +142,8 @@ void Zone::add_client_deferred(const std::shared_ptr<Client>& client) {
 void Zone::remove_client_deferred(const std::shared_ptr<Client>& client) {
     post(_strand, [this, client] {
         _subworld->remove_entity(client->player);
-        _client_entries.erase(client->entry_id);
-        // spdlog::debug("[Zone] ({}) Removed Client({})", zone_id, client->entry_id);
+        _clients.erase(client->client_id);
+        spdlog::debug("[Zone] ({}) Removed Client({})", zone_id, client->client_id);
 
         // Broadcast EntityDespawn
         flatbuffers::FlatBufferBuilder builder {64};
@@ -156,7 +151,7 @@ void Zone::remove_client_deferred(const std::shared_ptr<Client>& client) {
         builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityDespawn, entity_despawn.Union()));
         broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
 
-        if (_client_entries.empty()) {
+        if (_clients.empty()) {
             stop();
         }
     });
@@ -196,14 +191,14 @@ void Zone::tick() {
 }
 
 void Zone::broadcast(std::shared_ptr<flatbuffers::DetachedBuffer>&& buffer, const uint32_t except) {
-    for (const auto& [id, entry] : _client_entries) {
+    for (const auto& [id, client] : _clients) {
         if (id == except) continue;
-        entry->client->send_packet(buffer);
+        client->send_packet(buffer);
     }
 }
 
 void Zone::handle_packet(std::shared_ptr<Packet>&& packet) {
-    if (!_client_entries.contains(packet->client->entry_id)) return;
+    if (!_clients.contains(packet->client->client_id)) return;
 
     const auto packet_base = GetPacketBase(packet->buffer.data());
     if (!packet_base) {

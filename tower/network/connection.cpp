@@ -58,7 +58,7 @@ void Connection::disconnect() {
 void Connection::send_packet(std::shared_ptr<flatbuffers::DetachedBuffer> buffer) {
     if (!buffer || !_is_connected) return;
 
-    co_spawn(_strand, [this, buffer = std::move(buffer)]()->boost::asio::awaitable<void> {
+    co_spawn(_strand, [this, buffer = std::move(buffer)]->boost::asio::awaitable<void> {
         if (!_is_connected) co_return;
 
         const auto [ec, _] = co_await _socket.async_send(

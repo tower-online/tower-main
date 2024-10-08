@@ -60,39 +60,7 @@ void Server::start() {
                 continue;
             }
 
-            static uint32_t entry_id_generator {0};
-            auto client = std::make_shared<Client>(
-                _executor,
-                std::move(socket),
-                ++entry_id_generator,
-                [this](std::shared_ptr<Client>&& c, std::vector<uint8_t>&& buffer) {
-                _profiler.add_packet(buffer.size());
-
-                if (flatbuffers::Verifier verifier {buffer.data(), buffer.size()}; !VerifyPacketBaseBuffer(verifier)) {
-                    spdlog::warn("[Server] Invalid PacketBase from Client({})", c->entry_id);
-                    c->stop();
-                    return;
-                }
-
-                auto packet = std::make_unique<Packet>(std::move(c), std::move(buffer));
-                co_spawn(_strand, [this, packet = std::move(packet)] mutable -> boost::asio::awaitable<void> {
-                    co_await handle_packet(std::move(packet));
-                }, boost::asio::detached);
-            });
-            auto entry = std::make_unique<ClientEntry>(
-                client, client->disconnected.connect([this](const std::shared_ptr<Client>& c) {
-                post(_strand, [this, c] {
-                    c->stop();
-                    _client_entries.erase(c->entry_id);
-                    spdlog::info("[Server] Removed Client({})", c->entry_id);
-                });
-            }));
-
-            post(_strand, [this, entry = std::move(entry)] mutable {
-                const auto entry_id = entry->client->entry_id;
-                _client_entries.emplace(entry_id, std::move(entry));
-                _client_entries[entry_id]->client->start();
-            });
+            add_client_deferred(std::move(socket));
         }
     }, boost::asio::detached);
 
@@ -109,14 +77,13 @@ void Server::start() {
             }
 
             _profiler.renew();
-            spdlog::info("{} clients, {} packets/s, {} bytes/s", _client_entries.size(), _profiler.get_pps(), _profiler.get_bps());
+            spdlog::info("{} clients, {} packets/s, {} bytes/s", _clients.size(), _profiler.get_pps(), _profiler.get_bps());
         }
     }, boost::asio::detached);
 }
 
 void Server::stop() {
-    if (!_is_running.exchange(false))
-        return;
+    if (!_is_running.exchange(false)) return;
     spdlog::info("[Server] Stopping...");
 
     try {
@@ -125,15 +92,72 @@ void Server::stop() {
         spdlog::error("[Server] Error closing acceptor: {}", e.code().message());
     }
 
-    for (auto& [_, entry] : _client_entries) {
-        entry->client->stop();
-    }
-    // TODO: clear _clients -> is safe? -> cancellation token?
+    // Clean up above the strand
+    std::promise<void> cleanup_promise {};
+    auto cleanup_future {cleanup_promise.get_future()};
+    post(_strand, [this, cleanup_promise = std::move(cleanup_promise)] mutable {
+        for (auto& [_, client] : _clients) {
+            client->stop();
+        }
+        spdlog::debug("Clients cleared");
 
-    for (auto& [_, zone] : _zones) {
-        zone->stop();
-    }
-    // _zones.clear();
+        for (auto& [_, zone] : _zones) {
+            zone->stop();
+        }
+        _zones.clear();
+        spdlog::debug("Zones cleared");
+
+
+        cleanup_promise.set_value();
+    });
+    cleanup_future.wait();
+}
+
+void Server::add_client_deferred(tcp::socket&& socket) {
+    static uint32_t client_id_generator {0};
+    auto client = std::make_shared<Client>(
+        _executor,
+        std::move(socket),
+        ++client_id_generator,
+        [this](std::shared_ptr<Client>&& c, std::vector<uint8_t>&& buffer) {
+            _profiler.add_packet(buffer.size());
+
+            if (flatbuffers::Verifier verifier {buffer.data(), buffer.size()}; !VerifyPacketBaseBuffer(verifier)) {
+                spdlog::warn("[Server] Invalid PacketBase from Client({})", c->client_id);
+                c->stop();
+                return;
+            }
+
+            auto packet = std::make_unique<Packet>(std::move(c), std::move(buffer));
+            co_spawn(_strand, [this, packet = std::move(packet)] mutable -> boost::asio::awaitable<void> {
+                co_await handle_packet(std::move(packet));
+            }, boost::asio::detached);
+        },
+        [this](std::shared_ptr<Client>&& c) {
+            remove_client_deferred(std::move(c));
+        });
+
+    post(_strand, [this, client = std::move(client)] mutable {
+        const auto client_id = client->client_id;
+        _clients.emplace(client_id, std::move(client));
+        _clients_current_zone.emplace(client_id, 0);
+
+        _clients.at(client_id)->start();
+    });
+}
+
+void Server::remove_client_deferred(std::shared_ptr<Client> client) {
+    post(_strand, [this, client = std::move(client)] {
+        client->stop();
+        
+        const auto current_zone {_clients_current_zone.at(client->client_id)};
+        if (!_zones.contains(current_zone)) return;
+        _zones.at(current_zone)->remove_client_deferred(client);
+
+        _clients.erase(client->client_id);
+        _clients_current_zone.erase(client->client_id);
+        spdlog::info("[Server] Removed Client({})", client->client_id);
+    });
 }
 
 boost::asio::awaitable<void> Server::handle_packet(std::shared_ptr<Packet>&& packet) {
@@ -167,10 +191,9 @@ boost::asio::awaitable<void> Server::handle_packet(std::shared_ptr<Packet>&& pac
             co_return;
         }
 
-        const auto entry_id = packet->client->entry_id;
-        if (!_client_entries.contains(entry_id))
-            co_return;
-        _zones.at(_client_entries.at(entry_id)->current_zone_id)->handle_packet_deferred(std::move(packet));
+        const auto client_id = packet->client->client_id;
+        if (!_clients.contains(client_id)) co_return;
+        _zones.at(_clients_current_zone.at(client_id))->handle_packet_deferred(std::move(packet));
 
         break;
     }
@@ -179,7 +202,7 @@ boost::asio::awaitable<void> Server::handle_packet(std::shared_ptr<Packet>&& pac
 boost::asio::awaitable<void> Server::handle_client_join_request(
     std::shared_ptr<Client>&& client, const ClientJoinRequest* request) {
     if (!request->username() || !request->character_name() || !request->token()) {
-        spdlog::warn("[Server] [ClientJoinRequest] ({}): Invalid request", client->entry_id);
+        spdlog::warn("[Server] [ClientJoinRequest] ({}): Invalid request", client->client_id);
         client->stop();
         co_return;
     }
@@ -196,9 +219,9 @@ boost::asio::awaitable<void> Server::handle_client_join_request(
         verifier.verify(decoded_token);
 
         client->is_authenticated = true;
-        spdlog::info("[Server] [ClientJoinRequest] {}/{}: Token OK", client->entry_id, character_name);
+        spdlog::info("[Server] [ClientJoinRequest] {}/{}: Token OK", client->client_id, character_name);
     } catch (const std::exception&) {
-        spdlog::warn("[Server] [ClientJoinRequest] {}/{}: Token Invalid", client->entry_id, character_name);
+        spdlog::warn("[Server] [ClientJoinRequest] {}/{}: Token Invalid", client->client_id, character_name);
 
         client->stop();
         co_return;
@@ -249,21 +272,29 @@ boost::asio::awaitable<void> Server::handle_client_join_request(
     builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::ClientJoinResponse, response.Union()));
     client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
 
-    _client_entries[client->entry_id]->current_zone_id = 1;
+    // _clients_current_zone[client->client_id] = 1;
 }
 
 void Server::handle_player_enter_zone_request(std::shared_ptr<Client>&& client, const PlayerEnterZoneRequest* request) {
     //TODO: Check if zone is reachable from current player's location
     const auto location = request->location();
-    auto& current_zone_id {_client_entries[client->entry_id]->current_zone_id};
+    auto& current_zone_id {_clients_current_zone.at(client->client_id)};
     const auto next_zone_id {location->zone_id()};
+    const bool is_first_enter {current_zone_id == 0};
 
-    if (_zones.contains(current_zone_id) && _zones.contains(next_zone_id)) {
+    if (current_zone_id == next_zone_id) {
+        spdlog::warn("[Server] Client({}): Requested entering to current zone", client->client_id);
+        return;
+    }
+
+    if ((is_first_enter || _zones.contains(current_zone_id)) && _zones.contains(next_zone_id)) {
         //TODO: Player can be exist on two zones at the same time... fix?
-        _zones.at(current_zone_id)->remove_client_deferred(client);
+        if (!is_first_enter) {
+            _zones.at(current_zone_id)->remove_client_deferred(client);
+        }
         _zones.at(next_zone_id)->add_client_deferred(client);
     } else {
-        spdlog::warn("[Server] Client({}): Requested invalid zone enter", client->entry_id);
+        spdlog::warn("[Server] Client({}): Requested invalid zone enter", client->client_id);
         client->stop();
         return;
     }

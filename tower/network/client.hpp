@@ -11,8 +11,9 @@ class Client : public std::enable_shared_from_this<Client> {
     class HeartBeater;
 
 public:
-    Client(boost::asio::any_io_executor& executor, tcp::socket&& socket, uint32_t entry_id,
-        std::function<void(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)>&& packet_received);
+    Client(boost::asio::any_io_executor& executor, tcp::socket&& socket, uint32_t client_id,
+        std::function<void(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)>&& packet_received,
+        std::function<void(std::shared_ptr<Client>&&)>&& disconnected);
     ~Client();
 
     Client(const Client&) = delete;
@@ -25,9 +26,8 @@ public:
     bool is_running() const { return _is_running; }
 
 public:
-    const uint32_t entry_id;
+    const uint32_t client_id;
     bool is_authenticated {false};
-    boost::signals2::signal<void(const std::shared_ptr<Client>&)> disconnected;
     std::shared_ptr<player::Player> player;
 
 private:
@@ -36,6 +36,7 @@ private:
 
     Connection _connection;
     const std::function<void(std::shared_ptr<Client>&&, std::vector<uint8_t>&&)> _packet_received;
+    std::function<void(std::shared_ptr<Client>&&)> _disconnected;
     std::unique_ptr<HeartBeater> _heart_beater;
 };
 
