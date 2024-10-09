@@ -9,6 +9,10 @@
 #include <vector>
 
 namespace tower::world {
+inline static constexpr glm::vec3 zero3 {0, 0, 0};
+inline static constexpr glm::vec3 forward {0, 0, 1};
+inline static constexpr glm::vec3 up {0, 1, 0};
+
 class Node : public std::enable_shared_from_this<Node> {
 public:
     Node() = default;
@@ -74,7 +78,7 @@ inline glm::vec3 Node::get_global_position() const {
     auto p {parent.lock()};
 
     while (p) {
-        const glm::quat quaternion {angleAxis(p->rotation, glm::vec3(0, 1 ,0))};
+        const glm::quat quaternion {angleAxis(p->rotation, up)};
         current_position = p->position + quaternion * current_position;
 
         p = p->parent.lock();

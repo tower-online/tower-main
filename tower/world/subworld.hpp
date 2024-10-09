@@ -10,9 +10,6 @@ namespace tower::world {
 using namespace tower::entity;
 using namespace tower::physics;
 
-static constexpr glm::vec2 zero2 {0, 0};
-static constexpr glm::vec3 zero3 {0, 0, 0};
-
 class Subworld {
 public:
     explicit Subworld(Grid<bool>&& obstacles_grid);
@@ -35,6 +32,8 @@ public:
     imeters size_x() const { return static_cast<int>(_obstacles_grid.cols); }
     imeters size_z() const { return static_cast<int>(_obstacles_grid.rows); }
     const Grid<bool>& obstacles_grid() const { return _obstacles_grid; }
+
+    static glm::vec3 point2position(const Point& p) { return {p.c + 0.5f, 0, p.r + 0.5f}; }
 
 private:
     std::unordered_map<uint32_t, std::shared_ptr<Entity>> _entities {};

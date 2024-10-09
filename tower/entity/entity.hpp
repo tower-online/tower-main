@@ -30,6 +30,8 @@ struct EntityResource {
 
 class Entity : public world::Node {
 public:
+    enum class MovementMode {FORWARD, TARGET};
+
     explicit Entity(EntityType entity_type);
 
     static uint32_t generate_entity_id();
@@ -42,7 +44,9 @@ public:
     StateMachine state_machine {};
     EntityResource resource;
 
+    MovementMode movement_mode {MovementMode::FORWARD};
     glm::vec3 target_direction {};
+    glm::vec3 target_position {};
     float movement_speed_base {0};
 
 private:

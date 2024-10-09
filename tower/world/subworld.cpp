@@ -10,20 +10,28 @@ void Subworld::tick() {
     for (auto& [_, entity] : _entities) {
         // Check if tile is blocked and move
         //TODO: Pull out if entity is already in collider
-        if (entity->target_direction == zero3) continue;
+        glm::vec3 next_position;
+        if (entity->movement_mode == Entity::MovementMode::FORWARD) {
+            if (all(epsilonEqual(entity->target_direction, zero3, 1e-5f))) continue;
 
-        const auto target_position = entity->position + entity->target_direction * entity->movement_speed_base;
+            // TODO: If target position is blocked, try to approach as close as possible.
+            next_position = entity->position + entity->target_direction * entity->movement_speed_base;
+        } else if (entity->movement_mode == Entity::MovementMode::TARGET) {
+            const auto target_distance {distance(entity->position, entity->target_position)};
 
-        const auto x {static_cast<int>(std::floor(target_position.x))};
-        const auto z {static_cast<int>(std::floor(target_position.z))};
+            if (glm::epsilonEqual(target_distance, 0.0f, 1e-5f)) continue;
 
-        if (!_obstacles_grid.is_inside(z, x)) continue;
-
-        if (!_obstacles_grid.at(z, x)) {
-            entity->position = target_position;
-            continue;
+            entity->target_direction = normalize(entity->target_position - entity->position);
+            if (target_distance <= entity->movement_speed_base) {
+                next_position = entity->target_position;
+            } else {
+                next_position = entity->position + entity->target_direction * entity->movement_speed_base;
+            }
         }
-        // TODO: Target position is blocked. Try to approach as close as possible.
+
+        const Point p {next_position.z, next_position.x};
+        if (!_obstacles_grid.is_inside(p) || _obstacles_grid.at(p)) continue;
+        entity->position = next_position;
     }
 
     // Update contacts

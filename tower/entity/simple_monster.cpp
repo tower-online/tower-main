@@ -26,7 +26,6 @@ void SimpleMonster::tick(network::Zone* zone) {
             _detection_area.get(), std::to_underlying(physics::ColliderLayer::PLAYERS))};
         if (targets.empty()) return;
 
-
         // Chase the closest target
         const auto my_position {get_global_position()};
         std::sort(targets.begin(), targets.end(), [this, &my_position](const auto& t1, const auto& t2) {
@@ -41,12 +40,14 @@ void SimpleMonster::tick(network::Zone* zone) {
            {position.z, position.x}, {player->position.z, player->position.x});
         if (_chasing_path.empty()) return;
 
-        // spdlog::debug("[SimpleMonster] ({}) found target({}) with {} paths", entity_id, _chasing_target);
-
         _chasing_target = static_cast<Entity*>(player);
         _chasing_started = steady_clock::now();
         _chasing_path_index = 0;
         _state = State::CHASING;
+        target_position = world::Subworld::point2position(_chasing_path[0]);
+
+        // spdlog::debug("[SimpleMonster] ({}) found target({}) with {} paths",
+        //     entity_id, _chasing_target->entity_id, _chasing_path.size());
     } else if (_state == State::CHASING) {
         if (!_chasing_target || !zone->subworld()->entities().contains(_chasing_target->entity_id)) {
             _state = State::IDLE;
@@ -67,29 +68,27 @@ void SimpleMonster::tick(network::Zone* zone) {
             }
         }
 
-        const auto current_position {get_global_position()};
-
         // Arrived
         if (_chasing_path_index >= _chasing_path.size()) {
+            const auto dist {distance(position, _chasing_target->get_global_position())};
+
             // Attack if close enough
-            if (distance(current_position, _chasing_target->position) < 0.5) {
+            if (dist < 1) {
                 _state = State::ATTACKING;
                 return;
             }
 
-            target_direction = _chasing_target->position - current_position;
+            // target ran away
+            //TODO: Add State::RECHASING ?
+            _state = State::IDLE;
             return;
         }
 
         // Follow path
-        const glm::vec3 next_position {
-            _chasing_path.at(_chasing_path_index).c + 0.5, 0, _chasing_path.at(_chasing_path_index).r + 0.5};
-        target_direction = next_position - current_position;
-
-        if (distance(current_position, next_position) < 0.3) {
-            _chasing_path_index += 1;
-            return;
-        }
+        if (!all(epsilonEqual(target_position, position, 1e-5f))) return;
+        _chasing_path_index += 1;
+        if (_chasing_path_index < _chasing_path.size())
+            target_position = world::Subworld::point2position(_chasing_path.at(_chasing_path_index));
     } else if (_state == State::ATTACKING) {
         if (!_chasing_target || !zone->subworld()->entities().contains(_chasing_target->entity_id)) {
             _state = State::IDLE;
@@ -97,12 +96,13 @@ void SimpleMonster::tick(network::Zone* zone) {
         }
 
         //TODO: Set out of range of melee attack instead of hard-coded value
-        if (distance(get_global_position(), _chasing_target->get_global_position()) > 0.5) {
-            _state = State::CHASING;
+        if (distance(position, _chasing_target->position) > 1) {
+            _state = State::IDLE;
             return;
         }
 
         // Attack
+        target_position = _chasing_target->position;
         skill::MeleeAttack::use(zone, this, _weapon.get());
     }
 }
@@ -119,7 +119,9 @@ std::shared_ptr<SimpleMonster> SimpleMonster::create() {
     );
     monster->add_child(body_collider);
     
-    monster->movement_speed_base = 0.1f;
+    monster->movement_mode = Entity::MovementMode::TARGET;
+    monster->movement_speed_base = 0.2f;
+
     monster->resource.max_health = 10.0f;
     monster->resource.health = monster->resource.max_health;
     
