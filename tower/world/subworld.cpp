@@ -5,10 +5,11 @@ Subworld::Subworld(Grid<bool>&& obstacles_grid)
     : _obstacles_grid {std::move(obstacles_grid)} {}
 
 void Subworld::tick() {
-
     // Move entities
     for (auto& [_, entity] : _entities) {
-        // Check if tile is blocked and move
+        //TODO: How to check if movable without hardcoding?
+        if (entity->state_machine.get_current_state_name() == "Attacking") continue;
+
         //TODO: Pull out if entity is already in collider
         glm::vec3 next_position;
         if (entity->movement_mode == Entity::MovementMode::FORWARD) {

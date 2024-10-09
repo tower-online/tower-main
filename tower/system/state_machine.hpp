@@ -21,6 +21,8 @@ public:
 
     void abort();
 
+    std::string_view get_current_state_name() const { return _current_state->get_name(); }
+
 private:
     State* _current_state {};
     std::unordered_map<std::string_view, std::unique_ptr<State>> _states {};
