@@ -232,11 +232,12 @@ void Zone::handle_player_movement(std::shared_ptr<Client>&& client, const Player
 
     const auto& player = client->player;
     glm::vec3 target_direction {dir_x, 0, dir_z};
-
-    if (dir_x != 0 && dir_z != 0) {
+    
+    if (!all(epsilonEqual(target_direction, zero3, 1e-5f))) {
         target_direction = normalize(target_direction);
-        player->pivot->rotation = glm::atan(target_direction.x, target_direction.z);
+        player->rotation = glm::atan(target_direction.x, target_direction.z);
     }
+
     player->target_direction = target_direction;
 }
 

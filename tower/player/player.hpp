@@ -25,7 +25,6 @@ public:
     uint32_t character_id() const { return _character_id; }
     std::string_view name() const { return _name; }
 
-    std::shared_ptr<Node> pivot {std::make_shared<Node>()};
     Inventory inventory {};
     Stats stats {};
 

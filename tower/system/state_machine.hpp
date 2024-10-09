@@ -14,6 +14,7 @@ public:
     void add_state(std::unique_ptr<State> state);
     void set_initial_state(std::string_view state_name);
 
+    bool can_transition(std::string_view new_state_name);
     bool try_transition(std::string_view new_state_name);
     void transition_delayed(std::string new_state_name, boost::asio::strand<boost::asio::any_io_executor>& strand,
         std::chrono::steady_clock::duration delay, bool override = true);
@@ -39,6 +40,11 @@ inline void StateMachine::add_state(std::unique_ptr<State> state) {
 inline void StateMachine::set_initial_state(const std::string_view state_name) {
     if (const auto initial_state_iter {_states.find(state_name)}; initial_state_iter == _states.end()) return;
     else _current_state = initial_state_iter->second.get();
+}
+
+inline bool StateMachine::can_transition(std::string_view new_state_name) {
+    if (!_current_state) return false;
+    return _current_state->can_transition(new_state_name);
 }
 
 inline bool StateMachine::try_transition(const std::string_view new_state_name) {

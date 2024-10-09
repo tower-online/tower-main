@@ -111,6 +111,21 @@ std::shared_ptr<SimpleMonster> SimpleMonster::create() {
     using namespace physics;
 
     auto monster {std::make_shared<SimpleMonster>()};
+
+    // Init states
+    {
+        auto& state_machine {monster->state_machine};
+        auto idle {std::make_unique<IdleState>()};
+        auto attacking {std::make_unique<AttackingState>()};
+
+        idle->add_transition(attacking->get_name());
+        attacking->add_transition(idle->get_name());
+
+        const auto idle_state_name {idle->get_name()};
+        state_machine.add_state(std::move(idle));
+        state_machine.add_state(std::move(attacking));
+        state_machine.set_initial_state(idle_state_name);
+    }
     
     const auto body_collider = CollisionObject::create(
         std::make_shared<CubeCollisionShape>(glm::vec3 {0.5, 1, 0.5}),

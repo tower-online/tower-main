@@ -19,7 +19,10 @@ void Subworld::tick() {
         } else if (entity->movement_mode == Entity::MovementMode::TARGET) {
             const auto target_distance {distance(entity->position, entity->target_position)};
 
-            if (glm::epsilonEqual(target_distance, 0.0f, 1e-5f)) continue;
+            if (glm::epsilonEqual(target_distance, 0.0f, 1e-5f)) {
+                entity->target_direction = zero3;
+                continue;
+            }
 
             entity->target_direction = normalize(entity->target_position - entity->position);
             if (target_distance <= entity->movement_speed_base) {

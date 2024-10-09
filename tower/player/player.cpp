@@ -96,7 +96,6 @@ std::shared_ptr<Player> Player::create(EntityType type) {
     using namespace physics;
 
     auto player = std::make_shared<Player>(type);
-    player->add_child(player->pivot);
 
     // Init states
     {
@@ -126,7 +125,7 @@ std::shared_ptr<Player> Player::create(EntityType type) {
     player->add_child(body_collider);
 
     const auto weapon_offset = std::make_shared<Node>(glm::vec3 {0, 0, 1}, 0);
-    player->pivot->add_child(weapon_offset);
+    player->add_child(weapon_offset);
 
     //TODO: Read inventory items from DB
     auto fist = Fist::create();
