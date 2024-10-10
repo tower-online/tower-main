@@ -79,6 +79,7 @@ void Client::HeartBeater::stop() {
 }
 
 void Client::HeartBeater::beat() {
+    // spdlog::debug("[Client] ({}) is beating", _client.client_id);
     _last_beat = steady_clock::now();
     _dead_beats = 0;
 }

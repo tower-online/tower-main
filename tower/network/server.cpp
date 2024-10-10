@@ -154,8 +154,9 @@ void Server::remove_client_deferred(std::shared_ptr<Client> client) {
         client->stop();
         
         const auto current_zone {_clients_current_zone.at(client->client_id)};
-        if (!_zones.contains(current_zone)) return;
-        _zones.at(current_zone)->remove_client_deferred(client);
+        if (_zones.contains(current_zone)) {
+            _zones.at(current_zone)->remove_client_deferred(client);
+        }
 
         _clients.erase(client->client_id);
         _clients_current_zone.erase(client->client_id);

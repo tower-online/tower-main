@@ -144,6 +144,8 @@ void Zone::add_client_deferred(const std::shared_ptr<Client>& client) {
 
 void Zone::remove_client_deferred(const std::shared_ptr<Client>& client) {
     post(_strand, [this, client] {
+        if (!_clients.contains(client->client_id)) return;
+
         _subworld->remove_entity(client->player);
         _clients.erase(client->client_id);
         spdlog::debug("[Zone] ({}) Removed Client({})", zone_id, client->client_id);
