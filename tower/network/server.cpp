@@ -182,8 +182,9 @@ boost::asio::awaitable<void> Server::handle_packet(std::shared_ptr<Packet>&& pac
 
     case PacketType::Ping: {
         flatbuffers::FlatBufferBuilder builder {64};
-        const auto ping = CreatePing(builder, packet_base->packet_base_as<Ping>()->timestamp());
-        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::Ping, ping.Union()));
+        const auto ping = packet_base->packet_base_as<Ping>();
+        const auto pong = CreatePing(builder, ping->seq());
+        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::Ping, pong.Union()));
         packet->client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
         break;
     }
