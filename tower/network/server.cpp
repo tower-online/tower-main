@@ -131,6 +131,7 @@ void Server::add_client_deferred(tcp::socket&& socket) {
                 return;
             }
 
+            // Sequentialize packet handling on the strand
             auto packet = std::make_unique<Packet>(std::move(c), std::move(buffer));
             co_spawn(_strand, [this, packet = std::move(packet)] mutable -> boost::asio::awaitable<void> {
                 co_await handle_packet(std::move(packet));
@@ -224,7 +225,7 @@ boost::asio::awaitable<void> Server::handle_client_join_request(
         verifier.verify(decoded_token);
 
         client->is_authenticated = true;
-        spdlog::info("[Server] [ClientJoinRequest] {}/{}: Token OK", client->client_id, character_name);
+        // spdlog::info("[Server] [ClientJoinRequest] {}/{}: Token OK", client->client_id, character_name);
     } catch (const std::exception&) {
         spdlog::warn("[Server] [ClientJoinRequest] {}/{}: Token Invalid", client->client_id, character_name);
 
@@ -233,7 +234,25 @@ boost::asio::awaitable<void> Server::handle_client_join_request(
     }
 
     {
-        auto conn = co_await _st->db_pool.async_get_connection(boost::asio::use_awaitable);
+        static std::atomic<int> reach_count {0};
+
+        reach_count += 1;
+        spdlog::debug("reach count: {}", reach_count.load());
+
+        boost::mysql::diagnostics diag;
+        auto [ec, conn] {co_await _st->db_pool.async_get_connection(diag, as_tuple(boost::asio::use_awaitable))};
+        try {
+            boost::mysql::throw_on_error(ec, diag);
+        } catch (const std::exception& e) {
+            spdlog::error("Error getting connection: {}", ec.message());
+            client->stop();
+
+            reach_count -= 1;
+            co_return;
+        }
+
+        reach_count -= 1;
+
         {
             auto [ec, statement] = co_await conn->async_prepare_statement(
                 "SELECT c.id FROM users u JOIN characters c ON c.user_id = u.id AND c.name = ? WHERE u.username = ?",

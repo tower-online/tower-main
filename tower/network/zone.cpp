@@ -86,7 +86,7 @@ void Zone::add_client_deferred(const std::shared_ptr<Client>& client) {
         if (_clients.empty()) start();
 
         _clients[client->client_id] = client;
-        spdlog::debug("[Zone] ({}) Added Client({})", zone_id, client->client_id);
+        // spdlog::debug("[Zone] ({}) Added Client({})", zone_id, client->client_id);
 
         const auto& player = client->player;
         player->position = glm::vec3 {_subworld->size_x() / 2, 0, _subworld->size_z() / 2};
@@ -148,7 +148,7 @@ void Zone::remove_client_deferred(const std::shared_ptr<Client>& client) {
 
         _subworld->remove_entity(client->player);
         _clients.erase(client->client_id);
-        spdlog::debug("[Zone] ({}) Removed Client({})", zone_id, client->client_id);
+        // spdlog::debug("[Zone] ({}) Removed Client({})", zone_id, client->client_id);
 
         // Broadcast EntityDespawn
         flatbuffers::FlatBufferBuilder builder {64};

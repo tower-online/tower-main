@@ -19,7 +19,7 @@ int main(int argc, char* argv[]) {
     Settings::init();
     item::Loader::load_all();
 
-    constexpr size_t num_threads = 4; //std::thread::hardware_concurrency();
+    const size_t num_threads = std::thread::hardware_concurrency();
     boost::asio::thread_pool workers {num_threads - 1};
     boost::asio::signal_set signals {workers.get_executor(), SIGINT, SIGTERM};
 
