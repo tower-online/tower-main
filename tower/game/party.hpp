@@ -1,59 +1,73 @@
 #pragma once
 
 #include <tower/network/client.hpp>
+#include <tower/system/container/concurrent_map.hpp>
 
 namespace tower::game {
 using namespace tower::network;
 
-class Party {
-public:
-    explicit Party(const uint32_t party_id)
-        : party_id {party_id} {}
-
-    void add_member(const std::shared_ptr<Client>& client);
-    void remove_member(uint32_t client_id);
-
-    bool is_member(const uint32_t client_id) const { return _members.contains(client_id); }
-
-    auto begin() const { return _members.begin(); }
-    auto end() const { return _members.end(); }
-
-    const uint32_t party_id;
-
-private:
-    std::unordered_map<uint32_t, std::shared_ptr<Client>> _members {};
-};
-
-
 class PartyManager {
+    class Party;
+
 public:
     uint32_t add_party();
     std::vector<uint32_t> remove_party(uint32_t party_id);
-    Party* get_party(uint32_t party_id) const;
-    Party* get_current_party(uint32_t client_id) const;
+    std::optional<uint32_t> get_current_party_id(uint32_t client_id) const;
 
     bool is_same_party(uint32_t client_id1, uint32_t client_id2) const;
 
+    bool add_member(uint32_t party_id, const std::shared_ptr<Client>& client);
+    bool remove_member(uint32_t party_id, uint32_t client_id);
+    void remove_client(uint32_t client_id);
     void broadcast(uint32_t party_id, const std::shared_ptr<flatbuffers::DetachedBuffer>& buffer);
 
 private:
-    std::unordered_map<uint32_t, std::unique_ptr<Party>> _parties {};
-    std::unordered_map<uint32_t, uint32_t> _client_to_party {};
+    ConcurrentMap<uint32_t, std::shared_ptr<Party>> _parties {};
+    ConcurrentMap<uint32_t, uint32_t> _client_to_party {};
 
     std::atomic<uint32_t> _party_id_generator {0};
 };
 
 
-inline void Party::add_member(const std::shared_ptr<Client>& client) {
+class PartyManager::Party {
+public:
+    explicit Party(const uint32_t party_id, const size_t max_members = 4)
+        : party_id {party_id}, _max_members {max_members} {}
+
+    bool add_member(const std::shared_ptr<Client>& client);
+    bool remove_member(uint32_t client_id);
+
+    bool is_member(const uint32_t client_id) const { return _members.contains(client_id); }
+    size_t max_members() const { return _max_members; }
+    size_t size() const { return _members.size(); }
+    bool empty() const { return _members.empty(); }
+
+    auto get_members_guard();
+
+    const uint32_t party_id;
+
+private:
+    ConcurrentMap<uint32_t, std::shared_ptr<Client>> _members {};
+    size_t _max_members;
+};
+
+
+inline bool PartyManager::Party::add_member(const std::shared_ptr<Client>& client) {
+    if (_members.size() >= _max_members) return false;
     _members.insert_or_assign(client->client_id, client);
+    return true;
 }
 
-inline void Party::remove_member(uint32_t client_id) {
-    _members.erase(client_id);
+inline bool PartyManager::Party::remove_member(const uint32_t client_id) {
+    return _members.erase(client_id) != 0;
+}
+
+inline auto PartyManager::Party::get_members_guard() {
+    return _members.get_shared_guard();
 }
 
 inline uint32_t PartyManager::add_party() {
-    auto party {std::make_unique<Party>(++_party_id_generator)};
+    auto party {std::make_shared<Party>(++_party_id_generator)};
     const auto party_id {party->party_id};
 
     _parties.insert_or_assign(party_id, std::move(party));
@@ -66,10 +80,11 @@ inline uint32_t PartyManager::add_party() {
  * @return The list of member clients' IDs.
  */
 inline std::vector<uint32_t> PartyManager::remove_party(const uint32_t party_id) {
-    if (!_parties.contains(party_id)) return {};
+    std::shared_ptr<Party> party;
+    if (!_parties.try_at(party_id, party)) return {};
 
     std::vector<uint32_t> members_id {};
-    for (const auto& [id, _] : *_parties.at(party_id)) {
+    for (const auto members_guard {party->get_members_guard()}; const auto& [id, _] : members_guard.map) {
         members_id.emplace_back(id);
     }
     _parties.erase(party_id);
@@ -77,25 +92,59 @@ inline std::vector<uint32_t> PartyManager::remove_party(const uint32_t party_id)
     return members_id;
 }
 
-inline Party* PartyManager::get_party(const uint32_t party_id) const {
-    if (!_parties.contains(party_id)) return nullptr;
-    return _parties.at(party_id).get();
-}
-
-inline Party* PartyManager::get_current_party(const uint32_t client_id) const {
-    if (!_client_to_party.contains(client_id)) return nullptr;
-    return _parties.at(_client_to_party.at(client_id)).get();
+inline std::optional<uint32_t> PartyManager::get_current_party_id(const uint32_t client_id) const {
+    uint32_t party_id;
+    if (!_client_to_party.try_at(client_id, party_id)) return {};
+    return party_id;
 }
 
 inline bool PartyManager::is_same_party(const uint32_t client_id1, const uint32_t client_id2) const {
-    if (!_client_to_party.contains(client_id1) || !_client_to_party.contains(client_id2)) return false;
-    return _client_to_party.at(client_id1) == _client_to_party.at(client_id2);
+    uint32_t party_id1, party_id2;
+
+    if (!_client_to_party.try_at(client_id1, party_id1) || !_client_to_party.try_at(client_id2, party_id2)) {
+        return false;
+    }
+    return party_id1 == party_id2;
+}
+
+inline bool PartyManager::add_member(const uint32_t party_id, const std::shared_ptr<Client>& client) {
+    std::shared_ptr<Party> party;
+
+    if (!_parties.try_at(party_id, party)) return false;
+    return party->add_member(client);
+}
+
+inline bool PartyManager::remove_member(const uint32_t party_id, const uint32_t client_id) {
+    if (!_parties.contains(party_id)) return false;
+
+    std::shared_ptr<Party> party;
+
+    if (!_parties.try_at(party_id, party)) return false;
+    const auto result {party->remove_member(client_id)};
+
+    if (party->empty()) {
+        remove_party(party_id);
+    }
+
+    return result;
+}
+
+inline void PartyManager::remove_client(const uint32_t client_id) {
+    uint32_t party_id;
+    if (!_client_to_party.try_at(client_id, party_id)) return;
+    _client_to_party.erase(client_id);
+
+    std::shared_ptr<Party> party;
+    if (!_parties.try_at(party_id, party)) return;
+    party->remove_member(client_id);
 }
 
 inline void PartyManager::broadcast(const uint32_t party_id, const std::shared_ptr<flatbuffers::DetachedBuffer>& buffer) {
-    if (!_parties.contains(party_id)) return;
+    std::shared_ptr<Party> party;
+    if (!_parties.try_at(party_id, party)) return;
 
-    for (const auto& [_, client] : *_parties.at(party_id)) {
+    const auto members_guard {party->get_members_guard()};
+    for (const auto& [_, client] : members_guard.map) {
         client->send_packet(buffer);
     }
 }
