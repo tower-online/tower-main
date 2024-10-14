@@ -103,7 +103,7 @@ void Zone::add_client_deferred(const std::shared_ptr<Client>& client) {
                 if (other_player->entity_id == player->entity_id) continue;
 
                 spawns.emplace_back(CreatePlayerSpawn(builder,
-                    false, other_player->entity_id, other_player->write_player_info(builder)));
+                    false, other_player->entity_id, other_player->owner_id, other_player->write_player_info(builder)));
             }
             const auto spawns_offset = builder.CreateVector(spawns);
 
@@ -135,7 +135,8 @@ void Zone::add_client_deferred(const std::shared_ptr<Client>& client) {
         // Notify other clients for new player spawn
         {
             flatbuffers::FlatBufferBuilder builder {1024};
-            const auto spawn = CreatePlayerSpawn(builder, false, player->entity_id, player->write_player_info(builder));
+            const auto spawn = CreatePlayerSpawn(builder,
+                false, player->entity_id, client->client_id, player->write_player_info(builder));
             builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerSpawn, spawn.Union()));
             broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()), client->client_id);
         }

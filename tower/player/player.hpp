@@ -13,23 +13,24 @@ using namespace tower::world;
 
 class Player : public Entity {
 public:
-    explicit Player(EntityType type);
+    explicit Player(EntityType type, uint32_t owner_id);
 
-    static boost::asio::awaitable<std::shared_ptr<Player>> load(boost::mysql::pooled_connection& conn, std::string_view character_name);
-    static std::shared_ptr<Player> create(EntityType type);
+    static boost::asio::awaitable<std::shared_ptr<Player>> load(
+        boost::mysql::pooled_connection& conn, std::string_view character_name, uint32_t owner_id);
+    static std::shared_ptr<Player> create(EntityType type, uint32_t owner_id);
 
     void tick(network::Zone*) override {}
 
     flatbuffers::Offset<network::packet::PlayerData> write_player_info(flatbuffers::FlatBufferBuilder& builder) const;
 
-    uint32_t character_id() const { return _character_id; }
     std::string_view name() const { return _name; }
+
+    const uint32_t owner_id;
 
     Inventory inventory {};
     Stats stats {};
 
 private:
-    uint32_t _character_id {};
     std::string _name {};
 };
 }

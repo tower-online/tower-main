@@ -8,6 +8,7 @@
 #include <tower/network/profiler.hpp>
 
 namespace tower::network {
+using namespace tower::game;
 using namespace tower::network::packet;
 using namespace tower::world;
 
@@ -28,6 +29,8 @@ private:
     boost::asio::awaitable<void> handle_client_join_request(
         std::shared_ptr<Client>&& client, const ClientJoinRequest* request);
     void handle_player_enter_zone_request(std::shared_ptr<Client>&& client, const PlayerEnterZoneRequest* request);
+    void handle_player_join_party_request(std::shared_ptr<Client>&& client, const PlayerJoinPartyRequest* request);
+    void handle_player_join_party_response(std::shared_ptr<Client>&& client, const PlayerJoinPartyResponse* response);
 
     std::atomic<bool> _is_running {false};
     std::unique_ptr<tcp::acceptor> _acceptor;

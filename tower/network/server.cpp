@@ -180,6 +180,16 @@ boost::asio::awaitable<void> Server::handle_packet(std::shared_ptr<Packet>&& pac
             std::move(packet->client), packet_base->packet_base_as<PlayerEnterZoneRequest>());
         break;
 
+    case PacketType::PlayerJoinPartyRequest:
+        handle_player_join_party_request(
+            std::move(packet->client), packet_base->packet_base_as<PlayerJoinPartyRequest>());
+        break;
+
+    case PacketType::PlayerJoinPartyResponse:
+        handle_player_join_party_response(
+            std::move(packet->client), packet_base->packet_base_as<PlayerJoinPartyResponse>());
+        break;
+
     case PacketType::HeartBeat:
         // Ignore, because the client already heart-beated by itself
         break;
@@ -282,7 +292,7 @@ boost::asio::awaitable<void> Server::handle_client_join_request(
             }
         }
 
-        client->player = co_await player::Player::load(conn, character_name);
+        client->player = co_await player::Player::load(conn, character_name, client->client_id);
         if (!client->player) {
             spdlog::error("[Server] [ClientJoinRequest] Error loading player: {}", character_name);
             client->stop();
@@ -292,7 +302,7 @@ boost::asio::awaitable<void> Server::handle_client_join_request(
 
     flatbuffers::FlatBufferBuilder builder {1024};
     const auto spawn = CreatePlayerSpawn(builder,
-        true, client->player->entity_id, client->player->write_player_info(builder));
+        true, client->player->entity_id, client->client_id, client->player->write_player_info(builder));
     //TODO: Find player's last stayed zone. (Current: Default Zone 1)
     const WorldLocation current_location {1, 1};
     const auto response = CreateClientJoinResponse(builder, &current_location, spawn);
@@ -331,5 +341,54 @@ void Server::handle_player_enter_zone_request(std::shared_ptr<Client>&& client, 
     const auto response = CreatePlayerEnterZoneResponse(builder, true, request->location());
     builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerEnterZoneResponse, response.Union()));
     client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+}
+
+void Server::handle_player_join_party_request(std::shared_ptr<Client>&& client, const PlayerJoinPartyRequest* request) {
+    const auto requester_id {request->requester()},  requestee_id {request->requestee()};
+    if (client->client_id != requester_id) return;
+    if (!_clients.contains(requestee_id)) return;
+
+    // Ask for an approval
+    _shared_state->party_manager.pending_requests.insert_or_assign(
+        requester_id, std::make_shared<PartyManager::PendingRequest>(requestee_id));
+
+    flatbuffers::FlatBufferBuilder builder {128};
+    const auto ask = CreatePlayerJoinPartyRequest(builder, requester_id, requestee_id);
+    builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerJoinPartyRequest, ask.Union()));
+    _clients.at(requestee_id)->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));}
+
+void Server::handle_player_join_party_response(std::shared_ptr<Client>&& client,
+    const PlayerJoinPartyResponse* response) {
+    const auto requester_id {response->requester()},  requestee_id {response->requestee()};
+    if (client->client_id != requestee_id) return;
+    if (!_clients.contains(requester_id)) return;
+    if (response->result() != PlayerJoinPartyResult::OK) return;
+
+    // Check if request is still valid
+    auto& party_manager {_shared_state->party_manager};
+    std::shared_ptr<PartyManager::PendingRequest> request;
+    if (!party_manager.pending_requests.try_at(requestee_id, request)) return;
+    if (request->requestee_id != requestee_id) return;
+    if (!request->is_valid()) {
+        party_manager.pending_requests.erase(requestee_id);
+        return;
+    }
+    party_manager.pending_requests.erase(requestee_id);
+
+    // Join and notify the approval
+    if (const auto current_party_id {party_manager.get_current_party_id(requestee_id)}; !current_party_id) {
+        // Create a party if not exist
+        const auto new_party_id {party_manager.add_party()};
+        party_manager.add_member(new_party_id, _clients.at(requester_id));
+        party_manager.add_member(new_party_id, _clients.at(requestee_id));
+    } else {
+        party_manager.add_member(*current_party_id, _clients.at(requester_id));
+    }
+
+    flatbuffers::FlatBufferBuilder builder {128};
+    const auto response_relay {CreatePlayerJoinPartyResponse(builder,
+        requester_id, requestee_id, PlayerJoinPartyResult::OK)};
+    builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerJoinPartyResponse, response_relay.Union()));
+    _clients.at(requester_id)->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
 }
 }

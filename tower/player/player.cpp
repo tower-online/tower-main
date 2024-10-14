@@ -7,10 +7,10 @@
 #include <tower/physics/cube_collision_shape.hpp>
 
 namespace tower::player {
-Player::Player(const EntityType type)
-    : Entity {type} {}
+Player::Player(const EntityType type, const uint32_t owner_id)
+    : Entity {type}, owner_id {owner_id} {}
 
-boost::asio::awaitable<std::shared_ptr<Player>> Player::load(boost::mysql::pooled_connection& conn, std::string_view character_name) {
+boost::asio::awaitable<std::shared_ptr<Player>> Player::load(boost::mysql::pooled_connection& conn, std::string_view character_name, const uint32_t owner_id) {
     auto [ec, statement] = co_await conn->async_prepare_statement(
         "SELECT id, name, race "
         "FROM characters "
@@ -45,8 +45,8 @@ boost::asio::awaitable<std::shared_ptr<Player>> Player::load(boost::mysql::poole
         co_return nullptr;
     }
 
-    auto player = create(entity_types_map[race.data()]);
-    player->_character_id = character_id;
+    auto player = create(entity_types_map[race.data()], owner_id);
+    // player->_character_id = character_id;
     player->_name = name;
 
     std::string query {
@@ -92,10 +92,10 @@ boost::asio::awaitable<std::shared_ptr<Player>> Player::load(boost::mysql::poole
     co_return player;
 }
 
-std::shared_ptr<Player> Player::create(EntityType type) {
+std::shared_ptr<Player> Player::create(EntityType type, const uint32_t owner_id) {
     using namespace physics;
 
-    auto player = std::make_shared<Player>(type);
+    auto player = std::make_shared<Player>(type, owner_id);
 
     // Init states
     {

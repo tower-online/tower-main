@@ -4,12 +4,26 @@
 #include <tower/system/container/concurrent_map.hpp>
 
 namespace tower::game {
+using namespace std::chrono;
 using namespace tower::network;
 
 class PartyManager {
     class Party;
 
 public:
+    struct PendingRequest {
+        explicit PendingRequest(const uint32_t requestee_id)
+            : requestee_id {requestee_id}, _requested_time {steady_clock::now()} {}
+
+        const uint32_t requestee_id;
+
+        bool is_valid() const { return steady_clock::now() < _requested_time + MAX_WAIT_TIME; }
+
+    private:
+        static constexpr auto MAX_WAIT_TIME {10s};
+        const steady_clock::time_point _requested_time;
+    };
+
     uint32_t add_party();
     std::vector<uint32_t> remove_party(uint32_t party_id);
     std::optional<uint32_t> get_current_party_id(uint32_t client_id) const;
@@ -21,8 +35,12 @@ public:
     void remove_client(uint32_t client_id);
     void broadcast(uint32_t party_id, const std::shared_ptr<flatbuffers::DetachedBuffer>& buffer);
 
+    // <requester_id, request>
+    ConcurrentMap<uint32_t, std::shared_ptr<PendingRequest>> pending_requests {};
 private:
+    // <client_id, Party>
     ConcurrentMap<uint32_t, std::shared_ptr<Party>> _parties {};
+    // <client_id, party_id>
     ConcurrentMap<uint32_t, uint32_t> _client_to_party {};
 
     std::atomic<uint32_t> _party_id_generator {0};
@@ -108,9 +126,12 @@ inline bool PartyManager::is_same_party(const uint32_t client_id1, const uint32_
 }
 
 inline bool PartyManager::add_member(const uint32_t party_id, const std::shared_ptr<Client>& client) {
-    std::shared_ptr<Party> party;
+    // If already in the party, nope
+    if (_client_to_party.contains(client->client_id)) return false;
 
+    std::shared_ptr<Party> party;
     if (!_parties.try_at(party_id, party)) return false;
+    _client_to_party.insert_or_assign(client->client_id, party->party_id);
     return party->add_member(client);
 }
 
