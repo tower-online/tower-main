@@ -13,16 +13,16 @@
 namespace tower::network {
 using namespace tower::player;
 
-Zone::Zone(const uint32_t zone_id, boost::asio::any_io_executor& executor)
-    : zone_id {zone_id}, _strand {make_strand(executor)} {}
+Zone::Zone(const uint32_t zone_id, boost::asio::any_io_executor& executor, const std::shared_ptr<ServerSharedState>& shared_state)
+    : zone_id {zone_id}, _strand {make_strand(executor)}, _shared_state {shared_state} {}
 
 Zone::~Zone() {
     stop();
 }
 
 std::unique_ptr<Zone> Zone::create(uint32_t zone_id, boost::asio::any_io_executor& executor,
-    std::string_view zone_data_file) {
-    auto zone {std::make_unique<Zone>(zone_id, executor)};
+    std::string_view zone_data_file, const std::shared_ptr<ServerSharedState>& shared_state) {
+    auto zone {std::make_unique<Zone>(zone_id, executor, shared_state)};
 
     // Read Zone data
     std::vector<uint8_t> buffer;

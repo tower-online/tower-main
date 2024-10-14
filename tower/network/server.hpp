@@ -13,7 +13,7 @@ using namespace tower::world;
 
 class Server {
 public:
-    Server(boost::asio::any_io_executor&& executor, const std::shared_ptr<ServerSharedState>& st);
+    Server(boost::asio::any_io_executor&& executor, const std::shared_ptr<ServerSharedState>& shared_state);
     ~Server();
 
     void init();
@@ -33,7 +33,7 @@ private:
     std::unique_ptr<tcp::acceptor> _acceptor;
     boost::asio::any_io_executor _executor;
     boost::asio::strand<boost::asio::any_io_executor> _strand;
-    std::shared_ptr<ServerSharedState> _st;
+    std::shared_ptr<ServerSharedState> _shared_state;
 
     Profiler _profiler {};
 

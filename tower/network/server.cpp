@@ -6,8 +6,8 @@
 #include <tower/entity/simple_monster.hpp>
 
 namespace tower::network {
-Server::Server(boost::asio::any_io_executor&& executor, const std::shared_ptr<ServerSharedState>& st) :
-    _executor {std::move(executor)}, _strand {make_strand(_executor)}, _st {st} {
+Server::Server(boost::asio::any_io_executor&& executor, const std::shared_ptr<ServerSharedState>& shared_state) :
+    _executor {std::move(executor)}, _strand {make_strand(_executor)}, _shared_state {shared_state} {
     _acceptor = std::make_unique<tcp::acceptor>(
         make_strand(_executor), tcp::endpoint {tcp::v4(), Settings::listen_port()});
     _acceptor->set_option(boost::asio::socket_base::reuse_address(true));
@@ -19,8 +19,11 @@ Server::~Server() { stop(); }
 void Server::init() {
     // TODO: Read zone data from file or DB
     for (uint32_t zone_id {1}; zone_id <= 10; ++zone_id) {
-        auto zone {Zone::create(zone_id, _executor,
-            std::format("{}/zones/F1Z{}.bin", TOWER_DATA_ROOT, zone_id))};
+        auto zone {Zone::create(
+            zone_id,
+            _executor,
+            std::format("{}/zones/F1Z{}.bin", TOWER_DATA_ROOT, zone_id),
+            _shared_state)};
         if (!zone) continue;
 
         _zones[zone_id] = std::move(zone);
@@ -240,7 +243,7 @@ boost::asio::awaitable<void> Server::handle_client_join_request(
         spdlog::debug("reach count: {}", reach_count.load());
 
         boost::mysql::diagnostics diag;
-        auto [ec, conn] {co_await _st->db_pool.async_get_connection(diag, as_tuple(boost::asio::use_awaitable))};
+        auto [ec, conn] {co_await _shared_state->db_pool.async_get_connection(diag, as_tuple(boost::asio::use_awaitable))};
         try {
             boost::mysql::throw_on_error(ec, diag);
         } catch (const std::exception& e) {

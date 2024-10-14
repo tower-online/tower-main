@@ -54,6 +54,7 @@ add_library(libtower STATIC
     tower/entity/simple_monster.cpp
 
     tower/game/modifier.hpp
+    tower/game/party.hpp
 
     tower/item/item.hpp
     tower/item/loader.hpp

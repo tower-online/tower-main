@@ -2,6 +2,7 @@
 
 #include <tower/network/packet.hpp>
 #include <tower/network/packet/packet_base.hpp>
+#include <tower/network/server_shared_state.hpp>
 #include <tower/world/subworld.hpp>
 #include <tower/entity/entity.hpp>
 
@@ -16,11 +17,11 @@ class Zone {
     constexpr static auto TICK_INTERVAL = 100ms;
 
 public:
-    Zone(uint32_t zone_id, boost::asio::any_io_executor& executor);
+    Zone(uint32_t zone_id, boost::asio::any_io_executor& executor, const std::shared_ptr<ServerSharedState>& shared_state);
     ~Zone();
 
     static std::unique_ptr<Zone> create(uint32_t zone_id, boost::asio::any_io_executor& executor,
-        std::string_view zone_data_file);
+        std::string_view zone_data_file, const std::shared_ptr<ServerSharedState>& shared_state);
 
     void start();
     void stop();
@@ -49,10 +50,10 @@ private:
 
     boost::asio::strand<boost::asio::any_io_executor> _strand;
     steady_clock::time_point _last_tick;
+    std::unique_ptr<world::Subworld> _subworld;
 
     std::unordered_map<uint32_t, std::shared_ptr<Client>> _clients {};
 
-
-    std::unique_ptr<world::Subworld> _subworld;
+    std::shared_ptr<ServerSharedState> _shared_state;
 };
 }
