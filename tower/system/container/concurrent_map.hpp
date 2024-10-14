@@ -7,7 +7,29 @@
 namespace tower {
 template <typename KeyType, typename ValueType>
 class ConcurrentMap {
+    using MapType = std::unordered_map<KeyType, ValueType>;
+
 public:
+    struct SharedGuard {
+        SharedGuard(MapType& map, std::shared_lock<std::shared_mutex>&& lock)
+            : map {map}, _lock {std::move(lock)} {}
+
+        MapType& map;
+
+    private:
+        std::shared_lock<std::shared_mutex> _lock;
+    };
+
+    struct UniqueGuard {
+        UniqueGuard(MapType& map, std::unique_lock<std::shared_mutex>&& lock)
+            : map {map}, _lock {std::move(lock)} {}
+
+        MapType& map;
+
+    private:
+        std::unique_lock<std::shared_mutex> _lock;
+    };
+
     ConcurrentMap() = default;
     ~ConcurrentMap() = default;
     ConcurrentMap(const ConcurrentMap&) = delete;
@@ -15,30 +37,20 @@ public:
 
     void insert_or_assign(const KeyType& key, const ValueType& value);
     void insert_or_assign(const KeyType& key, ValueType&& value);
-    void erase(const KeyType& key);
+    auto erase(const KeyType& key);
     bool try_extract(const KeyType& key, ValueType& target);
     void clear();
 
-    ValueType at(const KeyType& key) const;
+    bool try_at(const KeyType& key, ValueType& target) const;
     bool contains(const KeyType& key) const;
+    size_t size() const;
     bool empty() const;
 
-    template <typename Function, typename... Args>
-        requires std::invocable<Function, ValueType&, Args&&...>
-    void apply(const KeyType& key, Function function, Args&&... args);
-
-    template <typename Function, typename... Args>
-        requires std::invocable<Function, ValueType&, Args...>
-    void apply_all(Function function, Args&&... args);
-
-    template <typename Filter, typename Function, typename... Args>
-        requires std::invocable<Filter, const ValueType&>
-        && std::same_as<bool, std::invoke_result_t<Filter, const ValueType&>>
-        && std::invocable<Function, ValueType&, Args...>
-    void apply_some(Filter filter, Function function, Args&&... args);
+    SharedGuard get_shared_guard();
+    UniqueGuard get_unique_guard();
 
 private:
-    std::unordered_map<KeyType, ValueType> _map {};
+    MapType _map {};
     mutable std::shared_mutex _mutex {};
 };
 
@@ -56,15 +68,9 @@ void ConcurrentMap<KeyType, ValueType>::insert_or_assign(const KeyType& key, Val
 }
 
 template <typename KeyType, typename ValueType>
-ValueType ConcurrentMap<KeyType, ValueType>::at(const KeyType& key) const {
-    return _map.at(key);
-}
-
-template <typename KeyType, typename ValueType>
-void ConcurrentMap<KeyType, ValueType>::erase(const KeyType& key) {
+auto ConcurrentMap<KeyType, ValueType>::erase(const KeyType& key) {
     std::unique_lock lock {_mutex};
-    if (!_map.contains(key)) return;
-    _map.erase(key);
+    return _map.erase(key);
 }
 
 template <typename KeyType, typename ValueType>
@@ -86,46 +92,38 @@ void ConcurrentMap<KeyType, ValueType>::clear() {
 }
 
 template <typename KeyType, typename ValueType>
+bool ConcurrentMap<KeyType, ValueType>::try_at(const KeyType& key, ValueType& target) const {
+    std::shared_lock lock {_mutex};
+    if (!_map.contains(key)) return false;
+    target = _map.at(key);
+    return true;
+}
+
+template <typename KeyType, typename ValueType>
 bool ConcurrentMap<KeyType, ValueType>::contains(const KeyType& key) const {
     std::shared_lock lock {_mutex};
     return _map.contains(key);
 }
 
 template <typename KeyType, typename ValueType>
-template <typename Function, typename ... Args> requires std::invocable<Function, ValueType&, Args&&...>
-void ConcurrentMap<KeyType, ValueType>::apply(const KeyType& key, Function function, Args&&... args) {
+size_t ConcurrentMap<KeyType, ValueType>::size() const {
     std::shared_lock lock {_mutex};
-
-    if (!_map.contains(key)) return;
-    function(_map[key], std::forward<Args>(args)...);
-}
-
-template <typename KeyType, typename ValueType>
-template <typename Function, typename ... Args> requires std::invocable<Function, ValueType&, Args...>
-void ConcurrentMap<KeyType, ValueType>::apply_all(Function function, Args&&... args) {
-    std::shared_lock lock {_mutex};
-
-    for (auto& [_, value] : _map) {
-        function(value, args...);
-    }
-}
-
-template <typename KeyType, typename ValueType>
-template <typename Filter, typename Function, typename ... Args> requires std::invocable<Filter, const ValueType&> &&
-    std::same_as<bool, std::invoke_result_t<Filter, const ValueType&>> && std::invocable<Function, ValueType&, Args...>
-void ConcurrentMap<KeyType, ValueType>::apply_some(Filter filter, Function function, Args&&... args) {
-    std::shared_lock lock {_mutex};
-
-    for (auto& [_, value] : _map) {
-        if (!filter(value)) continue;
-
-        function(value, args...);
-    }
+    return _map.size();
 }
 
 template <typename KeyType, typename ValueType>
 bool ConcurrentMap<KeyType, ValueType>::empty() const {
     std::shared_lock lock {_mutex};
     return _map.empty();
+}
+
+template <typename KeyType, typename ValueType>
+typename ConcurrentMap<KeyType, ValueType>::SharedGuard ConcurrentMap<KeyType, ValueType>::get_shared_guard() {
+    return SharedGuard {_map, std::shared_lock {_mutex}};
+}
+
+template <typename KeyType, typename ValueType>
+typename ConcurrentMap<KeyType, ValueType>::UniqueGuard ConcurrentMap<KeyType, ValueType>::get_unique_guard() {
+    return UniqueGuard {_map, std::unique_lock {_mutex}};
 }
 }
