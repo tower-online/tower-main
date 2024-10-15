@@ -31,6 +31,7 @@ private:
     void handle_player_enter_zone_request(std::shared_ptr<Client>&& client, const PlayerEnterZoneRequest* request);
     void handle_player_join_party_request(std::shared_ptr<Client>&& client, const PlayerJoinPartyRequest* request);
     void handle_player_join_party_response(std::shared_ptr<Client>&& client, const PlayerJoinPartyResponse* response);
+    void handle_player_leave_party(std::shared_ptr<Client>&& client, const PlayerLeaveParty* response);
 
     std::atomic<bool> _is_running {false};
     std::unique_ptr<tcp::acceptor> _acceptor;

@@ -7,9 +7,9 @@
 
 namespace tower::network {
 Server::Server(boost::asio::any_io_executor&& executor, const std::shared_ptr<ServerSharedState>& shared_state) :
-    _executor {std::move(executor)}, _strand {make_strand(_executor)}, _shared_state {shared_state} {
+    _executor{std::move(executor)}, _strand{make_strand(_executor)}, _shared_state{shared_state} {
     _acceptor = std::make_unique<tcp::acceptor>(
-        make_strand(_executor), tcp::endpoint {tcp::v4(), Settings::listen_port()});
+        make_strand(_executor), tcp::endpoint{tcp::v4(), Settings::listen_port()});
     _acceptor->set_option(boost::asio::socket_base::reuse_address(true));
     _acceptor->listen(Settings::listen_backlog());
 }
@@ -18,19 +18,20 @@ Server::~Server() { stop(); }
 
 void Server::init() {
     // TODO: Read zone data from file or DB
-    for (uint32_t zone_id {1}; zone_id <= 10; ++zone_id) {
-        auto zone {Zone::create(
+    for (uint32_t zone_id{1}; zone_id <= 10; ++zone_id) {
+        auto zone{Zone::create(
             zone_id,
             _executor,
             std::format("{}/zones/F1Z{}.bin", TOWER_DATA_ROOT, zone_id),
             _shared_state)};
-        if (!zone) continue;
+        if (!zone)
+            continue;
 
         _zones[zone_id] = std::move(zone);
     }
 
     // For test
-    auto monster {SimpleMonster::create()};
+    auto monster{SimpleMonster::create()};
     _zones.at(1)->subworld()->add_entity(monster);
 }
 
@@ -42,7 +43,7 @@ void Server::start() {
     // Spawn accepting loop
     co_spawn(_executor, [this] -> boost::asio::awaitable<void> {
         {
-            const tcp::endpoint local_endpoint {_acceptor->local_endpoint()};
+            const tcp::endpoint local_endpoint{_acceptor->local_endpoint()};
             spdlog::info("[Server] Accepting on {}:{}", local_endpoint.address().to_string(), local_endpoint.port());
         }
         while (_is_running) {
@@ -56,7 +57,7 @@ void Server::start() {
                 continue;
             }
             try {
-                const tcp::endpoint remote_endpoint {socket.remote_endpoint()};
+                const tcp::endpoint remote_endpoint{socket.remote_endpoint()};
                 spdlog::info("[Server] Accepted {}:{}", remote_endpoint.address().to_string(), remote_endpoint.port());
             } catch (const boost::system::system_error&) {
                 continue;
@@ -75,8 +76,8 @@ void Server::start() {
 
 
     // Spwan profiler logging loop
-    co_spawn(_executor, [this]->boost::asio::awaitable<void>{
-        boost::asio::steady_timer timer {_executor};
+    co_spawn(_executor, [this]-> boost::asio::awaitable<void> {
+        boost::asio::steady_timer timer{_executor};
 
         while (_is_running) {
             timer.expires_after(3000ms);
@@ -86,13 +87,15 @@ void Server::start() {
             }
 
             _profiler.renew();
-            spdlog::info("{} clients, {} packets/s, {} bytes/s", _clients.size(), _profiler.get_pps(), _profiler.get_bps());
+            spdlog::info("{} clients, {} packets/s, {} bytes/s", _clients.size(), _profiler.get_pps(),
+                _profiler.get_bps());
         }
     }, boost::asio::detached);
 }
 
 void Server::stop() {
-    if (!_is_running.exchange(false)) return;
+    if (!_is_running.exchange(false))
+        return;
     spdlog::info("[Server] Stopping...");
 
     try {
@@ -102,8 +105,8 @@ void Server::stop() {
     }
 
     // Clean up above the strand
-    std::promise<void> cleanup_promise {};
-    auto cleanup_future {cleanup_promise.get_future()};
+    std::promise<void> cleanup_promise{};
+    auto cleanup_future{cleanup_promise.get_future()};
     post(_strand, [this, cleanup_promise = std::move(cleanup_promise)] mutable {
         for (auto& [_, client] : _clients) {
             client->stop();
@@ -120,7 +123,7 @@ void Server::stop() {
 }
 
 void Server::add_client_deferred(tcp::socket&& socket) {
-    static uint32_t client_id_generator {0};
+    static uint32_t client_id_generator{0};
     auto client = std::make_shared<Client>(
         _executor,
         std::move(socket),
@@ -128,7 +131,7 @@ void Server::add_client_deferred(tcp::socket&& socket) {
         [this](std::shared_ptr<Client>&& c, std::vector<uint8_t>&& buffer) {
             _profiler.add_packet(buffer.size());
 
-            if (flatbuffers::Verifier verifier {buffer.data(), buffer.size()}; !VerifyPacketBaseBuffer(verifier)) {
+            if (flatbuffers::Verifier verifier{buffer.data(), buffer.size()}; !VerifyPacketBaseBuffer(verifier)) {
                 spdlog::warn("[Server] Invalid PacketBase from Client({})", c->client_id);
                 c->stop();
                 return;
@@ -156,8 +159,10 @@ void Server::add_client_deferred(tcp::socket&& socket) {
 void Server::remove_client_deferred(std::shared_ptr<Client> client) {
     post(_strand, [this, client = std::move(client)] {
         client->stop();
-        
-        const auto current_zone {_clients_current_zone.at(client->client_id)};
+
+        _shared_state->party_manager.remove_client(client->client_id);
+
+        const auto current_zone{_clients_current_zone.at(client->client_id)};
         if (_zones.contains(current_zone)) {
             _zones.at(current_zone)->remove_client_deferred(client);
         }
@@ -190,12 +195,17 @@ boost::asio::awaitable<void> Server::handle_packet(std::shared_ptr<Packet>&& pac
             std::move(packet->client), packet_base->packet_base_as<PlayerJoinPartyResponse>());
         break;
 
+    case PacketType::PlayerLeaveParty:
+        handle_player_leave_party(
+            std::move(packet->client), packet_base->packet_base_as<PlayerLeaveParty>());
+        break;
+
     case PacketType::HeartBeat:
         // Ignore, because the client already heart-beated by itself
         break;
 
     case PacketType::Ping: {
-        flatbuffers::FlatBufferBuilder builder {64};
+        flatbuffers::FlatBufferBuilder builder{64};
         const auto ping = packet_base->packet_base_as<Ping>();
         const auto pong = CreatePing(builder, ping->seq());
         builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::Ping, pong.Union()));
@@ -211,7 +221,8 @@ boost::asio::awaitable<void> Server::handle_packet(std::shared_ptr<Packet>&& pac
         }
 
         const auto client_id = packet->client->client_id;
-        if (!_clients.contains(client_id)) co_return;
+        if (!_clients.contains(client_id))
+            co_return;
         _zones.at(_clients_current_zone.at(client_id))->handle_packet_deferred(std::move(packet));
 
         break;
@@ -233,8 +244,8 @@ boost::asio::awaitable<void> Server::handle_client_join_request(
     try {
         const auto decoded_token = jwt::decode(token.data());
         const auto verifier = jwt::verify()
-                                  .allow_algorithm(jwt::algorithm::hs256 {Settings::auth_jwt_key().data()})
-                                  .with_claim("username", jwt::claim(std::string {username}));
+                              .allow_algorithm(jwt::algorithm::hs256{Settings::auth_jwt_key().data()})
+                              .with_claim("username", jwt::claim(std::string{username}));
         verifier.verify(decoded_token);
 
         client->is_authenticated = true;
@@ -247,24 +258,17 @@ boost::asio::awaitable<void> Server::handle_client_join_request(
     }
 
     {
-        static std::atomic<int> reach_count {0};
-
-        reach_count += 1;
-        spdlog::debug("reach count: {}", reach_count.load());
-
         boost::mysql::diagnostics diag;
-        auto [ec, conn] {co_await _shared_state->db_pool.async_get_connection(diag, as_tuple(boost::asio::use_awaitable))};
+        auto [ec, conn]{
+            co_await _shared_state->db_pool.async_get_connection(diag, as_tuple(boost::asio::use_awaitable))};
         try {
             boost::mysql::throw_on_error(ec, diag);
         } catch (const std::exception& e) {
             spdlog::error("Error getting connection: {}", ec.message());
             client->stop();
 
-            reach_count -= 1;
             co_return;
         }
-
-        reach_count -= 1;
 
         {
             auto [ec, statement] = co_await conn->async_prepare_statement(
@@ -282,7 +286,7 @@ boost::asio::awaitable<void> Server::handle_client_join_request(
                 spdlog::error("[Server] [ClientJoinRequest] Error executing query: {}", ec.message());
                 client->stop();
                 co_return;
-                }
+            }
 
             if (result.rows().empty()) {
                 spdlog::warn(
@@ -300,11 +304,11 @@ boost::asio::awaitable<void> Server::handle_client_join_request(
         }
     }
 
-    flatbuffers::FlatBufferBuilder builder {1024};
+    flatbuffers::FlatBufferBuilder builder{1024};
     const auto spawn = CreatePlayerSpawn(builder,
         true, client->player->entity_id, client->client_id, client->player->write_player_info(builder));
     //TODO: Find player's last stayed zone. (Current: Default Zone 1)
-    const WorldLocation current_location {1, 1};
+    const WorldLocation current_location{1, 1};
     const auto response = CreateClientJoinResponse(builder, &current_location, spawn);
     builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::ClientJoinResponse, response.Union()));
     client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
@@ -315,9 +319,9 @@ boost::asio::awaitable<void> Server::handle_client_join_request(
 void Server::handle_player_enter_zone_request(std::shared_ptr<Client>&& client, const PlayerEnterZoneRequest* request) {
     //TODO: Check if zone is reachable from current player's location
     const auto location = request->location();
-    auto& current_zone_id {_clients_current_zone.at(client->client_id)};
-    const auto next_zone_id {location->zone_id()};
-    const bool is_first_enter {current_zone_id == 0};
+    auto& current_zone_id{_clients_current_zone.at(client->client_id)};
+    const auto next_zone_id{location->zone_id()};
+    const bool is_first_enter{current_zone_id == 0};
 
     if (current_zone_id == next_zone_id) {
         spdlog::warn("[Server] Client({}): Requested entering to current zone", client->client_id);
@@ -337,58 +341,83 @@ void Server::handle_player_enter_zone_request(std::shared_ptr<Client>&& client, 
     }
     current_zone_id = next_zone_id;
 
-    flatbuffers::FlatBufferBuilder builder {128};
+    flatbuffers::FlatBufferBuilder builder{128};
     const auto response = CreatePlayerEnterZoneResponse(builder, true, request->location());
     builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerEnterZoneResponse, response.Union()));
     client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
 }
 
 void Server::handle_player_join_party_request(std::shared_ptr<Client>&& client, const PlayerJoinPartyRequest* request) {
-    const auto requester_id {request->requester()},  requestee_id {request->requestee()};
-    if (client->client_id != requester_id) return;
-    if (!_clients.contains(requestee_id)) return;
+    const auto requester_id{request->requester()}, requestee_id{request->requestee()};
+    spdlog::debug("request: {} -> {}", requester_id, requestee_id);
+    if (client->client_id != requester_id)
+        return;
+    if (!_clients.contains(requestee_id))
+        return;
 
     // Ask for an approval
     _shared_state->party_manager.pending_requests.insert_or_assign(
         requester_id, std::make_shared<PartyManager::PendingRequest>(requestee_id));
 
-    flatbuffers::FlatBufferBuilder builder {128};
+    flatbuffers::FlatBufferBuilder builder{128};
     const auto ask = CreatePlayerJoinPartyRequest(builder, requester_id, requestee_id);
     builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerJoinPartyRequest, ask.Union()));
-    _clients.at(requestee_id)->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));}
+    _clients.at(requestee_id)->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+}
 
 void Server::handle_player_join_party_response(std::shared_ptr<Client>&& client,
     const PlayerJoinPartyResponse* response) {
-    const auto requester_id {response->requester()},  requestee_id {response->requestee()};
-    if (client->client_id != requestee_id) return;
-    if (!_clients.contains(requester_id)) return;
-    if (response->result() != PlayerJoinPartyResult::OK) return;
+    const auto requester_id{response->requester()}, requestee_id{response->requestee()};
+    spdlog::debug("response: {} -> {}", requester_id, requestee_id);
+    if (client->client_id != requestee_id)
+        return;
+    if (!_clients.contains(requester_id))
+        return;
+    if (response->result() != PlayerJoinPartyResult::OK)
+        return;
 
     // Check if request is still valid
     auto& party_manager {_shared_state->party_manager};
     std::shared_ptr<PartyManager::PendingRequest> request;
-    if (!party_manager.pending_requests.try_at(requestee_id, request)) return;
-    if (request->requestee_id != requestee_id) return;
+    if (!party_manager.pending_requests.try_at(requester_id, request))
+        return;
+    if (request->requestee_id != requestee_id)
+        return;
     if (!request->is_valid()) {
-        party_manager.pending_requests.erase(requestee_id);
+        party_manager.pending_requests.erase(requester_id);
         return;
     }
-    party_manager.pending_requests.erase(requestee_id);
+    party_manager.pending_requests.erase(requester_id);
 
     // Join and notify the approval
-    if (const auto current_party_id {party_manager.get_current_party_id(requestee_id)}; !current_party_id) {
+    if (const auto current_party_id{party_manager.get_current_party_id(requestee_id)}; !current_party_id) {
         // Create a party if not exist
-        const auto new_party_id {party_manager.add_party()};
+        const auto new_party_id{party_manager.add_party()};
         party_manager.add_member(new_party_id, _clients.at(requester_id));
         party_manager.add_member(new_party_id, _clients.at(requestee_id));
     } else {
         party_manager.add_member(*current_party_id, _clients.at(requester_id));
     }
 
-    flatbuffers::FlatBufferBuilder builder {128};
-    const auto response_relay {CreatePlayerJoinPartyResponse(builder,
+    flatbuffers::FlatBufferBuilder builder{128};
+    const auto response_relay{CreatePlayerJoinPartyResponse(builder,
         requester_id, requestee_id, PlayerJoinPartyResult::OK)};
     builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerJoinPartyResponse, response_relay.Union()));
     _clients.at(requester_id)->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+}
+
+void Server::handle_player_leave_party(std::shared_ptr<Client>&& client, const PlayerLeaveParty* response) {
+    const auto leaver_id {response->leaver_id()};
+    spdlog::debug("leave: {}", leaver_id);
+    if (client->client_id != leaver_id) return;
+
+    const auto party_id {_shared_state->party_manager.remove_client(leaver_id)};
+    if (!party_id) return;
+
+    flatbuffers::FlatBufferBuilder builder{128};
+    const auto leave {CreatePlayerLeaveParty(builder, leaver_id, PlayerLeavePartyReason::REQUESTED)};
+    builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerLeaveParty, leave.Union()));
+
+    _shared_state->party_manager.broadcast(*party_id, std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
 }
 }

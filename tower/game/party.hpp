@@ -32,7 +32,7 @@ public:
 
     bool add_member(uint32_t party_id, const std::shared_ptr<Client>& client);
     bool remove_member(uint32_t party_id, uint32_t client_id);
-    void remove_client(uint32_t client_id);
+    std::optional<uint32_t> remove_client(uint32_t client_id);
     void broadcast(uint32_t party_id, const std::shared_ptr<flatbuffers::DetachedBuffer>& buffer);
 
     // <requester_id, request>
@@ -150,14 +150,17 @@ inline bool PartyManager::remove_member(const uint32_t party_id, const uint32_t 
     return result;
 }
 
-inline void PartyManager::remove_client(const uint32_t client_id) {
+inline std::optional<uint32_t> PartyManager::remove_client(const uint32_t client_id) {
     uint32_t party_id;
-    if (!_client_to_party.try_at(client_id, party_id)) return;
+    if (!_client_to_party.try_at(client_id, party_id)) return {};
     _client_to_party.erase(client_id);
+    pending_requests.erase(client_id);
 
     std::shared_ptr<Party> party;
-    if (!_parties.try_at(party_id, party)) return;
-    party->remove_member(client_id);
+    if (!_parties.try_at(party_id, party)) return {};
+    if (!party->remove_member(client_id)) return {};
+
+    return party_id;
 }
 
 inline void PartyManager::broadcast(const uint32_t party_id, const std::shared_ptr<flatbuffers::DetachedBuffer>& buffer) {
