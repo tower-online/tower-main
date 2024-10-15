@@ -173,7 +173,13 @@ void Server::remove_client_deferred(std::shared_ptr<Client> client) {
     });
 }
 
-boost::asio::awaitable<void> Server::handle_packet(std::shared_ptr<Packet>&& packet) {
+void Server::broadcast(std::shared_ptr<flatbuffers::DetachedBuffer>&& buffer) {
+    for (const auto& [_, client] : _clients) {
+        client->send_packet(buffer);
+    }
+}
+
+boost::asio::awaitable<void> Server::handle_packet(std::unique_ptr<Packet> packet) {
     switch (const auto packet_base = GetPacketBase(packet->buffer.data()); packet_base->packet_base_type()) {
     case PacketType::ClientJoinRequest:
         co_await handle_client_join_request(
@@ -198,6 +204,11 @@ boost::asio::awaitable<void> Server::handle_packet(std::shared_ptr<Packet>&& pac
     case PacketType::PlayerLeaveParty:
         handle_player_leave_party(
             std::move(packet->client), packet_base->packet_base_as<PlayerLeaveParty>());
+        break;
+
+    case PacketType::PlayerChat:
+        handle_player_chat(
+            std::move(packet->client), packet_base->packet_base_as<PlayerChat>(), packet->buffer.size());
         break;
 
     case PacketType::HeartBeat:
@@ -349,7 +360,6 @@ void Server::handle_player_enter_zone_request(std::shared_ptr<Client>&& client, 
 
 void Server::handle_player_join_party_request(std::shared_ptr<Client>&& client, const PlayerJoinPartyRequest* request) {
     const auto requester_id{request->requester()}, requestee_id{request->requestee()};
-    spdlog::debug("request: {} -> {}", requester_id, requestee_id);
     if (client->client_id != requester_id)
         return;
     if (!_clients.contains(requestee_id))
@@ -368,7 +378,6 @@ void Server::handle_player_join_party_request(std::shared_ptr<Client>&& client, 
 void Server::handle_player_join_party_response(std::shared_ptr<Client>&& client,
     const PlayerJoinPartyResponse* response) {
     const auto requester_id{response->requester()}, requestee_id{response->requestee()};
-    spdlog::debug("response: {} -> {}", requester_id, requestee_id);
     if (client->client_id != requestee_id)
         return;
     if (!_clients.contains(requester_id))
@@ -408,7 +417,6 @@ void Server::handle_player_join_party_response(std::shared_ptr<Client>&& client,
 
 void Server::handle_player_leave_party(std::shared_ptr<Client>&& client, const PlayerLeaveParty* response) {
     const auto leaver_id {response->leaver_id()};
-    spdlog::debug("leave: {}", leaver_id);
     if (client->client_id != leaver_id) return;
 
     const auto party_id {_shared_state->party_manager.remove_client(leaver_id)};
@@ -419,5 +427,41 @@ void Server::handle_player_leave_party(std::shared_ptr<Client>&& client, const P
     builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::PlayerLeaveParty, leave.Union()));
 
     _shared_state->party_manager.broadcast(*party_id, std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+}
+
+void Server::handle_player_chat(std::shared_ptr<Client>&& client, const PlayerChat* chat, const size_t buffer_size) {
+    const auto target {chat->target()};
+    const auto target_id {chat->target_id()};
+    const auto message {chat->message()};
+
+    std::shared_ptr<flatbuffers::DetachedBuffer> buffer;
+    {
+        flatbuffers::FlatBufferBuilder builder {buffer_size + sizeof(flatbuffers::uoffset_t)};
+        const auto echo {CreatePlayerChatDirect(builder, target, client->client_id, message->data())};
+        const auto packetBase {CreatePacketBase(builder, PacketType::PlayerChat, echo.Union())};
+        builder.FinishSizePrefixed(packetBase);
+        buffer = std::make_shared<flatbuffers::DetachedBuffer>(builder.Release());
+    }
+
+    if (target == PlayerChatTarget::SERVER) {
+        broadcast(std::move(buffer));
+    } else if (target == PlayerChatTarget::ZONE) {
+        const auto current_zone_id {_clients_current_zone.at(client->client_id)};
+        if (!_zones.contains(current_zone_id)) return;
+
+        _zones.at(current_zone_id)->broadcast(std::move(buffer));
+    } else if (target == PlayerChatTarget::GUILD) {
+        // TODO
+    } else if (target == PlayerChatTarget::PARTY) {
+        auto& party_manager {_shared_state->party_manager};
+        const auto party_id {party_manager.get_current_party_id(client->client_id)};
+        if (!party_id) return;
+
+        party_manager.broadcast(*party_id, std::move(buffer));
+    } else if (target == PlayerChatTarget::WHISPER) {
+        if (!_clients.contains(target_id)) return;
+
+        _clients.at(target_id)->send_packet(std::move(buffer));
+    }
 }
 }

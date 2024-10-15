@@ -1,5 +1,7 @@
 #include <tower/world/subworld.hpp>
 
+#include "spdlog/spdlog.h"
+
 namespace tower::world {
 Subworld::Subworld(Grid<bool>&& obstacles_grid)
     : _obstacles_grid {std::move(obstacles_grid)} {}
