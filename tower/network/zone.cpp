@@ -147,20 +147,50 @@ void Zone::remove_client_deferred(const std::shared_ptr<Client>& client) {
     post(_strand, [this, client] {
         if (!_clients.contains(client->client_id)) return;
 
-        _subworld->remove_entity(client->player);
         _clients.erase(client->client_id);
+
+        const auto player_entity {std::static_pointer_cast<Entity>(client->player)};
+        despawn_entity(player_entity);
         // spdlog::debug("[Zone] ({}) Removed Client({})", zone_id, client->client_id);
 
-        // Broadcast EntityDespawn
-        flatbuffers::FlatBufferBuilder builder {64};
-        const auto entity_despawn = CreateEntityDespawn(builder, client->player->entity_id);
-        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityDespawn, entity_despawn.Union()));
-        broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+        // _subworld->remove_entity(client->player);
+        //
+        // // Broadcast EntityDespawn
+        // flatbuffers::FlatBufferBuilder builder {64};
+        // const auto entity_despawn = CreateEntityDespawn(builder, client->player->entity_id);
+        // builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityDespawn, entity_despawn.Union()));
+        // broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
 
         if (_clients.empty()) {
             stop();
         }
     });
+}
+
+void Zone::spawn_entity_deferred(std::shared_ptr<Entity> entity) {
+    post(_strand, [this, entity = std::move(entity)] mutable {
+        entity->dead.connect([this](const uint32_t entity_id, std::shared_ptr<Entity> killer) {
+            if (!_subworld->entities().contains(entity_id)) return;
+
+            auto& self = _subworld->entities().at(entity_id);
+            spdlog::debug("Zone({}): entity({}) dead by ({})", zone_id, self->entity_id, killer->entity_id);
+            despawn_entity(self);
+        });
+
+        _subworld->add_entity(std::move(entity));
+
+        //TODO: Add sending spawn packet
+    });
+}
+
+void Zone::despawn_entity(const std::shared_ptr<Entity>& entity) {
+    _subworld->remove_entity(entity);
+
+    // Broadcast EntityDespawn
+    flatbuffers::FlatBufferBuilder builder {64};
+    const auto entity_despawn = CreateEntityDespawn(builder, entity->entity_id);
+    builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityDespawn, entity_despawn.Union()));
+    broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
 }
 
 void Zone::tick() {
@@ -255,6 +285,7 @@ void Zone::handle_skill_melee_attack(std::shared_ptr<Client>&& client, const Ski
     const auto melee_attackable {dynamic_cast<const MeleeAttackable*>(weapon.get())};
     if (!melee_attackable) return;
 
-    skill::MeleeAttack::use(this, player.get(), melee_attackable);
+    auto player_entity {std::static_pointer_cast<Entity>(player)};
+    skill::MeleeAttack::use(this, player_entity, melee_attackable);
 }
 }

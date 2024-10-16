@@ -14,6 +14,8 @@ class SimpleMonster final : public Entity {
     enum class State {IDLE, CHASING, ATTACKING};
 
 public:
+    class Data;
+
     SimpleMonster();
 
     void tick(network::Zone* zone) override;
@@ -27,9 +29,31 @@ private:
     Entity* _chasing_target {nullptr};
     //TODO: Use queue?
     std::vector<Point> _chasing_path;
-    size_t _chasing_path_index;
+    size_t _chasing_path_index {};
     steady_clock::time_point _chasing_started;
 };
+
+
+class SimpleMonster::Data {
+    static constexpr std::string_view file {TOWER_DATA_ROOT "/monsters/simple_monster.json"};
+
+public:
+    static void load();
+
+    static uint32_t max_health() { return _max_health; }
+
+    static uint32_t exp_amount() { return _exp_amount; }
+    static const std::vector<item::ItemType>& drop_items() { return _drop_items; }
+    static const std::vector<float>& drop_items_weight() { return _drop_items_weight; }
+
+private:
+    inline static uint32_t _max_health;
+
+    inline static uint32_t _exp_amount;
+    inline static std::vector<item::ItemType> _drop_items;
+    inline static std::vector<float> _drop_items_weight;
+};
+
 
 class IdleState : public State {
     static constexpr std::string_view name {"Idle"};

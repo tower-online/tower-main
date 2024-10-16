@@ -6,8 +6,8 @@
 #include <sstream>
 
 namespace tower::item::equipment {
-std::shared_ptr<Fist> Fist::create() {
-    auto fist {std::make_shared<Fist>()};
+std::unique_ptr<Fist> Fist::create() {
+    auto fist {std::make_unique<Fist>()};
     fist->node = std::make_shared<world::Node>();
 
     // TODO: Factory to set damage, rarity, and so on.
@@ -30,8 +30,8 @@ void Fist::Data::load() {
     {
         auto& size {obj["attackShape"].as_array()};
         _attack_shape_size.x = static_cast<float>(size.at(0).as_double());
-        _attack_shape_size.y = static_cast<float>(size.at(0).as_double());
-        _attack_shape_size.z = static_cast<float>(size.at(0).as_double());
+        _attack_shape_size.y = static_cast<float>(size.at(1).as_double());
+        _attack_shape_size.z = static_cast<float>(size.at(2).as_double());
     }
 }
 }

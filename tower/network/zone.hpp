@@ -35,6 +35,10 @@ public:
     boost::asio::strand<boost::asio::any_io_executor>& strand() { return _strand; };
     world::Subworld* subworld() { return _subworld.get(); }
 
+    //TODO: Refactor this to another class?
+    void spawn_entity_deferred(std::shared_ptr<entity::Entity> entity);
+    void despawn_entity(const std::shared_ptr<entity::Entity>& entity);
+
 private:
     void tick();
 

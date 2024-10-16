@@ -13,7 +13,7 @@ class Fist final : public Weapon, public MeleeAttackable {
 public:
     class Data;
 
-    static std::shared_ptr<Fist> create();
+    static std::unique_ptr<Fist> create();
 
     std::shared_ptr<world::Node> node;
 };

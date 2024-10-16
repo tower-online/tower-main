@@ -50,13 +50,18 @@ add_library(libtower STATIC
     tower/units.hpp
 
     tower/entity/entity.hpp
+    tower/entity/loader.hpp
+    tower/entity/loader.cpp
     tower/entity/simple_monster.hpp
     tower/entity/simple_monster.cpp
 
     tower/game/modifier.hpp
     tower/game/party.hpp
 
+    tower/item/gold.hpp
     tower/item/item.hpp
+    tower/item/item_factory.hpp
+    tower/item/item_factory.cpp
     tower/item/loader.hpp
     tower/item/loader.cpp
     tower/item/equipment/equipment.hpp
@@ -97,6 +102,7 @@ add_library(libtower STATIC
     tower/skill/melee_attack.hpp
 
     tower/system/probe.hpp
+    tower/system/random.hpp
     tower/system/settings.hpp
     tower/system/settings.cpp
     tower/system/state.hpp

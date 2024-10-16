@@ -17,12 +17,9 @@ using network::packet::EntityType;
 using network::packet::EntityResourceType;
 using network::packet::EntityResourceChangeMode;
 
-
 struct EntityResource {
     int32_t max_health {0};
     int32_t health {0};
-
-    signal::signal<void(EntityResourceChangeMode, int32_t)> health_changed;
 
     void change_health(EntityResourceChangeMode mode, int32_t amount);
 };
@@ -34,15 +31,18 @@ public:
 
     explicit Entity(EntityType entity_type);
 
-    static uint32_t generate_entity_id();
-
     virtual void tick(network::Zone* zone) = 0;
 
+    void get_damage(const std::shared_ptr<Entity>& attacker, EntityResourceType type, int32_t amount);
+
+public:
     const uint32_t entity_id;
     const EntityType entity_type;
 
     StateMachine state_machine {};
     EntityResource resource;
+
+    boost::signals2::signal<void(uint32_t entity_id, std::shared_ptr<Entity> killer)> dead {};
 
     MovementMode movement_mode {MovementMode::FORWARD};
     glm::vec3 target_direction {};
@@ -50,30 +50,30 @@ public:
     float movement_speed_base {0};
 
 private:
-    static void modify_resource_internal(EntityResourceChangeMode mode, uint32_t amount, uint32_t& target,
-        uint32_t target_max);
+    inline static std::atomic<uint32_t> _id_generator {0};
 };
 
 
-inline void EntityResource::change_health(EntityResourceChangeMode mode, int32_t amount) {
+inline void EntityResource::change_health(const EntityResourceChangeMode mode, const int32_t amount) {
     if (mode == EntityResourceChangeMode::ADD) {
         health = std::clamp(health + amount, 0, max_health);
-        health_changed(mode, amount);
     } else if (mode == EntityResourceChangeMode::SET) {
-        const auto health_old = health;
         health = std::clamp(amount, 0, max_health);
-        health_changed(mode, health - health_old);
     }
 }
 
 inline Entity::Entity(const EntityType entity_type)
-    : entity_id {generate_entity_id()}, entity_type {entity_type} {}
+    : entity_id {++_id_generator}, entity_type {entity_type} {}
 
-//TODO: Save/Load id_generator for server start/stop
-inline uint32_t Entity::generate_entity_id() {
-    static std::atomic<uint32_t> id_generator {0};
+inline void Entity::get_damage(const std::shared_ptr<Entity>& attacker,
+    const EntityResourceType type, const int32_t amount) {
+    if (type == EntityResourceType::HEALTH) {
+        resource.change_health(EntityResourceChangeMode::ADD, -amount);
 
-    return ++id_generator;
+        if (resource.health == 0) {
+            dead(entity_id, attacker);
+        }
+    }
 }
 
 inline static std::unordered_map<std::string, EntityType> entity_types_map {

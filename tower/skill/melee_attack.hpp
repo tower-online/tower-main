@@ -7,7 +7,7 @@
 namespace tower::skill {
 class MeleeAttack {
 public:
-    static void use(network::Zone* zone, entity::Entity* user, const item::equipment::MeleeAttackable* weapon) {
+    static void use(network::Zone* zone, std::shared_ptr<entity::Entity>& user, const item::equipment::MeleeAttackable* weapon) {
         using namespace tower::network::packet;
 
         if (!user->state_machine.try_transition("Attacking")) return;
@@ -23,7 +23,7 @@ public:
 
             //TODO: Caculate damage
             const int damage {weapon->melee_attack_damage()};
-            entity->resource.change_health(EntityResourceChangeMode::ADD, -damage);
+            entity->get_damage(user, EntityResourceType::HEALTH, damage);
             damages.emplace_back(EntityResourceChangeMode::ADD, EntityResourceType::HEALTH, entity->entity_id, -damage);
         }
 

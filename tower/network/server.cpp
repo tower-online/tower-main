@@ -31,8 +31,8 @@ void Server::init() {
     }
 
     // For test
-    auto monster{SimpleMonster::create()};
-    _zones.at(1)->subworld()->add_entity(monster);
+    auto monster {SimpleMonster::create()};
+    _zones.at(1)->spawn_entity_deferred(monster);
 }
 
 void Server::start() {
@@ -437,7 +437,8 @@ void Server::handle_player_chat(std::shared_ptr<Client>&& client, const PlayerCh
     std::shared_ptr<flatbuffers::DetachedBuffer> buffer;
     {
         flatbuffers::FlatBufferBuilder builder {buffer_size + sizeof(flatbuffers::uoffset_t)};
-        const auto echo {CreatePlayerChatDirect(builder, target, client->client_id, message->data())};
+        const auto echo {CreatePlayerChatDirect(builder,
+            target, client->client_id, client->player->name().data(), message->data())};
         const auto packetBase {CreatePacketBase(builder, PacketType::PlayerChat, echo.Union())};
         builder.FinishSizePrefixed(packetBase);
         buffer = std::make_shared<flatbuffers::DetachedBuffer>(builder.Release());

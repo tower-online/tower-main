@@ -1,3 +1,4 @@
+#include <boost/json.hpp>
 #include <tower/entity/simple_monster.hpp>
 #include <tower/physics/collision_object.hpp>
 #include <tower/physics/cube_collision_shape.hpp>
@@ -8,17 +9,15 @@
 #include <tower/network/packet/entity_types.hpp>
 #include <tower/skill/melee_attack.hpp>
 
-#include <spdlog/spdlog.h>
-
 #include <algorithm>
+#include <fstream>
+#include <sstream>
 
 namespace tower::entity {
 SimpleMonster::SimpleMonster()
     : Entity {EntityType::SIMPLE_MONSTER} {}
 
 void SimpleMonster::tick(network::Zone* zone) {
-    // spdlog::debug("[SimpleMonster] ({}) {} ({}, {}, {})", entity_id, (int)_state, position.x, position.y, position.z);
-
     //TODO: `_chasing_target` is shared_ptr, holding the target even if the player has already left the zone. Fix.
     if (_state == State::IDLE) {
         // Check if any player is within the detection area
@@ -103,7 +102,8 @@ void SimpleMonster::tick(network::Zone* zone) {
 
         // Attack
         target_position = _chasing_target->position;
-        skill::MeleeAttack::use(zone, this, _weapon.get());
+        auto self {std::dynamic_pointer_cast<Entity>(shared_from_this())};
+        skill::MeleeAttack::use(zone, self, _weapon.get());
     }
 }
 
@@ -137,7 +137,7 @@ std::shared_ptr<SimpleMonster> SimpleMonster::create() {
     monster->movement_mode = Entity::MovementMode::TARGET;
     monster->movement_speed_base = 0.2f;
 
-    monster->resource.max_health = 10.0f;
+    monster->resource.max_health = Data::max_health();
     monster->resource.health = monster->resource.max_health;
     
     monster->_detection_area = std::make_shared<SphereCollisionShape>(4);
@@ -147,5 +147,31 @@ std::shared_ptr<SimpleMonster> SimpleMonster::create() {
     monster->add_child(monster->_weapon->node);
     
     return monster;
+}
+
+void SimpleMonster::Data::load() {
+    std::ifstream f {file.data()};
+    std::stringstream buffer;
+    buffer << f.rdbuf();
+
+    boost::json::value parsed {boost::json::parse(buffer.view())};
+    boost::json::object& obj {parsed.as_object()};
+
+    _max_health = static_cast<uint32_t>(obj["max_health"].as_int64());
+
+    _exp_amount = static_cast<uint32_t>(obj["exp_amount"].as_int64());
+    {
+        auto& drop_items {obj["drop_items"].as_array()};
+        for (size_t i {0}; i < drop_items.size(); ++i) {
+            const auto item_type {item::item_name_to_type(drop_items.at(i).as_string())};
+            _drop_items.push_back(item_type);
+        }
+    }
+    {
+        auto& drop_items_weight {obj["drop_items_weight"].as_array()};
+        for (size_t i {0}; i < drop_items_weight.size(); ++i) {
+            _drop_items_weight.push_back(static_cast<float>(drop_items_weight.at(i).as_double()));
+        }
+    }
 }
 }
