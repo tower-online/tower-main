@@ -45,6 +45,10 @@ boost::asio::awaitable<bool> Inventory::load_inventory(boost::mysql::pooled_conn
     co_return true;
 }
 
+void Inventory::add_item(std::shared_ptr<Item>&& item) {
+    _items.push_back(std::move(item));
+}
+
 boost::asio::awaitable<std::shared_ptr<Item>> Inventory::load_item(boost::mysql::pooled_connection& conn, uint32_t character_id,
     std::string_view item_type) {
     const auto type {Item::item_name_to_type(item_type)};

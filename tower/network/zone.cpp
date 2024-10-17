@@ -41,7 +41,7 @@ std::unique_ptr<Zone> Zone::create(uint32_t zone_id, boost::asio::any_io_executo
                 return {};
             }
             buffer.resize(length);
-            f.read(reinterpret_cast<char*>(buffer.data()), length);
+            f.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(length));
         }
 
         const auto zone_data {world::data::GetZoneData(buffer.data())};
@@ -141,7 +141,7 @@ void Zone::add_client_deferred(const std::shared_ptr<Client>& client) {
                 const Vector3 position {entity->position.x, entity->position.y, entity->position.z};
                 auto spawn {CreateEntitySpawn(builder, entity->entity_type, entity_id, &position, entity->rotation,
                     entity->resource.health, entity->resource.max_health)};
-                spawns.emplace_back(std::move(spawn));
+                spawns.emplace_back(spawn);
             }
 
             const auto entity_spawns = CreateEntitySpawnsDirect(builder, &spawns);
@@ -214,13 +214,13 @@ void Zone::spawn_entity_deferred(std::shared_ptr<Entity> entity) {
         const Vector3 position {entity->position.x, entity->position.y, entity->position.z};
         auto spawn {CreateEntitySpawn(builder, entity->entity_type, entity->entity_id, &position, entity->rotation,
             entity->resource.health, entity->resource.max_health)};
-        spawns.emplace_back(std::move(spawn));
+        spawns.emplace_back(spawn);
 
         const auto entity_spawns = CreateEntitySpawnsDirect(builder, &spawns);
         builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntitySpawns, entity_spawns.Union()));
         broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
 
-        _subworld->add_entity(std::move(entity));
+        _subworld->add_entity(entity);
     });
 }
 
@@ -305,6 +305,10 @@ void Zone::handle_packet(std::shared_ptr<Packet>&& packet) {
         handle_skill_melee_attack(std::move(packet->client), packet_base->packet_base_as<SkillMeleeAttack>());
         break;
 
+    case PacketType::PlayerPickupItem:
+        handle_player_pickup_item(std::move(packet->client), packet_base->packet_base_as<PlayerPickupItem>());
+        break;
+
     default:
         break;
     }
@@ -340,5 +344,32 @@ void Zone::handle_skill_melee_attack(std::shared_ptr<Client>&& client, const Ski
 
     auto player_entity {std::static_pointer_cast<Entity>(player)};
     skill::MeleeAttack::use(this, player_entity, melee_attackable);
+}
+
+void Zone::handle_player_pickup_item(std::shared_ptr<Client>&& client, const PlayerPickupItem* pickup) {
+    //TODO: Check if close enough
+
+    const auto object_id {pickup->object_id()};
+    if (!_subworld->has_object(object_id)) return;
+
+    const auto& object {_subworld->get_object(object_id)};
+    auto item {std::dynamic_pointer_cast<Item>(object)};
+    if (!item) return;
+
+    // Delegate db task to server
+    co_spawn(_shared_state->server_strand, [this, client, item] -> boost::asio::awaitable<void> {
+        auto [ec, conn] {
+            co_await _shared_state->db_pool.async_get_connection(as_tuple(boost::asio::use_awaitable))};
+        if (ec) {
+            spdlog::error("Character() error getting db connection", client->player->character_id());
+            co_return;
+        }
+
+        const auto result {co_await Inventory::save_item(conn, client->player->character_id(), item)};
+        if (!result) {
+            spdlog::warn("Character() error saving item", client->player->character_id());
+        }
+    }, boost::asio::detached);
+    client->player->inventory.add_item(std::move(item));
 }
 }

@@ -7,7 +7,7 @@
 
 namespace tower::network {
 Server::Server(boost::asio::any_io_executor&& executor, const std::shared_ptr<ServerSharedState>& shared_state) :
-    _executor{std::move(executor)}, _strand{make_strand(_executor)}, _shared_state{shared_state} {
+    _executor{std::move(executor)}, _strand{shared_state->server_strand}, _shared_state{shared_state} {
     _acceptor = std::make_unique<tcp::acceptor>(
         make_strand(_executor), tcp::endpoint{tcp::v4(), Settings::listen_port()});
     _acceptor->set_option(boost::asio::socket_base::reuse_address(true));
@@ -269,8 +269,8 @@ boost::asio::awaitable<void> Server::handle_client_join_request(
         auto [ec, conn]{
             co_await _shared_state->db_pool.async_get_connection(diag, as_tuple(boost::asio::use_awaitable))};
         try {
-            boost::mysql::throw_on_error(ec, diag);
-        } catch (const std::exception& e) {
+            throw_on_error(ec, diag);
+        } catch (const std::exception&) {
             spdlog::error("Error getting connection: {}", ec.message());
             client->stop();
 
@@ -454,7 +454,7 @@ void Server::handle_player_chat(std::shared_ptr<Client>&& client, const PlayerCh
         const auto party_id {party_manager.get_current_party_id(client->client_id)};
         if (!party_id) return;
 
-        party_manager.broadcast(*party_id, std::move(buffer));
+        party_manager.broadcast(*party_id, buffer);
     } else if (target == PlayerChatTarget::WHISPER) {
         if (!_clients.contains(target_id)) return;
 

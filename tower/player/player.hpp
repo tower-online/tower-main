@@ -21,9 +21,10 @@ public:
 
     void tick(network::Zone*) override {}
 
-    flatbuffers::Offset<network::packet::PlayerData> write_player_info(flatbuffers::FlatBufferBuilder& builder) const;
+    flatbuffers::Offset<PlayerData> write_player_info(flatbuffers::FlatBufferBuilder& builder) const;
 
     std::string_view name() const { return _name; }
+    uint32_t character_id() const { return _character_id; }
 
     const uint32_t owner_id;
 

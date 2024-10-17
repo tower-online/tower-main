@@ -49,6 +49,7 @@ private:
     void handle_packet(std::shared_ptr<Packet>&& packet);
     void handle_player_movement(std::shared_ptr<Client>&& client, const PlayerMovement* movement);
     void handle_skill_melee_attack(std::shared_ptr<Client>&& client, const SkillMeleeAttack* attack);
+    void handle_player_pickup_item(std::shared_ptr<Client>&& client, const PlayerPickupItem* pickup);
 
 public:
     const uint32_t zone_id;

@@ -14,6 +14,8 @@ public:
 
     boost::asio::awaitable<bool> load_inventory(boost::mysql::pooled_connection& conn, uint32_t character_id);
 
+    void add_item(std::shared_ptr<Item>&& item);
+
     static boost::asio::awaitable<std::shared_ptr<Item>> load_item(
         boost::mysql::pooled_connection& conn, uint32_t character_id, std::string_view item_type);
     static boost::asio::awaitable<bool> save_item(

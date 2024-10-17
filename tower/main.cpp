@@ -40,7 +40,8 @@ int main(int argc, char* argv[]) {
         boost::mysql::connection_pool {
             boost::mysql::pool_executor_params::thread_safe(workers.get_executor()), std::move(db_params)
         },
-        boost::redis::connection {workers.get_executor()}
+        boost::redis::connection {workers.get_executor()},
+        workers.get_executor()
     );
     shared_st->db_pool.async_run(boost::asio::detached);
     // shared_st->redis_connection.async_run(redis_config, {}, boost::asio::detached);
