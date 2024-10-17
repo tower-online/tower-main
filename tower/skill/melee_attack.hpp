@@ -22,7 +22,7 @@ public:
             if (user->entity_id == entity->entity_id) continue; // Don't attack myself
 
             //TODO: Caculate damage
-            const int damage {weapon->melee_attack_damage()};
+            const int damage {weapon->melee_attack_damage};
             entity->get_damage(user, EntityResourceType::HEALTH, damage);
             damages.emplace_back(EntityResourceChangeMode::ADD, EntityResourceType::HEALTH, entity->entity_id, -damage);
         }

@@ -9,13 +9,13 @@ namespace tower {
  *
  * @return Random value between [begin, end] (inclusive)
  */
-static int random_range(const int min, const int max) {
+static inline int random_range(const int min, const int max) {
     thread_local std::mt19937 gen {std::random_device {}()};
 
     return std::uniform_int_distribution {min, max}(gen);
 }
 
-static float random_range(const float min, const float max) {
+static inline float random_range(const float min, const float max) {
     thread_local std::mt19937 gen {std::random_device {}()};
 
     return std::uniform_real_distribution {min, max}(gen);

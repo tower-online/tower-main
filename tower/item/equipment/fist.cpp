@@ -14,7 +14,7 @@ std::unique_ptr<Fist> Fist::create() {
     fist->node = std::make_shared<world::WorldObject>();
 
     // TODO: Factory to set damage, rarity, and so on.
-    fist->_melee_attack_damage = 1;
+    fist->melee_attack_damage = 1;
     fist->_melee_attack_shape = std::make_shared<physics::CubeCollisionShape>(Data::attack_shape_size());
     fist->node->add_child(fist->_melee_attack_shape);
 

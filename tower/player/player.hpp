@@ -32,5 +32,6 @@ public:
 
 private:
     std::string _name {};
+    uint32_t _character_id {};
 };
 }
