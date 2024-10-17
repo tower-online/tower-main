@@ -2,7 +2,7 @@
 
 #include <tower/entity/entity.hpp>
 #include <tower/physics/sphere_collision_shape.hpp>
-#include <tower/item/equipment/weapon/fist.hpp>
+#include <tower/item/equipment/fist.hpp>
 #include <tower/system/container/grid.hpp>
 #include <tower/system/state_machine.hpp>
 
@@ -24,7 +24,7 @@ public:
 
 private:
     State _state {State::IDLE};
-    std::shared_ptr<item::equipment::Fist> _weapon;
+    std::shared_ptr<item::Fist> _weapon;
     std::shared_ptr<physics::SphereCollisionShape> _detection_area;
     Entity* _chasing_target {nullptr};
     //TODO: Use queue?

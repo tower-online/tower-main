@@ -50,6 +50,8 @@ add_library(libtower STATIC
     tower/units.hpp
 
     tower/entity/entity.hpp
+    tower/entity/entity_spawner.hpp
+    tower/entity/entity_spawner.cpp
     tower/entity/loader.hpp
     tower/entity/loader.cpp
     tower/entity/simple_monster.hpp
@@ -62,13 +64,13 @@ add_library(libtower STATIC
     tower/item/item.hpp
     tower/item/item_factory.hpp
     tower/item/item_factory.cpp
+    tower/item/item_object.hpp
     tower/item/loader.hpp
     tower/item/loader.cpp
     tower/item/equipment/equipment.hpp
-    tower/item/equipment/weapon/fist.hpp
-    tower/item/equipment/weapon/fist.cpp
-    tower/item/equipment/weapon/melee_attackable.hpp
-    tower/item/equipment/weapon/weapon.hpp
+    tower/item/equipment/fist.hpp
+    tower/item/equipment/fist.cpp
+    tower/item/equipment/melee_attackable.hpp
 
     tower/network/client.hpp
     tower/network/client.cpp
@@ -112,7 +114,7 @@ add_library(libtower STATIC
     tower/system/container/concurrent_queue.hpp
     tower/system/container/grid.hpp
 
-    tower/world/node.hpp
+    tower/world/world_object.hpp
     tower/world/path_finder.hpp
     tower/world/subworld.cpp
     tower/world/subworld.hpp

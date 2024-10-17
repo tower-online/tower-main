@@ -44,15 +44,15 @@ void Subworld::tick() {
     for (const auto& [_, area] : _collision_areas) {
         for (const auto& [_, body] : _collision_objects) {
             if (area->is_colliding(body)) {
-                if (_contacts[area->node_id].contains(body->node_id)) {
+                if (_contacts[area->object_id].contains(body->object_id)) {
                     area->body_staying(body);
                 } else {
                     area->body_entered(body);
-                    _contacts[area->node_id].insert(body->node_id);
+                    _contacts[area->object_id].insert(body->object_id);
                 }
-            } else if (_contacts[area->node_id].contains(body->node_id)) {
+            } else if (_contacts[area->object_id].contains(body->object_id)) {
                 area->body_exited(body);
-                _contacts[area->node_id].erase(body->node_id);
+                _contacts[area->object_id].erase(body->object_id);
             }
         }
     }
@@ -68,27 +68,37 @@ void Subworld::remove_entity(const std::shared_ptr<Entity>& entity) {
     _entities.erase(entity->entity_id);
 }
 
-void Subworld::add_collision_objects_from_tree(const std::shared_ptr<Node>& node) {
-    for (auto& child : node->get_children()) {
-        if (const auto object = std::dynamic_pointer_cast<CollisionObject>(child)) {
-            _collision_objects[object->node_id] = object;
+void Subworld::add_object(const std::shared_ptr<WorldObject>& object) {
+    add_collision_objects_from_tree(object);
+    _objects.insert_or_assign(object->object_id, object);
+}
+
+void Subworld::remove_object(const std::shared_ptr<WorldObject>& object) {
+    remove_collision_objects_from_tree(object);
+    _objects.erase(object->object_id);
+}
+
+void Subworld::add_collision_objects_from_tree(const std::shared_ptr<WorldObject>& object) {
+    for (auto& child : object->get_children()) {
+        if (const auto collision_object {std::dynamic_pointer_cast<CollisionObject>(child)}) {
+            _collision_objects[collision_object->object_id] = collision_object;
         }
         add_collision_objects_from_tree(child);
     }
 }
 
-void Subworld::remove_collision_objects_from_tree(const std::shared_ptr<Node>& node) {
-    for (auto& child : node->get_children()) {
-        if (const auto object = std::dynamic_pointer_cast<CollisionObject>(child)) {
-            _collision_objects.erase(object->node_id);
+void Subworld::remove_collision_objects_from_tree(const std::shared_ptr<WorldObject>& object) {
+    for (auto& child : object->get_children()) {
+        if (const auto collision_object {dynamic_cast<const CollisionObject *>(child.get())}) {
+            _collision_objects.erase(collision_object->object_id);
         }
         remove_collision_objects_from_tree(child);
     }
 }
 
 void Subworld::add_collision_area(const std::shared_ptr<CollisionObject>& area) {
-    _collision_areas[area->node_id] = area;
-    _contacts[area->node_id] = {};
+    _collision_areas[area->object_id] = area;
+    _contacts[area->object_id] = {};
 }
 
 void Subworld::remove_collision_area(const uint32_t area_id) {

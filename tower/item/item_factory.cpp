@@ -1,6 +1,6 @@
 #include <tower/item/gold.hpp>
 #include <tower/item/item_factory.hpp>
-#include <tower/item/equipment/weapon/fist.hpp>
+#include <tower/item/equipment/fist.hpp>
 
 namespace tower::item {
 std::unique_ptr<Item> ItemFactory::create(const ItemCreateConfig& config) {
@@ -10,7 +10,7 @@ std::unique_ptr<Item> ItemFactory::create(const ItemCreateConfig& config) {
         return gold;
     }
     if (config.type == ItemType::FIST) {
-        auto fist {equipment::Fist::create()};
+        auto fist {Fist::create()};
         return fist;
     }
 

@@ -1,14 +1,17 @@
 #include <boost/json.hpp>
-#include <tower/item/equipment/weapon/fist.hpp>
+#include <tower/item/equipment/fist.hpp>
 #include <tower/physics/cube_collision_shape.hpp>
 
 #include <fstream>
 #include <sstream>
 
-namespace tower::item::equipment {
+namespace tower::item {
+Fist::Fist()
+    : Equipment {ItemType::FIST} {}
+
 std::unique_ptr<Fist> Fist::create() {
     auto fist {std::make_unique<Fist>()};
-    fist->node = std::make_shared<world::Node>();
+    fist->node = std::make_shared<world::WorldObject>();
 
     // TODO: Factory to set damage, rarity, and so on.
     fist->_melee_attack_damage = 1;

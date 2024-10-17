@@ -1,13 +1,13 @@
 #pragma once
 
-#include <tower/item/equipment/weapon/melee_attackable.hpp>
+#include <tower/item/equipment/melee_attackable.hpp>
 #include <tower/network/zone.hpp>
 #include <tower/network/packet/entity_types.hpp>
 
 namespace tower::skill {
 class MeleeAttack {
 public:
-    static void use(network::Zone* zone, std::shared_ptr<entity::Entity>& user, const item::equipment::MeleeAttackable* weapon) {
+    static void use(network::Zone* zone, std::shared_ptr<entity::Entity>& user, const item::MeleeAttackable* weapon) {
         using namespace tower::network::packet;
 
         if (!user->state_machine.try_transition("Attacking")) return;

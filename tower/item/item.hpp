@@ -1,18 +1,26 @@
 #pragma once
 
+#include <tower/network/packet/item_types.hpp>
+
 #include <string_view>
 #include <unordered_map>
 
 namespace tower::item {
-enum class ItemRarity {NORMAL, MAGIC, RARE, LEGENDARY, UNIQUE};
-enum class ItemType {NONE, GOLD, FIST};
+using namespace network::packet;
 
 class Item {
 public:
+    explicit Item(const ItemType type)
+        : type {type} {}
+
     virtual ~Item() = default;
+
+    static ItemType item_name_to_type(const std::string_view name);
+
+    const ItemType type;
 };
 
-static ItemType item_name_to_type(const std::string_view name) {
+inline ItemType Item::item_name_to_type(const std::string_view name) {
     static std::unordered_map<std::string_view, ItemType> types {
         {"gold", ItemType::GOLD},
         {"fist", ItemType::FIST}};

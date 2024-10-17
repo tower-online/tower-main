@@ -1,8 +1,11 @@
 #include <glm/geometric.hpp>
 #include <glm/trigonometric.hpp>
 #include <spdlog/spdlog.h>
+#include <tower/item/item_factory.hpp>
+#include <tower/item/item_object.hpp>
 #include <tower/network/zone.hpp>
 #include <tower/world/data/zone_data.hpp>
+#include <tower/system/random.hpp>
 
 #include <tower/skill/melee_attack.hpp>
 
@@ -12,6 +15,7 @@
 
 namespace tower::network {
 using namespace tower::player;
+using namespace tower::item;
 
 Zone::Zone(const uint32_t zone_id, boost::asio::any_io_executor& executor, const std::shared_ptr<ServerSharedState>& shared_state)
     : zone_id {zone_id}, _strand {make_strand(executor)}, _shared_state {shared_state} {}
@@ -24,41 +28,54 @@ std::unique_ptr<Zone> Zone::create(uint32_t zone_id, boost::asio::any_io_executo
     std::string_view zone_data_file, const std::shared_ptr<ServerSharedState>& shared_state) {
     auto zone {std::make_unique<Zone>(zone_id, executor, shared_state)};
 
-    // Read Zone data
-    std::vector<uint8_t> buffer;
+    // Read Zone obstacles data
     {
-        std::error_code ec;
-        std::ifstream f {zone_data_file.data(), std::ios_base::binary};
-        const auto length {std::filesystem::file_size(zone_data_file, ec)};
+        std::vector<uint8_t> buffer;
+        {
+            std::error_code ec;
+            std::ifstream f {zone_data_file.data(), std::ios_base::binary};
+            const auto length {std::filesystem::file_size(zone_data_file, ec)};
 
-        if (ec) {
+            if (ec) {
+                spdlog::error("Invalid zone data file: {}", zone_data_file);
+                return {};
+            }
+            buffer.resize(length);
+            f.read(reinterpret_cast<char*>(buffer.data()), length);
+        }
+
+        const auto zone_data {world::data::GetZoneData(buffer.data())};
+        if (flatbuffers::Verifier verifier {buffer.data(), buffer.size()}; !zone_data || !zone_data->
+            Verify(verifier)) {
             spdlog::error("Invalid zone data file: {}", zone_data_file);
             return {};
         }
-        buffer.resize(length);
-        f.read(reinterpret_cast<char*>(buffer.data()), length);
+
+        const auto grid_vector {zone_data->grid()};
+        const auto size_x {zone_data->size_x()}, size_z {zone_data->size_z()};
+        if (size_x * size_z != grid_vector->size()) {
+            spdlog::error("Invalid zone data file: {}", zone_data_file);
+            return {};
+        }
+
+        Grid<bool> obstacles_grid {size_z, size_x};
+        for (size_t i {0}; i < grid_vector->size(); ++i) {
+            obstacles_grid.at(i) = grid_vector->Get(i)->is_blocked();
+        }
+
+        zone->_subworld = std::make_unique<Subworld>(std::move(obstacles_grid));
     }
 
-    const auto zone_data {world::data::GetZoneData(buffer.data())};
-    if (flatbuffers::Verifier verifier {buffer.data(), buffer.size()}; !zone_data || !zone_data->
-        Verify(verifier)) {
-        spdlog::error("Invalid zone data file: {}", zone_data_file);
-        return {};
-    }
+    //TODO: Read from the file
+    if (zone_id == 1) {
+        auto spawner {std::make_unique<EntitySpawner>()};
+        spawner->entity_type = EntityType::SIMPLE_MONSTER;
+        spawner->max_entities_count = 3;
+        spawner->spawn_interval = 5s;
+        spawner->spawn_position = glm::vec3 {zone->subworld()->size_x() / 2, 0, zone->subworld()->size_z() / 2};
 
-    const auto grid_vector {zone_data->grid()};
-    const auto size_x {zone_data->size_x()}, size_z {zone_data->size_z()};
-    if (size_x * size_z != grid_vector->size()) {
-        spdlog::error("Invalid zone data file: {}", zone_data_file);
-        return {};
+        zone->add_spawner(std::move(spawner));
     }
-
-    Grid<bool> obstacles_grid {size_z, size_x};
-    for (size_t i {0}; i < grid_vector->size(); ++i) {
-        obstacles_grid.at(i) = grid_vector->Get(i)->is_blocked();
-    }
-
-    zone->_subworld = std::make_unique<Subworld>(std::move(obstacles_grid));
 
     return zone;
 }
@@ -153,14 +170,6 @@ void Zone::remove_client_deferred(const std::shared_ptr<Client>& client) {
         despawn_entity(player_entity);
         // spdlog::debug("[Zone] ({}) Removed Client({})", zone_id, client->client_id);
 
-        // _subworld->remove_entity(client->player);
-        //
-        // // Broadcast EntityDespawn
-        // flatbuffers::FlatBufferBuilder builder {64};
-        // const auto entity_despawn = CreateEntityDespawn(builder, client->player->entity_id);
-        // builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntityDespawn, entity_despawn.Union()));
-        // broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
-
         if (_clients.empty()) {
             stop();
         }
@@ -175,11 +184,43 @@ void Zone::spawn_entity_deferred(std::shared_ptr<Entity> entity) {
             auto& self = _subworld->entities().at(entity_id);
             spdlog::debug("Zone({}): entity({}) dead by ({})", zone_id, self->entity_id, killer->entity_id);
             despawn_entity(self);
+
+            //TODO: Get drop data from dead entity instead of hardcoded array
+            const std::array<ItemType, 2> items {{ItemType::GOLD, ItemType::FIST}};
+            const std::array<float, 2> weights {{0.5, 0.3}};
+            const ItemFactory::ItemCreateConfig config {
+                .type = *random_select(items.begin(), items.end(), weights.begin(), weights.end()),
+                .rarity_min = ItemRarity::NORMAL,
+                .rarity_max = ItemRarity::LEGENDARY,
+            };
+
+            auto new_item {ItemFactory::create(config)};
+            auto new_item_object {std::make_unique<ItemObject>(std::move(new_item))};
+
+            flatbuffers::FlatBufferBuilder builder {128};
+            Vector3 spawn_position {self->position.x, self->position.y, self->position.z};
+            //TODO: Add Stackable interface. If stacakble, set amount
+            const auto spawn {CreateItemSpawn(builder,
+                new_item_object->object_id, new_item_object->item->type, 1, &spawn_position)};
+            builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::ItemSpawn, spawn.Union()));
+            broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
         });
 
-        _subworld->add_entity(std::move(entity));
 
-        //TODO: Add sending spawn packet
+        //Send entity spawn packet
+        flatbuffers::FlatBufferBuilder builder {256};
+
+        std::vector<flatbuffers::Offset<EntitySpawn>> spawns {};
+        const Vector3 position {entity->position.x, entity->position.y, entity->position.z};
+        auto spawn {CreateEntitySpawn(builder, entity->entity_type, entity->entity_id, &position, entity->rotation,
+            entity->resource.health, entity->resource.max_health)};
+        spawns.emplace_back(std::move(spawn));
+
+        const auto entity_spawns = CreateEntitySpawnsDirect(builder, &spawns);
+        builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::EntitySpawns, entity_spawns.Union()));
+        broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+
+        _subworld->add_entity(std::move(entity));
     });
 }
 
@@ -193,6 +234,14 @@ void Zone::despawn_entity(const std::shared_ptr<Entity>& entity) {
     broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
 }
 
+void Zone::add_spawner(std::unique_ptr<EntitySpawner> spawner) {
+    spawner->spawned.connect([this](std::shared_ptr<Entity> entity) {
+        spawn_entity_deferred(std::move(entity));
+    });
+
+    _spawners.push_back(std::move(spawner));
+}
+
 void Zone::tick() {
     if (!_is_running) return;
     if (steady_clock::now() < _last_tick + TICK_INTERVAL) {
@@ -203,6 +252,10 @@ void Zone::tick() {
     _subworld->tick();
     for (auto& [_, entity] : _subworld->entities()) {
         entity->tick(this);
+    }
+
+    for (const auto& spawner : _spawners) {
+        spawner->tick();
     }
 
     // Broadcast entities' transform

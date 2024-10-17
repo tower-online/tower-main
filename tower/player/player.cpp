@@ -1,5 +1,5 @@
 #include <spdlog/spdlog.h>
-#include <tower/item/equipment/weapon/fist.hpp>
+#include <tower/item/equipment/fist.hpp>
 #include <tower/player/player.hpp>
 #include <tower/player/state/idle_state.hpp>
 #include <tower/player/state/attacking_state.hpp>
@@ -45,7 +45,7 @@ boost::asio::awaitable<std::shared_ptr<Player>> Player::load(boost::mysql::poole
         co_return nullptr;
     }
 
-    auto player = create(entity_types_map[race.data()], owner_id);
+    auto player = create(entity_name_to_type[race.data()], owner_id);
     // player->_character_id = character_id;
     player->_name = name;
 
@@ -124,11 +124,11 @@ std::shared_ptr<Player> Player::create(EntityType type, const uint32_t owner_id)
     );
     player->add_child(body_collider);
 
-    const auto weapon_offset = std::make_shared<Node>(glm::vec3 {0, 0, 1}, 0);
+    const auto weapon_offset = std::make_shared<WorldObject>(glm::vec3 {0, 0, 1}, 0);
     player->add_child(weapon_offset);
 
     //TODO: Read inventory items from DB
-    auto fist = Fist::create();
+    auto fist = item::Fist::create();
     weapon_offset->add_child(fist->node);
     player->inventory.set_main_weapon(std::move(fist));
 

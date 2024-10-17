@@ -29,10 +29,6 @@ void Server::init() {
 
         _zones[zone_id] = std::move(zone);
     }
-
-    // For test
-    auto monster {SimpleMonster::create()};
-    _zones.at(1)->spawn_entity_deferred(monster);
 }
 
 void Server::start() {

@@ -5,7 +5,7 @@
 #include <memory>
 
 namespace tower::player {
-using namespace item::equipment;
+using namespace item;
 
 class Inventory {
 public:

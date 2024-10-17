@@ -143,7 +143,7 @@ std::shared_ptr<SimpleMonster> SimpleMonster::create() {
     monster->_detection_area = std::make_shared<SphereCollisionShape>(4);
     monster->add_child(monster->_detection_area);
     
-    monster->_weapon = item::equipment::Fist::create();
+    monster->_weapon = item::Fist::create();
     monster->add_child(monster->_weapon->node);
     
     return monster;
@@ -163,7 +163,7 @@ void SimpleMonster::Data::load() {
     {
         auto& drop_items {obj["drop_items"].as_array()};
         for (size_t i {0}; i < drop_items.size(); ++i) {
-            const auto item_type {item::item_name_to_type(drop_items.at(i).as_string())};
+            const auto item_type {item::Item::item_name_to_type(drop_items.at(i).as_string())};
             _drop_items.push_back(item_type);
         }
     }

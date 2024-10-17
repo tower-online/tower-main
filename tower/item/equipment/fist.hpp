@@ -1,21 +1,23 @@
 #pragma once
 
-#include <tower/item/equipment/weapon/melee_attackable.hpp>
-#include <tower/item/equipment/weapon/weapon.hpp>
+#include <tower/item/equipment/melee_attackable.hpp>
+#include <tower/item/equipment/equipment.hpp>
 #include <tower/physics/cube_collision_shape.hpp>
 
 #include <chrono>
 
-namespace tower::item::equipment {
+namespace tower::item {
 using namespace std::chrono;
 
-class Fist final : public Weapon, public MeleeAttackable {
+class Fist final : public Equipment, public MeleeAttackable {
 public:
     class Data;
 
+    Fist();
+
     static std::unique_ptr<Fist> create();
 
-    std::shared_ptr<world::Node> node;
+    std::shared_ptr<world::WorldObject> node;
 };
 
 class Fist::Data {

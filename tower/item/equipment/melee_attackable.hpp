@@ -2,7 +2,7 @@
 
 #include <tower/physics/collision_shape.hpp>
 
-namespace tower::item::equipment {
+namespace tower::item {
 class MeleeAttackable {
 public:
     virtual ~MeleeAttackable() = default;

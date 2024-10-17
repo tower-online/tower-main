@@ -2,7 +2,7 @@
 
 #include <boost/signals2.hpp>
 #include <tower/physics/collision_shape.hpp>
-#include <tower/world/node.hpp>
+#include <tower/world/world_object.hpp>
 
 namespace tower::physics {
 
@@ -14,7 +14,7 @@ enum class ColliderLayer : uint32_t {
     MOBS = 1 << 3,
 };
 
-class CollisionObject : public world::Node {
+class CollisionObject : public world::WorldObject {
 public:
     CollisionObject(const CollisionShape* shape, uint32_t layer, uint32_t mask);
 
@@ -27,9 +27,9 @@ public:
     uint32_t layer;
     uint32_t mask;
 
-    boost::signals2::signal<void(std::shared_ptr<Node>)> body_entered {};
-    boost::signals2::signal<void(std::shared_ptr<Node>)> body_staying {};
-    boost::signals2::signal<void(std::shared_ptr<Node>)> body_exited {};
+    boost::signals2::signal<void(std::shared_ptr<WorldObject>)> body_entered {};
+    boost::signals2::signal<void(std::shared_ptr<WorldObject>)> body_staying {};
+    boost::signals2::signal<void(std::shared_ptr<WorldObject>)> body_exited {};
 };
 
 

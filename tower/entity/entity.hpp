@@ -2,7 +2,7 @@
 
 #include <boost/signals2.hpp>
 #include <tower/network/packet/entity_types.hpp>
-#include <tower/world/node.hpp>
+#include <tower/world/world_object.hpp>
 #include <tower/system/state_machine.hpp>
 
 #include <atomic>
@@ -25,7 +25,7 @@ struct EntityResource {
 };
 
 
-class Entity : public world::Node {
+class Entity : public world::WorldObject {
 public:
     enum class MovementMode {FORWARD, TARGET};
 
@@ -76,7 +76,7 @@ inline void Entity::get_damage(const std::shared_ptr<Entity>& attacker,
     }
 }
 
-inline static std::unordered_map<std::string, EntityType> entity_types_map {
+inline static std::unordered_map<std::string, EntityType> entity_name_to_type {
     {"HUMAN", EntityType::HUMAN},
 };
 }

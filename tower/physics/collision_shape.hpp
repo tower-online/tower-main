@@ -1,9 +1,9 @@
 #pragma once
 
-#include <tower/world/node.hpp>
+#include <tower/world/world_object.hpp>
 
 namespace tower::physics {
-struct CollisionShape : world::Node {
+struct CollisionShape : world::WorldObject {
     CollisionShape() = default;
 
     [[nodiscard]] virtual bool is_colliding(const CollisionShape* other) const = 0;

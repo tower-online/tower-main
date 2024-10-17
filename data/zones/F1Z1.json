@@ -1,0 +1,10 @@
+{
+  "spawners": [
+    {
+      "position": [8, 0, 8],
+      "entity_type": "SimpleMonster",
+      "interval": 5,
+      "max": 3
+    }
+  ]
+}

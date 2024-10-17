@@ -5,12 +5,14 @@
 #include <tower/network/server_shared_state.hpp>
 #include <tower/world/subworld.hpp>
 #include <tower/entity/entity.hpp>
+#include <tower/entity/entity_spawner.hpp>
 
 #include <chrono>
 #include <unordered_map>
 
 namespace tower::network {
 using namespace std::chrono;
+using namespace tower::entity;
 using namespace tower::network::packet;
 
 class Zone {
@@ -36,8 +38,10 @@ public:
     world::Subworld* subworld() { return _subworld.get(); }
 
     //TODO: Refactor this to another class?
-    void spawn_entity_deferred(std::shared_ptr<entity::Entity> entity);
-    void despawn_entity(const std::shared_ptr<entity::Entity>& entity);
+    void spawn_entity_deferred(std::shared_ptr<Entity> entity);
+    void despawn_entity(const std::shared_ptr<Entity>& entity);
+
+    void add_spawner(std::unique_ptr<EntitySpawner> spawner);
 
 private:
     void tick();
@@ -51,12 +55,12 @@ public:
 
 private:
     std::atomic<bool> _is_running {false};
-
     boost::asio::strand<boost::asio::any_io_executor> _strand;
-    steady_clock::time_point _last_tick;
-    std::unique_ptr<world::Subworld> _subworld;
 
+    steady_clock::time_point _last_tick;
     std::unordered_map<uint32_t, std::shared_ptr<Client>> _clients {};
+    std::unique_ptr<world::Subworld> _subworld;
+    std::vector<std::unique_ptr<EntitySpawner>> _spawners;
 
     std::shared_ptr<ServerSharedState> _shared_state;
 };
