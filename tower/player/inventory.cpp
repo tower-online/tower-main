@@ -13,16 +13,19 @@ void Inventory::set_main_weapon(std::shared_ptr<Equipment> weapon) {
 boost::asio::awaitable<bool> Inventory::load_inventory(boost::mysql::pooled_connection& conn, const uint32_t character_id) {
     // Load inventory items
     {
-        auto [ec, statement] = co_await conn->async_prepare_statement(
-            "SELECT item_type "
-            "FROM character_items "
-            "WHERE character_id = ?",
-        as_tuple(boost::asio::use_awaitable));
-        if (ec) co_return false;
+        std::string query {
+            format_sql(
+                conn->format_opts().value(),
+                "SELECT item_type "
+                "FROM character_items "
+                "WHERE character_id = {}",
+                character_id
+            )
+        };
 
         boost::mysql::results results;
         if (const auto [ec] = co_await conn->async_execute(
-            statement.bind(character_id), results, as_tuple(boost::asio::use_awaitable)); ec) {
+            std::move(query), results, as_tuple(boost::asio::use_awaitable)); ec) {
             co_return false;
         }
 
@@ -50,16 +53,19 @@ boost::asio::awaitable<std::shared_ptr<Item>> Inventory::load_item(boost::mysql:
     if (type == ItemType::NONE) co_return nullptr;
 
     if (type == ItemType::FIST) {
-        auto [ec, statement] = co_await conn->async_prepare_statement(
-            "SELECT damage "
-            "FROM item_fist "
-            "WHERE character_id = ?",
-            as_tuple(boost::asio::use_awaitable));
-        if (ec) co_return nullptr;
+        std::string query {
+            format_sql(
+                conn->format_opts().value(),
+                "SELECT damage "
+                "FROM item_fist "
+                "WHERE character_id = {}",
+                character_id
+            )
+        };
 
         boost::mysql::results results;
         if (const auto [ec] = co_await conn->async_execute(
-            statement.bind(character_id), results, as_tuple(boost::asio::use_awaitable)); ec) {
+            std::move(query), results, as_tuple(boost::asio::use_awaitable)); ec) {
             co_return nullptr;
         }
 
@@ -67,7 +73,9 @@ boost::asio::awaitable<std::shared_ptr<Item>> Inventory::load_item(boost::mysql:
         const auto& r {results.rows().at(0)};
 
         auto fist {Fist::create()};
-        fist->melee_attack_damage = r.at(0).as_int64();
+        fist->melee_attack_damage = static_cast<int>(r.at(0).as_int64());
+
+        item = std::move(fist);
     } else {
         co_return nullptr;
     }
@@ -82,17 +90,21 @@ boost::asio::awaitable<bool> Inventory::save_item(boost::mysql::pooled_connectio
     if (item->type == ItemType::FIST) {
         const auto fist {dynamic_cast<const Fist*>(item.get())};
 
-        auto [ec, statement] = co_await conn->async_prepare_statement(
-            "INSERT INTO item_fist (character_id, damage) "
-            "VALUES (?, ?)"
-            "ON DUPLICATE KEY UPDATE "
-            "damage = VALUES(damage) ",
-            as_tuple(boost::asio::use_awaitable));
-        if (ec) co_return false;
+        std::string query {
+            format_sql(
+                conn->format_opts().value(),
+                "INSERT INTO item_fist (character_id, damage) "
+                "VALUES ({}, {})"
+                "ON DUPLICATE KEY UPDATE "
+                "damage = VALUES(damage) ",
+                character_id,
+                fist->melee_attack_damage
+            )
+        };
 
         boost::mysql::results results;
         if (const auto [ec] = co_await conn->async_execute(
-            statement.bind(character_id, fist->melee_attack_damage), results, as_tuple(boost::asio::use_awaitable)); ec) {
+            std::move(query), results, as_tuple(boost::asio::use_awaitable)); ec) {
             co_return false;
         }
     } else {
@@ -104,16 +116,19 @@ boost::asio::awaitable<bool> Inventory::save_item(boost::mysql::pooled_connectio
 
 boost::asio::awaitable<std::optional<int>> Inventory::load_gold(
     boost::mysql::pooled_connection& conn, const uint32_t character_id) {
-    auto [ec, statement] = co_await conn->async_prepare_statement(
-        "SELECT amount "
-        "FROM character_golds "
-        "WHERE character_id = ?",
-        as_tuple(boost::asio::use_awaitable));
-    if (ec) co_return std::optional<int> {};
+    std::string query {
+        format_sql(
+            conn->format_opts().value(),
+            "SELECT amount "
+            "FROM character_golds "
+            "WHERE character_id = {}",
+            character_id
+        )
+    };
 
     boost::mysql::results results;
     if (const auto [ec] = co_await conn->async_execute(
-        statement.bind(character_id), results, as_tuple(boost::asio::use_awaitable)); ec) {
+        std::move(query), results, as_tuple(boost::asio::use_awaitable)); ec) {
         co_return std::optional<int> {};
     }
 
@@ -125,16 +140,20 @@ boost::asio::awaitable<std::optional<int>> Inventory::load_gold(
 
 boost::asio::awaitable<bool> Inventory::save_gold(
     boost::mysql::pooled_connection& conn, const uint32_t character_id, const int amount) {
-    auto [ec, statement] = co_await conn->async_prepare_statement(
-        "UPDATE character_golds "
-        "SET amount = ? "
-        "WHERE character_id = ?",
-        as_tuple(boost::asio::use_awaitable));
-    if (ec) co_return false;
+    std::string query {
+        format_sql(
+            conn->format_opts().value(),
+            "UPDATE character_golds "
+            "SET amount = {} "
+            "WHERE character_id = {}",
+            amount,
+            character_id
+        )
+    };
 
     boost::mysql::results results;
     if (const auto [ec] = co_await conn->async_execute(
-        statement.bind(amount, character_id), results, as_tuple(boost::asio::use_awaitable)); ec) {
+        std::move(query), results, as_tuple(boost::asio::use_awaitable)); ec) {
         co_return false;
     }
 

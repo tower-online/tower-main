@@ -46,7 +46,6 @@ boost::asio::awaitable<std::shared_ptr<Player>> Player::load(boost::mysql::poole
     }
 
     auto player = create(entity_name_to_type[race.data()], owner_id);
-    // player->_character_id = character_id;
     player->_name = name;
     player->_character_id = character_id;
 
@@ -90,7 +89,7 @@ boost::asio::awaitable<std::shared_ptr<Player>> Player::load(boost::mysql::poole
         co_return nullptr;
     }
 
-    if (! co_await player->inventory.load_inventory(conn, player->_character_id)) {
+    if (!co_await player->inventory.load_inventory(conn, player->_character_id)) {
         spdlog::error("Player({}) error loading inventory", player->_character_id);
     }
 
