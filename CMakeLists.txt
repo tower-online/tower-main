@@ -67,6 +67,7 @@ add_library(libtower STATIC
     tower/item/item_object.hpp
     tower/item/loader.hpp
     tower/item/loader.cpp
+    tower/item/stackable.hpp
     tower/item/equipment/equipment.hpp
     tower/item/equipment/fist.hpp
     tower/item/equipment/fist.cpp

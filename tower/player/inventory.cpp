@@ -47,6 +47,11 @@ boost::asio::awaitable<bool> Inventory::load_inventory(boost::mysql::pooled_conn
 }
 
 void Inventory::add_item(const std::shared_ptr<Item>& item) {
+    if (const auto gold {dynamic_cast<const Gold*>(item.get())}; gold) {
+        _golds += gold->amount;
+        return;
+    }
+
     _items.push_back(item);
 }
 
@@ -149,7 +154,7 @@ boost::asio::awaitable<std::optional<int>> Inventory::load_gold(
 }
 
 boost::asio::awaitable<bool> Inventory::save_gold(
-    boost::mysql::pooled_connection& conn, const uint32_t character_id, const int amount) {
+    boost::mysql::pooled_connection& conn, const uint32_t character_id, const uint32_t amount) {
     std::string query {
         format_sql(
             conn->format_opts().value(),

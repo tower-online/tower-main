@@ -3,6 +3,7 @@
 #include <spdlog/spdlog.h>
 #include <tower/item/item_factory.hpp>
 #include <tower/item/item_object.hpp>
+#include <tower/item/gold.hpp>
 #include <tower/network/zone.hpp>
 #include <tower/world/data/zone_data.hpp>
 #include <tower/system/random.hpp>
@@ -12,6 +13,7 @@
 #include <cmath>
 #include <fstream>
 #include <filesystem>
+
 
 namespace tower::network {
 using namespace tower::player;
@@ -149,6 +151,25 @@ void Zone::add_client_deferred(const std::shared_ptr<Client>& client) {
             client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
         }
 
+        // Spawn every item in the zone
+        {
+            flatbuffers::FlatBufferBuilder builder {1024};
+            std::vector<flatbuffers::Offset<ItemSpawn>> spawns {};
+
+            for (const auto& [_, object] : _subworld->objects()) {
+                auto item_object {dynamic_cast<const ItemObject*>(object.get())};
+                if (!item_object) continue;
+
+                const auto spawn {CreateItemSpawn(builder,
+                    item_object->object_id, item_object->item->type, Item::get_amount(item_object->item.get()))};
+                spawns.push_back(spawn);
+            }
+
+            const auto item_spawns {CreateItemSpawnsDirect(builder, &spawns)};
+            builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::ItemSpawns, item_spawns.Union()));
+            client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+        }
+
         // Notify other clients for new player spawn
         {
             flatbuffers::FlatBufferBuilder builder {1024};
@@ -197,14 +218,14 @@ void Zone::spawn_entity_deferred(std::shared_ptr<Entity> entity) {
 
             auto new_item {ItemFactory::create(config)};
             auto new_item_object {std::make_shared<ItemObject>(std::move(new_item))};
+            const auto new_item_amount {Item::get_amount(new_item_object->item.get())};
 
             // Broadcast item drop
             {
                 flatbuffers::FlatBufferBuilder builder {128};
                 Vector3 spawn_position {self->position.x, self->position.y, self->position.z};
-                //TODO: Add Stackable interface. If stacakble, set amount
                 const auto spawn {CreateItemSpawn(builder,
-                    new_item_object->object_id, new_item_object->item->type, 1, &spawn_position)};
+                    new_item_object->object_id, new_item_object->item->type, new_item_amount, &spawn_position)};
                 builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::ItemSpawn, spawn.Union()));
                 broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
             }
@@ -363,6 +384,11 @@ void Zone::handle_player_pickup_item(std::shared_ptr<Client>&& client, const Pla
     auto item_object {std::dynamic_pointer_cast<ItemObject>(object)};
     if (!item_object) return;
 
+    // Move to client's inventory
+    client->player->inventory.add_item(item_object->item);
+    _subworld->remove_object(object);
+    spdlog::debug("Player({}) golds: {}", client->player->character_id(), client->player->inventory.golds());
+
     // Delegate db task to server
     co_spawn(_shared_state->server_strand, [this, client, item_object] -> boost::asio::awaitable<void> {
         auto [ec, conn] {
@@ -372,15 +398,16 @@ void Zone::handle_player_pickup_item(std::shared_ptr<Client>&& client, const Pla
             co_return;
         }
 
-        const auto result {co_await Inventory::save_item(conn, client->player->character_id(), item_object->item)};
+        bool result;
+        if (const auto gold {dynamic_cast<const Gold*>(item_object->item.get())}; gold) {
+            result = co_await Inventory::save_item(conn, client->player->character_id(), item_object->item);
+        } else {
+            result = co_await Inventory::save_gold(conn, client->player->character_id(), client->player->inventory.golds());
+        }
         if (!result) {
             spdlog::warn("Character({}) error saving item", client->player->character_id());
         }
     }, boost::asio::detached);
-
-    // Move to client's inventory
-    client->player->inventory.add_item(item_object->item);
-    _subworld->remove_object(object);
 
     // Broadcast item despawn
     flatbuffers::FlatBufferBuilder builder {64};

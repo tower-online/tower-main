@@ -24,7 +24,9 @@ public:
     static boost::asio::awaitable<std::optional<int>> load_gold(
         boost::mysql::pooled_connection& conn, uint32_t character_id);
     static boost::asio::awaitable<bool> save_gold(
-        boost::mysql::pooled_connection& conn, uint32_t character_id, int amount);
+        boost::mysql::pooled_connection& conn, uint32_t character_id, uint32_t amount);
+
+    uint32_t golds() const { return _golds; }
 
 private:
     std::shared_ptr<Equipment> _main_weapon;
