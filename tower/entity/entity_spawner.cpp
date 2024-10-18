@@ -27,6 +27,7 @@ void EntitySpawner::spawn() {
 
     entity->dead.connect([this](uint32_t, std::shared_ptr<Entity>) { _current_entities_count -= 1;});
 
+    _current_entities_count += 1;  // 이 속에 답이 있다.
     spawned(entity);
 }
 }

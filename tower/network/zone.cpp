@@ -185,6 +185,7 @@ void Zone::spawn_entity_deferred(std::shared_ptr<Entity> entity) {
             spdlog::debug("Zone({}): entity({}) dead by ({})", zone_id, self->entity_id, killer->entity_id);
             despawn_entity(self);
 
+            // Random item drop
             //TODO: Get drop data from dead entity instead of hardcoded array
             const std::array<ItemType, 2> items {{ItemType::GOLD, ItemType::FIST}};
             const std::array<float, 2> weights {{0.5, 0.3}};
@@ -195,15 +196,20 @@ void Zone::spawn_entity_deferred(std::shared_ptr<Entity> entity) {
             };
 
             auto new_item {ItemFactory::create(config)};
-            auto new_item_object {std::make_unique<ItemObject>(std::move(new_item))};
+            auto new_item_object {std::make_shared<ItemObject>(std::move(new_item))};
 
-            flatbuffers::FlatBufferBuilder builder {128};
-            Vector3 spawn_position {self->position.x, self->position.y, self->position.z};
-            //TODO: Add Stackable interface. If stacakble, set amount
-            const auto spawn {CreateItemSpawn(builder,
-                new_item_object->object_id, new_item_object->item->type, 1, &spawn_position)};
-            builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::ItemSpawn, spawn.Union()));
-            broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+            // Broadcast item drop
+            {
+                flatbuffers::FlatBufferBuilder builder {128};
+                Vector3 spawn_position {self->position.x, self->position.y, self->position.z};
+                //TODO: Add Stackable interface. If stacakble, set amount
+                const auto spawn {CreateItemSpawn(builder,
+                    new_item_object->object_id, new_item_object->item->type, 1, &spawn_position)};
+                builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::ItemSpawn, spawn.Union()));
+                broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
+            }
+
+            _subworld->add_object(new_item_object);
         });
 
 
@@ -348,28 +354,38 @@ void Zone::handle_skill_melee_attack(std::shared_ptr<Client>&& client, const Ski
 
 void Zone::handle_player_pickup_item(std::shared_ptr<Client>&& client, const PlayerPickupItem* pickup) {
     //TODO: Check if close enough
+    spdlog::debug("Zone({}) Player({}) picking up", zone_id, client->player->character_id());
 
     const auto object_id {pickup->object_id()};
     if (!_subworld->has_object(object_id)) return;
 
     const auto& object {_subworld->get_object(object_id)};
-    auto item {std::dynamic_pointer_cast<Item>(object)};
-    if (!item) return;
+    auto item_object {std::dynamic_pointer_cast<ItemObject>(object)};
+    if (!item_object) return;
 
     // Delegate db task to server
-    co_spawn(_shared_state->server_strand, [this, client, item] -> boost::asio::awaitable<void> {
+    co_spawn(_shared_state->server_strand, [this, client, item_object] -> boost::asio::awaitable<void> {
         auto [ec, conn] {
             co_await _shared_state->db_pool.async_get_connection(as_tuple(boost::asio::use_awaitable))};
         if (ec) {
-            spdlog::error("Character() error getting db connection", client->player->character_id());
+            spdlog::error("Character({}) error getting db connection", client->player->character_id());
             co_return;
         }
 
-        const auto result {co_await Inventory::save_item(conn, client->player->character_id(), item)};
+        const auto result {co_await Inventory::save_item(conn, client->player->character_id(), item_object->item)};
         if (!result) {
-            spdlog::warn("Character() error saving item", client->player->character_id());
+            spdlog::warn("Character({}) error saving item", client->player->character_id());
         }
     }, boost::asio::detached);
-    client->player->inventory.add_item(std::move(item));
+
+    // Move to client's inventory
+    client->player->inventory.add_item(item_object->item);
+    _subworld->remove_object(object);
+
+    // Broadcast item despawn
+    flatbuffers::FlatBufferBuilder builder {64};
+    const auto item_despawn {CreateItemDespawn(builder, object->object_id)};
+    builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::ItemDespawn, item_despawn.Union()));
+    broadcast(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
 }
 }

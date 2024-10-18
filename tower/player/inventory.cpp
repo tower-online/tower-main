@@ -1,5 +1,6 @@
 #include <tower/player/inventory.hpp>
 #include <tower/item/equipment/fist.hpp>
+#include <tower/item/gold.hpp>
 
 namespace tower::player {
 std::shared_ptr<Equipment>& Inventory::get_main_weapon() {
@@ -45,8 +46,8 @@ boost::asio::awaitable<bool> Inventory::load_inventory(boost::mysql::pooled_conn
     co_return true;
 }
 
-void Inventory::add_item(std::shared_ptr<Item>&& item) {
-    _items.push_back(std::move(item));
+void Inventory::add_item(const std::shared_ptr<Item>& item) {
+    _items.push_back(item);
 }
 
 boost::asio::awaitable<std::shared_ptr<Item>> Inventory::load_item(boost::mysql::pooled_connection& conn, uint32_t character_id,
@@ -87,10 +88,15 @@ boost::asio::awaitable<std::shared_ptr<Item>> Inventory::load_item(boost::mysql:
     co_return item;
 }
 
-boost::asio::awaitable<bool> Inventory::save_item(boost::mysql::pooled_connection& conn, uint32_t character_id,
+boost::asio::awaitable<bool> Inventory::save_item(boost::mysql::pooled_connection& conn, const uint32_t character_id,
     const std::shared_ptr<Item>& item) {
     if (!item || item->type == ItemType::NONE) co_return false;
 
+
+    if (item->type == ItemType::GOLD) {
+        const auto gold {dynamic_cast<const Gold*>(item.get())};
+        co_return co_await save_gold(conn, character_id, gold->amount);
+    }
     if (item->type == ItemType::FIST) {
         const auto fist {dynamic_cast<const Fist*>(item.get())};
 

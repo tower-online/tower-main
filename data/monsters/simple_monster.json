@@ -1,5 +1,5 @@
 {
-  "max_health": 3,
+  "max_health": 2,
 
   "exp_amount": 10,
   "drop_items": ["none", "gold", "fist"],

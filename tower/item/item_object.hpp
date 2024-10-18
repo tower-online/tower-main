@@ -9,6 +9,6 @@ public:
     explicit ItemObject(std::unique_ptr<Item> item)
         : item {std::move(item)} {}
 
-    std::unique_ptr<Item> item;
+    std::shared_ptr<Item> item;
 };
 }
