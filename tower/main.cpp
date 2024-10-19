@@ -31,6 +31,7 @@ int main(int argc, char* argv[]) {
     db_params.username = Settings::db_user();
     db_params.password = Settings::db_password();
     db_params.database = Settings::db_name();
+    db_params.multi_queries = true; // Enable multiple queries on a single execution
 
     // boost::redis::config redis_config {};
     // redis_config.addr.host = Settings::redis_host();

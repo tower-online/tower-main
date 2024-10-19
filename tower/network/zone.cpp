@@ -387,7 +387,6 @@ void Zone::handle_player_pickup_item(std::shared_ptr<Client>&& client, const Pla
     // Move to client's inventory
     client->player->inventory.add_item(item_object->item);
     _subworld->remove_object(object);
-    spdlog::debug("Player({}) golds: {}", client->player->character_id(), client->player->inventory.golds());
 
     // Delegate db task to server
     co_spawn(_shared_state->server_strand, [this, client, item_object] -> boost::asio::awaitable<void> {
@@ -400,9 +399,9 @@ void Zone::handle_player_pickup_item(std::shared_ptr<Client>&& client, const Pla
 
         bool result;
         if (const auto gold {dynamic_cast<const Gold*>(item_object->item.get())}; gold) {
-            result = co_await Inventory::save_item(conn, client->player->character_id(), item_object->item);
-        } else {
             result = co_await Inventory::save_gold(conn, client->player->character_id(), client->player->inventory.golds());
+        } else {
+            result = co_await Inventory::save_item(conn, client->player->character_id(), item_object->item);
         }
         if (!result) {
             spdlog::warn("Character({}) error saving item", client->player->character_id());

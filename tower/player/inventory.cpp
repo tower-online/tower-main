@@ -2,7 +2,11 @@
 #include <tower/item/equipment/fist.hpp>
 #include <tower/item/gold.hpp>
 
+#include <spdlog/spdlog.h>
+
 namespace tower::player {
+using namespace std::string_view_literals;
+
 std::shared_ptr<Equipment>& Inventory::get_main_weapon() {
     return _main_weapon;
 }
@@ -97,21 +101,23 @@ boost::asio::awaitable<bool> Inventory::save_item(boost::mysql::pooled_connectio
     const std::shared_ptr<Item>& item) {
     if (!item || item->type == ItemType::NONE) co_return false;
 
-
-    if (item->type == ItemType::GOLD) {
-        const auto gold {dynamic_cast<const Gold*>(item.get())};
-        co_return co_await save_gold(conn, character_id, gold->amount);
-    }
     if (item->type == ItemType::FIST) {
         const auto fist {dynamic_cast<const Fist*>(item.get())};
 
         std::string query {
             format_sql(
                 conn->format_opts().value(),
-                "INSERT INTO item_fist (character_id, damage) "
-                "VALUES ({}, {})"
+                "START TRANSACTION; "
+
+                "INSERT INTO character_items (character_id, item_type) "
+                "VALUES ({0}, 'fist'); "
+                "INSERT INTO item_fist (item_id, character_id, damage) "
+                "VALUES (LAST_INSERT_ID(), {0}, {1}) "
                 "ON DUPLICATE KEY UPDATE "
-                "damage = VALUES(damage) ",
+                "damage = VALUES(damage); "
+
+                "COMMIT;",
+
                 character_id,
                 fist->melee_attack_damage
             )
