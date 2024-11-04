@@ -1,4 +1,3 @@
-#include <jwt-cpp/jwt.h>
 #include <tower/network/server.hpp>
 #include <tower/player/player.hpp>
 #include <tower/system/settings.hpp>
@@ -6,10 +5,10 @@
 #include <tower/entity/simple_monster.hpp>
 
 namespace tower::network {
-Server::Server(boost::asio::any_io_executor&& executor, const std::shared_ptr<ServerSharedState>& shared_state) :
-    _executor{std::move(executor)}, _strand{shared_state->server_strand}, _shared_state{shared_state} {
+Server::Server(const std::shared_ptr<ServerSharedState>& shared_state) :
+    _shared_state {shared_state}, _login_handler {_shared_state} {
     _acceptor = std::make_unique<tcp::acceptor>(
-        make_strand(_executor), tcp::endpoint{tcp::v4(), Settings::listen_port()});
+        make_strand(_shared_state->server_executor), tcp::endpoint{tcp::v4(), Settings::listen_port()});
     _acceptor->set_option(boost::asio::socket_base::reuse_address(true));
     _acceptor->listen(Settings::listen_backlog());
 }
@@ -21,7 +20,7 @@ void Server::init() {
     for (uint32_t zone_id{1}; zone_id <= 10; ++zone_id) {
         auto zone{Zone::create(
             zone_id,
-            _executor,
+            _shared_state->server_executor,
             std::format("{}/zones/F1Z{}.bin", TOWER_DATA_ROOT, zone_id),
             _shared_state)};
         if (!zone)
@@ -37,7 +36,7 @@ void Server::start() {
     spdlog::info("[Server] Starting...");
 
     // Spawn accepting loop
-    co_spawn(_executor, [this] -> boost::asio::awaitable<void> {
+    co_spawn(_shared_state->server_executor, [this] -> boost::asio::awaitable<void> {
         {
             const tcp::endpoint local_endpoint{_acceptor->local_endpoint()};
             spdlog::info("[Server] Accepting on {}:{}", local_endpoint.address().to_string(), local_endpoint.port());
@@ -72,8 +71,8 @@ void Server::start() {
 
 
     // Spwan profiler logging loop
-    co_spawn(_executor, [this]-> boost::asio::awaitable<void> {
-        boost::asio::steady_timer timer{_executor};
+    co_spawn(_shared_state->server_executor, [this]-> boost::asio::awaitable<void> {
+        boost::asio::steady_timer timer {_shared_state->server_executor};
 
         while (_is_running) {
             timer.expires_after(3000ms);
@@ -103,7 +102,7 @@ void Server::stop() {
     // Clean up above the strand
     std::promise<void> cleanup_promise{};
     auto cleanup_future{cleanup_promise.get_future()};
-    post(_strand, [this, cleanup_promise = std::move(cleanup_promise)] mutable {
+    post(_shared_state->server_strand, [this, cleanup_promise = std::move(cleanup_promise)] mutable {
         for (auto& [_, client] : _clients) {
             client->stop();
         }
@@ -121,7 +120,7 @@ void Server::stop() {
 void Server::add_client_deferred(tcp::socket&& socket) {
     static uint32_t client_id_generator{0};
     auto client = std::make_shared<Client>(
-        _executor,
+        _shared_state->server_executor,
         std::move(socket),
         ++client_id_generator,
         [this](std::shared_ptr<Client>&& c, std::vector<uint8_t>&& buffer) {
@@ -135,15 +134,15 @@ void Server::add_client_deferred(tcp::socket&& socket) {
 
             // Sequentialize packet handling on the strand
             auto packet = std::make_unique<Packet>(std::move(c), std::move(buffer));
-            co_spawn(_strand, [this, packet = std::move(packet)] mutable -> boost::asio::awaitable<void> {
-                co_await handle_packet(std::move(packet));
-            }, boost::asio::detached);
+            post(_shared_state->server_strand, [this, packet = std::move(packet)] mutable {
+                handle_packet(std::move(packet));
+            });
         },
         [this](std::shared_ptr<Client>&& c) {
             remove_client_deferred(std::move(c));
         });
 
-    post(_strand, [this, client = std::move(client)] mutable {
+    post(_shared_state->server_strand, [this, client = std::move(client)] mutable {
         const auto client_id = client->client_id;
         _clients.emplace(client_id, std::move(client));
         _clients_current_zone.emplace(client_id, 0);
@@ -153,7 +152,7 @@ void Server::add_client_deferred(tcp::socket&& socket) {
 }
 
 void Server::remove_client_deferred(std::shared_ptr<Client> client) {
-    post(_strand, [this, client = std::move(client)] {
+    post(_shared_state->server_strand, [this, client = std::move(client)] {
         client->stop();
 
         _shared_state->party_manager.remove_client(client->client_id);
@@ -175,11 +174,11 @@ void Server::broadcast(std::shared_ptr<flatbuffers::DetachedBuffer>&& buffer) {
     }
 }
 
-boost::asio::awaitable<void> Server::handle_packet(std::unique_ptr<Packet> packet) {
+void Server::handle_packet(std::unique_ptr<Packet> packet) {
     switch (const auto packet_base = GetPacketBase(packet->buffer.data()); packet_base->packet_base_type()) {
     case PacketType::ClientJoinRequest:
-        co_await handle_client_join_request(
-            std::move(packet->client), packet_base->packet_base_as<ClientJoinRequest>());
+        handle_client_join_request(
+            std::move(packet), packet_base->packet_base_as<ClientJoinRequest>());
         break;
 
     case PacketType::PlayerEnterZoneRequest:
@@ -224,103 +223,31 @@ boost::asio::awaitable<void> Server::handle_packet(std::unique_ptr<Packet> packe
         if (!packet->client->is_authenticated) {
             spdlog::warn("[Server] Packet from unauthenticated client");
             packet->client->stop();
-            co_return;
+            return;
         }
 
         const auto client_id = packet->client->client_id;
         if (!_clients.contains(client_id))
-            co_return;
+            return;
         _zones.at(_clients_current_zone.at(client_id))->handle_packet_deferred(std::move(packet));
 
         break;
     }
 }
 
-boost::asio::awaitable<void> Server::handle_client_join_request(
-    std::shared_ptr<Client>&& client, const ClientJoinRequest* request) {
+void Server::handle_client_join_request(std::unique_ptr<Packet> packet, const ClientJoinRequest* request) {
     if (!request->username() || !request->character_name() || !request->token()) {
-        spdlog::warn("[Server] [ClientJoinRequest] ({}): Invalid request", client->client_id);
-        client->stop();
-        co_return;
+        spdlog::warn("[Server] [ClientJoinRequest] ({}): Invalid request", packet->client->client_id);
+        packet->client->stop();
+        return;
     }
 
-    const auto username = request->username()->string_view();
-    const auto character_name = request->character_name()->string_view();
-    const auto token = request->token()->string_view();
-
-    try {
-        const auto decoded_token = jwt::decode(token.data());
-        const auto verifier = jwt::verify()
-                              .allow_algorithm(jwt::algorithm::hs256{Settings::auth_jwt_key().data()})
-                              .with_claim("username", jwt::claim(std::string{username}));
-        verifier.verify(decoded_token);
-
-        client->is_authenticated = true;
-        // spdlog::info("[Server] [ClientJoinRequest] {}/{}: Token OK", client->client_id, character_name);
-    } catch (const std::exception&) {
-        spdlog::warn("[Server] [ClientJoinRequest] {}/{}: Token Invalid", client->client_id, character_name);
-
-        client->stop();
-        co_return;
-    }
-
-    {
-        boost::mysql::diagnostics diag;
-        auto [ec, conn]{
-            co_await _shared_state->db_pool.async_get_connection(diag, as_tuple(boost::asio::use_awaitable))};
-        try {
-            throw_on_error(ec, diag);
-        } catch (const std::exception&) {
-            spdlog::error("Error getting connection: {}", ec.message());
-            client->stop();
-
-            co_return;
-        }
-
-        {
-            auto [ec, statement] = co_await conn->async_prepare_statement(
-                "SELECT c.id FROM users u JOIN characters c ON c.user_id = u.id AND c.name = ? WHERE u.username = ?",
-                as_tuple(boost::asio::use_awaitable));
-            if (ec) {
-                spdlog::error("[Server] [ClientJoinRequest] Error preparing query: {}", ec.message());
-                co_return;
-            }
-
-            boost::mysql::results result;
-            if (const auto [ec] = co_await conn->async_execute(
-                    statement.bind(character_name, username), result, as_tuple(boost::asio::use_awaitable));
-                ec) {
-                spdlog::error("[Server] [ClientJoinRequest] Error executing query: {}", ec.message());
-                client->stop();
-                co_return;
-            }
-
-            if (result.rows().empty()) {
-                spdlog::warn(
-                    "[Server] [ClientJoinRequest] Invalid username or character name: {}/{}", username, character_name);
-                client->stop();
-                co_return;
-            }
-        }
-
-        client->player = co_await player::Player::load(conn, character_name, client->client_id);
-        if (!client->player) {
-            spdlog::error("[Server] [ClientJoinRequest] Error loading player: {}", character_name);
-            client->stop();
-            co_return;
-        }
-    }
-
-    flatbuffers::FlatBufferBuilder builder{1024};
-    const auto spawn = CreatePlayerSpawn(builder,
-        true, client->player->entity_id, client->client_id, client->player->write_player_info(builder));
-    //TODO: Find player's last stayed zone. (Current: Default Zone 1)
-    const WorldLocation current_location{1, 1};
-    const auto response = CreateClientJoinResponse(builder, &current_location, spawn);
-    builder.FinishSizePrefixed(CreatePacketBase(builder, PacketType::ClientJoinResponse, response.Union()));
-    client->send_packet(std::make_shared<flatbuffers::DetachedBuffer>(builder.Release()));
-
-    // _clients_current_zone[client->client_id] = 1;
+    _login_handler.handle_login(LoginHandler::Login {
+        request->username()->string_view(),
+        request->character_name()->string_view(),
+        request->token()->string_view(),
+        std::move(packet)
+    });
 }
 
 void Server::handle_player_enter_zone_request(std::shared_ptr<Client>&& client, const PlayerEnterZoneRequest* request) {

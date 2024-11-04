@@ -37,20 +37,20 @@ int main(int argc, char* argv[]) {
     // redis_config.addr.host = Settings::redis_host();
     // redis_config.password = Settings::redis_password();
 
-    auto shared_st = std::make_shared<network::ServerSharedState>(
+    auto shared_state = std::make_shared<network::ServerSharedState>(
         boost::mysql::connection_pool {
             boost::mysql::pool_executor_params::thread_safe(workers.get_executor()), std::move(db_params)
         },
         boost::redis::connection {workers.get_executor()},
         workers.get_executor()
     );
-    shared_st->db_pool.async_run(boost::asio::detached);
+    shared_state->db_pool.async_run(boost::asio::detached);
     // shared_st->redis_connection.async_run(redis_config, {}, boost::asio::detached);
 
     // Server
     std::unique_ptr<network::Server> server;
     try {
-        server = std::make_unique<network::Server>(workers.get_executor(), shared_st);
+        server = std::make_unique<network::Server>(shared_state);
     } catch (const boost::system::system_error& e) {
         std::cerr << e.code().message() << std::endl;
         return EXIT_FAILURE;
@@ -58,9 +58,9 @@ int main(int argc, char* argv[]) {
     server->init();
     server->start();
 
-    signals.async_wait([shared_st, &workers, &server](boost::system::error_code, int) {
+    signals.async_wait([shared_state, &workers, &server](boost::system::error_code, int) {
         server->stop();
-        shared_st->db_pool.cancel();
+        shared_state->db_pool.cancel();
         workers.stop();
     });
 

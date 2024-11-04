@@ -77,6 +77,8 @@ add_library(libtower STATIC
     tower/network/client.cpp
     tower/network/connection.hpp
     tower/network/connection.cpp
+    tower/network/login_handler.hpp
+    tower/network/login_handler.cpp
     tower/network/packet.hpp
     tower/network/profiler.hpp
     tower/network/server.hpp

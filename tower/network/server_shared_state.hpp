@@ -10,10 +10,12 @@ class ServerSharedState {
 public:
     ServerSharedState(boost::mysql::connection_pool&& db_pool, boost::redis::connection&& redis_connection,
         boost::asio::any_io_executor&& executor)
-        : db_pool {std::move(db_pool)}, redis_connection {std::move(redis_connection)}, server_strand {make_strand(executor)} {}
+        : db_pool {std::move(db_pool)}, redis_connection {std::move(redis_connection)},
+        server_executor {std::move(executor)}, server_strand {make_strand(server_executor)} {}
 
     boost::mysql::connection_pool db_pool;
     boost::redis::connection redis_connection;
+    boost::asio::any_io_executor server_executor;
     boost::asio::strand<boost::asio::any_io_executor> server_strand;
     game::PartyManager party_manager {};
 };
