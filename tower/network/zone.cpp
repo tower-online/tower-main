@@ -202,7 +202,7 @@ void Zone::spawn_entity_deferred(std::shared_ptr<Entity> entity) {
         entity->dead.connect([this](const uint32_t entity_id, std::shared_ptr<Entity> killer) {
             if (!_subworld->entities().contains(entity_id)) return;
 
-            auto& self = _subworld->entities().at(entity_id);
+            const auto self = _subworld->entities().at(entity_id);
             spdlog::debug("Zone({}): entity({}) dead by ({})", zone_id, self->entity_id, killer->entity_id);
             despawn_entity(self);
 
@@ -342,6 +342,8 @@ void Zone::handle_packet(std::shared_ptr<Packet>&& packet) {
 }
 
 void Zone::handle_player_movement(std::shared_ptr<Client>&& client, const PlayerMovement* movement) {
+    if (!client->player) return;
+
     const auto dir_x {movement->x()}, dir_z {movement->z()};
     if (std::isnan(dir_x) || std::isnan(dir_z)) {
         return;
